@@ -29,6 +29,32 @@ interface PagesContext {
   env: Env;
 }
 
+/**
+ * One failure shape for every "the API is not there" case, so the browser always
+ * gets the same JSON envelope the API itself returns (see
+ * `apps/api/src/lib/errors.ts`) instead of an HTML error page or a bare stack
+ * trace. Messages are configuration reminders, never secrets.
+ */
+const unavailable = (message: string, status = 502): Response =>
+  Response.json({ success: false, error: { code: 'DEPENDENCY_UNAVAILABLE', message } }, { status });
+
+/**
+ * Builds the upstream URL for `API_ORIGIN`, or null when that value cannot be
+ * turned into one — a leftover placeholder such as
+ * `https://g-world-api.<your-subdomain>.workers.dev` is not a valid URL (angle
+ * brackets are forbidden in a host), and `new URL` throws on it. That throw used
+ * to surface as an opaque `500 TypeError`, which is exactly the case an
+ * unconfigured deployment hits first.
+ */
+function upstreamUrl(origin: string, pathname: string, search: string): URL | null {
+  try {
+    const url = new URL(`${origin}${pathname}${search}`);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 const HOP_BY_HOP = new Set([
   'connection',
   'keep-alive',
@@ -45,23 +71,23 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
   const incoming = new URL(request.url);
 
   const origin = (env.API_ORIGIN ?? '').replace(/\/+$/, '');
+  // A binding wins over the variable: it is same-account routing and the only
+  // value that can be resolved without the public internet.
   if (!origin && !env.API) {
-    return Response.json(
-      {
-        success: false,
-        error: {
-          code: 'DEPENDENCY_UNAVAILABLE',
-          message:
-            'The frontend is not connected to an API. Set API_ORIGIN in apps/web/wrangler.toml or bind the API worker as `API`.',
-        },
-      },
-      { status: 502 },
+    return unavailable(
+      'The frontend is not connected to an API. Set API_ORIGIN in apps/web/wrangler.toml or bind the API worker as `API`.',
     );
   }
 
   const target = origin
-    ? new URL(`${origin}${incoming.pathname}${incoming.search}`)
+    ? upstreamUrl(origin, incoming.pathname, incoming.search)
     : new URL(`https://api.internal${incoming.pathname}${incoming.search}`);
+
+  if (!target) {
+    return unavailable(
+      'API_ORIGIN is not a valid absolute http(s) URL. Fix it in apps/web/wrangler.toml (or configure the `API` service binding) and redeploy the frontend.',
+    );
+  }
 
   const headers = new Headers(request.headers);
   for (const header of HOP_BY_HOP) headers.delete(header);
@@ -77,15 +103,18 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
     redirect: 'manual',
   };
 
-  const upstream = env.API ? await env.API.fetch(new Request(target, init)) : await fetch(target, init);
+  // A DNS failure, a refused connection or a binding that no longer exists
+  // rejects the promise; answer with the same envelope as an unreachable-but-ok
+  // upstream rather than letting the runtime produce a 500.
+  let upstream: Response;
+  try {
+    upstream = env.API ? await env.API.fetch(new Request(target, init)) : await fetch(new Request(target, init));
+  } catch {
+    return unavailable('The API is not reachable from this deployment.');
+  }
+
   if (!env.API && !upstream.ok && upstream.status >= 500 && !upstream.headers.get('content-type')?.includes('json')) {
-    return Response.json(
-      {
-        success: false,
-        error: { code: 'DEPENDENCY_UNAVAILABLE', message: 'The API is not reachable from this deployment.' },
-      },
-      { status: 502 },
-    );
+    return unavailable('The API is not reachable from this deployment.');
   }
 
   const responseHeaders = new Headers(upstream.headers);

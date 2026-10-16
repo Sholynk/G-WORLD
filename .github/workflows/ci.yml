@@ -1,0 +1,58 @@
+# G WORLD — continuous integration.
+#
+# The same commands a developer runs locally, in the same order, on the same Node
+# version: `npm ci` re-installs from the lock file exactly as Cloudflare's build
+# image does (so a manifest/lock-file drift fails here instead of on a deploy),
+# and `npm run verify` runs every gate the toolchain ships with.
+#
+# Deliberately not here yet (planned, see docs/02-file-structure.md):
+#   · deploy-api.yml — D1 migrations + `wrangler deploy` behind a manual gate
+#   · deploy-web.yml — `wrangler pages deploy` on main
+# Both need repository secrets; the Pages project is currently built by Cloudflare
+# from this repository instead.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: install, check, typecheck, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Fails on drift between package.json and package-lock.json — the same
+      # EUSAGE failure that stops the Cloudflare build before it starts.
+      - name: Install dependencies (npm ci)
+        run: npm ci --progress=false
+
+      # config + lockfile + structure + typecheck + unit tests (integration tests
+      # skip themselves when no API is running, which is the case in CI).
+      - name: Verify
+        run: npm run verify
+
+      # The gate Cloudflare runs before uploading apps/web/public. Catches broken
+      # routing rules and page links before they reach production.
+      - name: Frontend build (Cloudflare-equivalent, runs the Pages gate)
+        run: npm run build:web
