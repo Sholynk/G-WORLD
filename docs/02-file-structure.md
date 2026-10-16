@@ -149,7 +149,7 @@ G-WORLD/
 │           ├── robots.txt  sitemap.xml  manifest.webmanifest  favicon.svg
 │           ├── config.js                     Public runtime config (no secrets)
 │           ├── _headers                      CSP, HSTS, cache + security headers
-│           ├── _redirects                    Friendly URLs -> HTML pages
+│           ├── _redirects                    short links (/verify/:code …); clean URLs are Pages' own
 │           ├── admin/
 │           │   ├── index.html                Admin dashboard (KPIs, quick actions)
 │           │   ├── students.html  enrollments.html  certificates.html
@@ -176,9 +176,11 @@ G-WORLD/
 │   ├── seed-local.mjs      applies database/seeds/*.sql to local D1
 │   ├── db-reset.mjs        wipes + re-migrates + re-seeds local D1
 │   ├── check-config.mjs    fails if wrangler.jsonc still has placeholder IDs
+│   ├── check-lockfile.mjs  fails if package.json and package-lock.json disagree (npm ci gate)
 │   ├── check-structure.mjs verifies required paths from this document exist
 │   ├── typecheck-web.mjs   tsc --checkJs over the vanilla JS frontend
-│   ├── deploy-web.mjs      Pages deploy wrapper (build-free static upload)
+│   ├── build-web.mjs       the Cloudflare Pages build: gates the static artifact, writes nothing
+│   ├── deploy-web.mjs      Pages deploy wrapper (config → typecheck → build → static upload)
 │   └── smoke-test.mjs      black-box end-to-end flow against a running API
 │
 └── tests/

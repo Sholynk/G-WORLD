@@ -37,8 +37,16 @@ const REQUIRED_FILES = {
     '.nvmrc',
     '.env.example',
     'vitest.config.ts',
+    'package-lock.json',
+    '.github/workflows/ci.yml',
   ],
-  documentation: ['README.md', 'docs/01-architecture.md', 'docs/02-file-structure.md', 'docs/03-database.md'],
+  documentation: [
+    'README.md',
+    'docs/01-architecture.md',
+    'docs/02-file-structure.md',
+    'docs/03-database.md',
+    'docs/06-deployment.md',
+  ],
   'shared contracts': ['packages/shared/package.json', 'packages/shared/src/index.ts'],
   'api worker': [
     'apps/api/package.json',
@@ -78,6 +86,8 @@ const REQUIRED_FILES = {
     'scripts/check-structure.mjs',
     'scripts/typecheck-web.mjs',
     'scripts/deploy-web.mjs',
+    'scripts/check-lockfile.mjs',
+    'scripts/build-web.mjs',
     'scripts/lib/local-d1.mjs',
   ],
 };

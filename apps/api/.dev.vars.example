@@ -8,7 +8,7 @@
 # `wrangler dev` reads it automatically and it is git-ignored, so this file is
 # the documented shape and `.dev.vars` is the private copy. Nothing here is ever
 # deployed — production values go in the wrangler `vars`/secrets (see
-# apps/api/wrangler.jsonc and docs/09-deployment.md).
+# apps/api/wrangler.jsonc and docs/06-deployment.md).
 #
 # The values below are development defaults: they are safe to copy verbatim
 # because they only ever apply to a local SQLite database and a console email
@@ -36,7 +36,7 @@ EMAIL_PROVIDER=console
 EMAIL_FROM=G WORLD <no-reply@gworld.example>
 
 # Only needed when EMAIL_PROVIDER=resend. Get one at https://resend.com/api-keys
-# (free tier: 3,000 emails/month, 100/day — see docs/09-deployment.md).
+# (free tier: 3,000 emails/month, 100/day — see docs/06-deployment.md).
 # Never commit a real key.
 RESEND_API_KEY=
 
