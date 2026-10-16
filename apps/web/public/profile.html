@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en" data-page="profile">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your profile · G WORLD</title>
+    <meta name="description" content="Your G WORLD details, interests and goals.">
+    <link rel="canonical" href="https://gworld.pages.dev/profile.html">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/assets/css/tokens.css">
+    <link rel="stylesheet" href="/assets/css/base.css">
+    <link rel="stylesheet" href="/assets/css/layout.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/forms.css">
+    <link rel="stylesheet" href="/assets/css/tables.css">
+    <link rel="stylesheet" href="/assets/css/animations.css">
+    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- Header and footer are rendered by assets/js/components/*.js so the
+         navigation exists in exactly one place. -->
+    <header class="site-header" data-site-header></header>
+
+    <main id="main" class="site-main" tabindex="-1">
+      <div class="container container--narrow">
+        <div class="page-head">
+          <p class="page-head__eyebrow">Account</p>
+          <h1>Your profile</h1>
+          <p class="lede" data-profile-summary>Loading…</p>
+        </div>
+
+        <form class="form" data-profile-form novalidate>
+          <div class="field-row">
+            <div class="field">
+              <label for="display_name">Display name</label>
+              <input id="display_name" name="display_name" type="text" minlength="2" maxlength="80" required>
+            </div>
+            <div class="field">
+              <label for="full_name">Full name</label>
+              <input id="full_name" name="full_name" type="text" maxlength="120">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="education_level">Education level</label>
+              <select id="education_level" name="education_level">
+                <option value="">Prefer not to say</option>
+                <option value="secondary">Secondary school</option>
+                <option value="undergraduate">Undergraduate</option>
+                <option value="graduate">Graduate</option>
+                <option value="postgraduate">Postgraduate</option>
+                <option value="professional">Professional</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="country">Country</label>
+              <input id="country" name="country" type="text" maxlength="80" autocomplete="country-name">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="timezone">Time zone</label>
+            <input id="timezone" name="timezone" type="text" maxlength="64" placeholder="Africa/Lagos">
+            <p class="field__hint">Used for due dates and study reminders.</p>
+          </div>
+
+          <fieldset class="fieldset">
+            <legend>Interests</legend>
+            <div class="stack-sm" data-profile-interests></div>
+          </fieldset>
+
+          <div class="field">
+            <label for="goals">Your goal</label>
+            <textarea id="goals" name="goals" maxlength="1000" rows="3"
+              placeholder="What do you want to be able to do a year from now?"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="bio">Short bio</label>
+            <textarea id="bio" name="bio" maxlength="1000" rows="3"></textarea>
+          </div>
+
+          <div class="form__actions">
+            <button class="btn btn--primary" type="submit">Save changes</button>
+            <a class="btn btn--ghost" href="/dashboard.html">Back to dashboard</a>
+          </div>
+          <p class="form-status" data-form-status role="status" aria-live="polite"></p>
+        </form>
+
+        <div data-page-error></div>
+      </div>
+
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <noscript>
+      <div class="container alert alert--warning mb-4">
+        <p><strong>JavaScript is off.</strong> Browsing, reading lesson previews and
+        verifying a certificate still work, because each page ships real HTML and the
+        server renders the content. Signing in, enrolling, tracking progress and taking
+        quizzes need JavaScript — the whole app is a set of ES modules talking to the
+        G WORLD API.</p>
+      </div>
+    </noscript>
+
+    <script type="module">
+      import { boot } from '/assets/js/core/boot.js';
+      import { init } from '/assets/js/pages/profile.js';
+      boot(init);
+    </script>
+  </body>
+</html>

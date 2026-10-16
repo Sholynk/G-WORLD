@@ -1,0 +1,41 @@
+# =============================================================================
+# G WORLD — frontend (Cloudflare Pages)
+# -----------------------------------------------------------------------------
+# `public/` is uploaded verbatim; `functions/` is compiled by Pages into a
+# Worker that serves `/api/*` by calling the API worker (see
+# functions/api/[[path]].ts). Everything else is static.
+#
+# Deploy:
+#   npm run deploy:web            (production)
+#   npm run deploy:web:preview    (preview branch)
+#
+# Free-tier notes (see docs/09-deployment.md):
+#   * Pages: unlimited static requests, unlimited bandwidth on the free plan,
+#     500 builds per month, 20,000 files per deployment.
+#   * Functions: 100,000 requests per day on the free plan. Because the static
+#     assets are served by Pages and never hit the Function, only real API calls
+#     count toward that number.
+# =============================================================================
+
+name = "g-world"
+compatibility_date = "2026-04-01"
+pages_build_output_dir = "public"
+
+[vars]
+# Absolute origin of the API worker. The Pages Function uses this when the
+# service binding below is not configured (for example in local `wrangler pages
+# dev`, which does not resolve bindings across projects).
+API_ORIGIN = "https://g-world-api.<your-subdomain>.workers.dev"
+
+# A service binding avoids the public internet (and an extra TLS handshake) when
+# the API worker is in the same Cloudflare account. Uncomment after deploying the
+# worker, then remove API_ORIGIN or leave it as a fallback.
+# [[services]]
+# binding = "API"
+# service = "g-world-api"
+
+# Preview deployments inherit the same bindings; nothing secret is stored here —
+# session secrets and email keys live only in the API worker's environment.
+[env.preview]
+[env.preview.vars]
+API_ORIGIN = "https://g-world-api-staging.<your-subdomain>.workers.dev"

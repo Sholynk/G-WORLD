@@ -1,0 +1,21 @@
+# G WORLD — https://gworld.pages.dev
+# Crawlers are welcome on the catalogue and certificate verification. Everything
+# behind a session is disallowed: those pages return the same markup as an empty
+# shell, so indexing them would only waste a crawl budget.
+
+User-agent: *
+Allow: /
+Allow: /courses.html
+Allow: /browse.html
+Allow: /verify.html
+Disallow: /dashboard.html
+Disallow: /my-courses.html
+Disallow: /certificates.html
+Disallow: /certificate.html
+Disallow: /profile.html
+Disallow: /settings.html
+Disallow: /quiz.html
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://gworld.pages.dev/sitemap.xml

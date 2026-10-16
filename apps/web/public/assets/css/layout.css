@@ -1,0 +1,244 @@
+/* ==========================================================================
+   G WORLD — page shell, grid and spacing utilities
+   --------------------------------------------------------------------------
+   Layout is CSS Grid + Flexbox with fluid `clamp()` spacing; the only media
+   queries are the handful of places where a one- vs two-column decision has to
+   change (header, hero, lesson player, admin split view).
+   ========================================================================== */
+
+.container {
+  width: min(100% - 2 * var(--space-4), var(--container));
+  margin-inline: auto;
+}
+
+.container--narrow {
+  width: min(100% - 2 * var(--space-4), 48rem);
+}
+
+.container--wide {
+  width: min(100% - 2 * var(--space-4), 88rem);
+}
+
+/* ------------------------------------------------------------------ shell */
+
+.skip-target:focus {
+  outline: none;
+}
+
+.site-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
+  background-color: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-block-end: 1px solid var(--border);
+}
+
+.site-main {
+  flex: 1 0 auto;
+  padding-block: var(--space-6) var(--space-8);
+}
+
+.site-footer {
+  flex: 0 0 auto;
+  border-block-start: 1px solid var(--border);
+  background-color: var(--surface);
+  padding-block: var(--space-6) var(--space-4);
+}
+
+/* ---------------------------------------------------------------- sections */
+
+.section {
+  padding-block: var(--space-6);
+}
+
+.section + .section {
+  border-block-start: 1px solid var(--border);
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+  justify-content: space-between;
+  margin-block-end: var(--space-5);
+}
+
+.section__head h2,
+.section__head h3 {
+  margin-block-end: var(--space-1);
+}
+
+/* -------------------------------------------------------------------- grid */
+
+.grid {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.grid--cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+}
+
+.grid--departments {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+}
+
+.grid--two {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+}
+
+.grid--sidebar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 62rem) {
+  .grid--sidebar {
+    grid-template-columns: minmax(0, 2.1fr) minmax(18rem, 1fr);
+    align-items: start;
+  }
+}
+
+/* ------------------------------------------------------------ stack helpers */
+
+.stack > * + * {
+  margin-block-start: var(--space-4);
+}
+
+.stack-sm > * + * {
+  margin-block-start: var(--space-2);
+}
+
+.stack-lg > * + * {
+  margin-block-start: var(--space-6);
+}
+
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.cluster--tight {
+  gap: var(--space-2);
+}
+
+.cluster--between {
+  justify-content: space-between;
+}
+
+.cluster--end {
+  justify-content: flex-end;
+}
+
+/* --------------------------------------------------------------- page header */
+
+.page-head {
+  padding-block-end: var(--space-5);
+  border-block-end: 1px solid var(--border);
+  margin-block-end: var(--space-6);
+}
+
+.page-head__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--brand-600);
+  margin-block-end: var(--space-2);
+}
+
+/* ------------------------------------------------------------------- hero */
+
+.hero {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding-block: var(--space-7);
+}
+
+@media (min-width: 56rem) {
+  .hero {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+.hero__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-4);
+  margin-block-start: var(--space-5);
+}
+
+/* --------------------------------------------------------- lesson layout */
+
+.lesson-layout {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 68rem) {
+  .lesson-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+  }
+}
+
+/* ----------------------------------------------------------- admin layout */
+
+.admin-layout {
+  display: grid;
+  gap: var(--space-5);
+}
+
+@media (min-width: 64rem) {
+  .admin-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+}
+
+/* --------------------------------------------------------------- spacing --- */
+
+.section-tight {
+  padding-block: var(--space-4);
+}
+
+.mb-0 {
+  margin-block-end: 0;
+}
+.mb-2 {
+  margin-block-end: var(--space-2);
+}
+.mb-3 {
+  margin-block-end: var(--space-3);
+}
+.mb-4 {
+  margin-block-end: var(--space-4);
+}
+.mb-5 {
+  margin-block-end: var(--space-5);
+}
+.mt-4 {
+  margin-block-start: var(--space-4);
+}
+.mt-5 {
+  margin-block-start: var(--space-5);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.measure {
+  max-width: var(--measure);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.mx-auto {
+  margin-inline: auto;
+}

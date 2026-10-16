@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output & tooling caches
+dist/
+.wrangler/
+.wrangler.state/
+coverage/
+.turbo/
+*.tsbuildinfo
+.eslintcache
+
+# Local environment / secrets — NEVER commit real values.
+# The example files are the documented shape of the environment and must be
+# committed; they are re-included *after* the wildcards that would hide them,
+# because the last matching pattern wins in gitignore.
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+!.env.example
+!.dev.vars.example
+
+# Local D1 / Miniflare state (persisted data lives in Cloudflare in production)
+.miniflare/
+apps/api/.wrangler/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Logs & local test artifacts
+*.log
+npm-debug.log*
+/tmp/
+artifacts/
+playwright-report/

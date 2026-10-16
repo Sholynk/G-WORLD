@@ -1,0 +1,40 @@
+# =============================================================================
+# G WORLD — static hosting headers (Cloudflare Pages reads this file verbatim)
+# -----------------------------------------------------------------------------
+# The API sets its own security headers on JSON responses
+# (apps/api/src/lib/security-headers.ts). These are the equivalents for the
+# static documents, which Pages serves directly from the edge.
+# =============================================================================
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin
+  # `frame-ancestors 'none'` would also block our own iframes (the lesson player
+  # embeds youtube-nocookie), so framing is limited to the same origin and to
+  # YouTube's embed host instead.
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://www.youtube.com; media-src 'self'
+
+# HTML is authored content; caching is short so a deploy is visible immediately.
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Assets are content-addressed by filename convention (`core/api.js`), so they
+# can cache for a long time. A change to a file is a change to the site.
+/assets/*
+  Cache-Control: public, max-age=604800, immutable
+
+# The runtime config file holds no secrets but must never be cached: it is how a
+# deployment points at its API.
+/config.js
+  Cache-Control: no-store
+
+# Machine-readable files.
+/robots.txt
+  Cache-Control: public, max-age=86400
+/sitemap.xml
+  Cache-Control: public, max-age=86400
+/manifest.webmanifest
+  Cache-Control: public, max-age=86400
