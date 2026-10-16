@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-page="admin-enrollments">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Enrolments · G WORLD</title>
+    <meta name="description" content="Every enrolment, with progress and the ability to recalculate.">
+    <link rel="canonical" href="https://gworld.pages.dev/admin/enrollments.html">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/assets/css/tokens.css">
+    <link rel="stylesheet" href="/assets/css/base.css">
+    <link rel="stylesheet" href="/assets/css/layout.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/forms.css">
+    <link rel="stylesheet" href="/assets/css/tables.css">
+    <link rel="stylesheet" href="/assets/css/animations.css">
+    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- Header and footer are rendered by assets/js/components/*.js so the
+         navigation exists in exactly one place. -->
+    <header class="site-header" data-site-header></header>
+
+    <main id="main" class="site-main" tabindex="-1">
+      <div class="container container--wide">
+        <div class="page-head">
+          <p class="page-head__eyebrow">Administration</p>
+          <h1>Enrolments</h1>
+          <p class="lede mb-0">Progress is always recomputed from lesson records; “Recalculate” only re-reads them.</p>
+        </div>
+
+        <div class="admin-layout">
+        <nav class="card" aria-label="Admin sections">
+          <div class="card__section">
+            <ul class="list-plain stack-sm">
+              <li><a class="nav__link" href="/admin/index.html">Overview</a></li>
+              <li><a class="nav__link" href="/admin/students.html">Students</a></li>
+              <li><a class="nav__link" href="/admin/enrollments.html" aria-current="page">Enrolments</a></li>
+              <li><a class="nav__link" href="/admin/certificates.html">Certificates</a></li>
+              <li><a class="nav__link" href="/admin/departments.html">Departments</a></li>
+              <li><a class="nav__link" href="/admin/subjects.html">Subjects</a></li>
+              <li><a class="nav__link" href="/admin/courses.html">Courses</a></li>
+              <li><a class="nav__link" href="/admin/course-editor.html">Course editor</a></li>
+              <li><a class="nav__link" href="/admin/assessments.html">Assessments</a></li>
+              <li><a class="nav__link" href="/admin/audit.html">Audit log</a></li>
+              <li><a class="nav__link" href="/admin/scan.html">QR scan</a></li>
+              <li><a class="nav__link" href="/admin/settings.html">Settings</a></li>
+            </ul>
+          </div>
+        </nav>
+          <div class="stack-lg">
+            <form class="card-grid-toolbar" data-enrolment-filters role="search" aria-label="Filter enrolments">
+              <label class="field" style="flex: 1 1 14rem;">
+                <span class="field__label">Search</span>
+                <input type="search" name="q" autocomplete="off" placeholder="Student or course">
+              </label>
+              <label class="field" style="flex: 0 1 11rem;">
+                <span class="field__label">Status</span>
+                <select name="status">
+                  <option value="">Any</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </label>
+              <button class="btn" type="submit">Apply</button>
+            </form>
+
+            <p class="subtle" data-enrolment-count role="status" aria-live="polite"></p>
+            <div class="table-wrap" data-enrolment-table aria-busy="true"></div>
+            <nav class="pagination" data-pagination aria-label="Enrolment pages"></nav>
+          </div>
+        </div>
+
+        <div data-page-error></div>
+      </div>
+
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <noscript>
+      <div class="container alert alert--warning mb-4">
+        <p><strong>JavaScript is off.</strong> Browsing, reading lesson previews and
+        verifying a certificate still work, because each page ships real HTML and the
+        server renders the content. Signing in, enrolling, tracking progress and taking
+        quizzes need JavaScript — the whole app is a set of ES modules talking to the
+        G WORLD API.</p>
+      </div>
+    </noscript>
+
+    <script type="module">
+      import { boot } from '/assets/js/core/boot.js';
+      import { init } from '/assets/js/pages/admin/enrollments.js';
+      boot(init);
+    </script>
+  </body>
+</html>

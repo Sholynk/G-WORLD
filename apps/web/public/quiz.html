@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" data-page="quiz">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quiz · G WORLD</title>
+    <meta name="description" content="Take a G WORLD quiz: questions, timer, server-side marking and feedback.">
+    <link rel="canonical" href="https://gworld.pages.dev/quiz.html">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/assets/css/tokens.css">
+    <link rel="stylesheet" href="/assets/css/base.css">
+    <link rel="stylesheet" href="/assets/css/layout.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/forms.css">
+    <link rel="stylesheet" href="/assets/css/tables.css">
+    <link rel="stylesheet" href="/assets/css/animations.css">
+    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <!-- Header and footer are rendered by assets/js/components/*.js so the
+         navigation exists in exactly one place. -->
+    <header class="site-header" data-site-header></header>
+
+    <main id="main" class="site-main" tabindex="-1">
+      <div class="container container--narrow" data-quiz-root>
+        <div class="page-head">
+          <p class="page-head__eyebrow">Assessment</p>
+          <h1 data-quiz-title>Quiz</h1>
+          <p class="muted" data-quiz-meta>Loading…</p>
+        </div>
+
+        <div data-quiz-intro class="card mb-5">
+          <div class="card__section stack-sm">
+            <dl class="detail-list">
+              <div><dt>Questions</dt><dd data-quiz-question-count>—</dd></div>
+              <div><dt>Pass mark</dt><dd data-quiz-pass-mark>—</dd></div>
+              <div><dt>Attempts</dt><dd data-quiz-attempts>—</dd></div>
+              <div><dt>Time limit</dt><dd data-quiz-time-limit>—</dd></div>
+            </dl>
+            <p class="alert alert--info" role="note">
+              Answers are marked on the server. Nothing is sent until you submit, and the
+              questions you receive never include the correct answers.
+            </p>
+            <button class="btn btn--primary" type="button" data-start-attempt>Start attempt</button>
+            <p class="form-status" data-quiz-status role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <form class="stack-lg" data-quiz-form hidden>
+          <p class="alert alert--warning" data-timer hidden role="timer"></p>
+          <div data-quiz-questions></div>
+          <div class="form__actions">
+            <button class="btn btn--primary" type="submit" data-submit-attempt>Submit answers</button>
+            <span class="form-status" data-submit-status role="status" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <section data-quiz-result hidden aria-labelledby="result-heading" class="card mb-5">
+          <div class="card__section stack-sm">
+            <h2 id="result-heading" class="card__title">Result</h2>
+            <p class="stat__value" data-result-score>—</p>
+            <p class="badge" data-result-verdict>—</p>
+            <div data-result-answers class="stack-sm"></div>
+          </div>
+          <div class="card__footer cluster">
+            <a class="btn btn--primary" data-result-next hidden>Next lesson</a>
+            <a class="btn" href="/courses.html">Back to courses</a>
+          </div>
+        </section>
+
+        <div data-page-error></div>
+      </div>
+
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <noscript>
+      <div class="container alert alert--warning mb-4">
+        <p><strong>JavaScript is off.</strong> Browsing, reading lesson previews and
+        verifying a certificate still work, because each page ships real HTML and the
+        server renders the content. Signing in, enrolling, tracking progress and taking
+        quizzes need JavaScript — the whole app is a set of ES modules talking to the
+        G WORLD API.</p>
+      </div>
+    </noscript>
+
+    <script type="module">
+      import { boot } from '/assets/js/core/boot.js';
+      import { init } from '/assets/js/pages/quiz.js';
+      boot(init);
+    </script>
+  </body>
+</html>

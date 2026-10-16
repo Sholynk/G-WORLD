@@ -1,0 +1,55 @@
+# =============================================================================
+# G WORLD — static host routing rules
+# -----------------------------------------------------------------------------
+# Rules are evaluated top to bottom; the first match wins. `200` rewrites are
+# used for pretty URLs (the browser keeps the clean address) and `301` for the
+# handful of legacy paths that should permanently move.
+# =============================================================================
+
+# Pretty URLs → the underlying document, without changing the address bar.
+/                /index.html                          200
+/browse          /browse.html                         200
+/courses         /courses.html                        200
+/course          /course.html                         200
+/lesson          /lesson.html                         200
+/quiz            /quiz.html                           200
+/dashboard       /dashboard.html                      200
+/my-courses      /my-courses.html                     200
+/certificates    /certificates.html                   200
+/certificate     /certificate.html                    200
+/profile         /profile.html                        200
+/settings        /settings.html                       200
+/search          /search.html                         200
+/verify          /verify.html                         200
+/login           /login.html                          200
+/register        /register.html                       200
+/verify-email    /verify-email.html                   200
+/forgot-password /forgot-password.html                200
+/reset-password  /reset-password.html                 200
+/admin           /admin/index.html                    200
+
+# Short links people actually type or paste.
+/verify/:code    /verify.html?code=:code             302
+/q/:code         /verify.html?code=:code             302
+/enrol/:slug     /course.html?slug=:slug             302
+/learn/:lesson   /lesson.html?id=:lesson             302
+/course/:slug    /course.html?slug=:slug             302
+/lesson/:id      /lesson.html?id=:id                 302
+
+# Admin pages get clean addresses too. These must be listed explicitly: a
+# catch-all such as `/admin/*  404` would also match `/admin/students.html`
+# (a splat matches everything, including the real files), and because the first
+# match wins it would 404 the whole administration area in production. Unknown
+# paths under /admin/ are handled by Pages itself, which serves 404.html with a
+# 404 status for anything it cannot resolve.
+/admin/assessments    /admin/assessments.html        200
+/admin/audit          /admin/audit.html              200
+/admin/certificates   /admin/certificates.html       200
+/admin/course-editor  /admin/course-editor.html      200
+/admin/courses        /admin/courses.html            200
+/admin/departments    /admin/departments.html        200
+/admin/enrollments    /admin/enrollments.html        200
+/admin/scan           /admin/scan.html               200
+/admin/settings       /admin/settings.html           200
+/admin/students       /admin/students.html           200
+/admin/subjects       /admin/subjects.html           200
