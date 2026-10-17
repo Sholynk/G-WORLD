@@ -48,6 +48,8 @@ export async function init({ signal, session }) {
       actions: (row) => [
         {
           label: 'Edit',
+          // The template asks for an outline button in the actions column.
+          tone: 'ghost',
           onClick: () => {
             window.location.assign(`/admin/course-editor.html?id=${encodeURIComponent(row.id)}`);
           },

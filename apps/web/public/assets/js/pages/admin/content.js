@@ -75,6 +75,7 @@ export async function init({ signal, session }) {
         actions: (row) => [
           {
             label: 'Edit',
+            tone: 'ghost',
             onClick: () => {
               window.location.assign(`/admin/course-editor.html?lesson=${encodeURIComponent(row.id)}`);
             },
