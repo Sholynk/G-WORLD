@@ -52,6 +52,12 @@ The frontend has no bundler: `apps/web/public` **is** the artifact. The build st
 of the things it looks for relative to the build root — `wrangler.toml`, `functions/` and the output
 directory:
 
+> **Do not set the deploy command to `npx wrangler deploy`.** That deploys a Workers app, not a Pages
+> site. From the monorepo root Wrangler detects a workspace but no specific application, producing
+> “application detection logic has been run in the root of a workspace.” With Pages Git integration,
+> set the build command/output below and let Pages publish the output. For a manual Pages upload run
+> `npm run deploy:web` from the repository root (which invokes `wrangler pages deploy` in `apps/web`).
+
 | Dashboard field | Value |
 | --- | --- |
 | Framework preset | None |
@@ -104,7 +110,7 @@ Notes that apply to both layouts:
   turns that warning into a failure.
 * Preview deployments inherit `[env.preview]` from the same file.
 * `public/sitemap.xml` and the `Sitemap:` line in `public/robots.txt` name the production origin
-  (`https://gworld.pages.dev`). Keep that in sync with the real host — `<project>.pages.dev` (the project
+  (`https://g-world.pages.dev`). Keep that in sync with the real host — `<project>.pages.dev` (the project
   here is `g-world`) or the custom domain — because they are the canonical URLs crawlers see. The two
   files are the only place the origin is written down.
 * Free plan: unlimited static requests and bandwidth, 500 builds/month, 20,000 files per deployment,
@@ -112,8 +118,9 @@ Notes that apply to both layouts:
 
 ### Wiring the API
 
-1. `npm run deploy:api` (runs `check-config` first) — needs `database_id` in `apps/api/wrangler.jsonc`
-   and the Worker secrets (`wrangler secret put SESSION_SECRET`, …).
+1. Configure the production D1 ID and Worker secrets, then deploy with
+   `npm run deploy:production -w @g-world/api`. The repository-level `npm run deploy:api` shortcut
+   does not explicitly select the production environment.
 2. Give the Worker a stable hostname (or a custom domain), then either
    * set `API_ORIGIN` in `apps/web/wrangler.toml` and redeploy the frontend — simplest; or
    * uncomment the `[[services]]` binding named `API` so Pages reaches the Worker inside Cloudflare's
@@ -127,10 +134,15 @@ needed in production (`ALLOWED_ORIGINS` is empty in `env.production`).
 ## 3. API worker and D1
 
 ```bash
-npx wrangler d1 create g_world        # prints the database_id for wrangler.jsonc
-npm run db:migrate:remote             # applies database/migrations/*.sql (production env)
-npm run check:config -- --strict      # refuses placeholders before any deploy
-npm run deploy:api                    # wrangler deploy
+# From the repository root. These commands explicitly target the API config/environment.
+npx wrangler d1 create g_world --config apps/api/wrangler.jsonc
+# Copy the returned database_id into BOTH D1 bindings in apps/api/wrangler.jsonc.
+npx wrangler r2 bucket create g-world-uploads
+npm run db:migrate:remote -w @g-world/api
+npx wrangler secret put SESSION_SECRET --env production --config apps/api/wrangler.jsonc
+# Optional, if using Resend for production email:
+npx wrangler secret put RESEND_API_KEY --env production --config apps/api/wrangler.jsonc
+npm run deploy:production -w @g-world/api
 npm run db:reset:local                # local only: re-migrate + re-seed
 ```
 

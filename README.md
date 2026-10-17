@@ -28,6 +28,12 @@ with **`apps/web`** as the root directory:
 `/api/*` proxy) and the output directory together. With the repository root as the build root,
 `functions/` is looked for at the root and **`/api/*` is not proxied**.
 
+**Do not use `npx wrangler deploy` as the Pages build/deploy command.** That command deploys a
+Workers application and, from this monorepo root, Wrangler cannot identify which workspace app to
+ship (the error in the Cloudflare log). For Pages Git integration use the settings in the table:
+Cloudflare runs the build command and publishes its output directory itself. For a manual upload,
+use `npm run deploy:web` from the repository root.
+
 Two rules that keep the build green:
 
 * **A commit that changes any `package.json` must include the regenerated `package-lock.json`.**

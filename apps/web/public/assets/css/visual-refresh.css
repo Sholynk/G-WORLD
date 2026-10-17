@@ -1,0 +1,98 @@
+/* Responsive visual system aligned with the supplied G WORLD page references. */
+:root { --navy: #0f1e38; --blue-wash: #e8f5fd; }
+body { background: #f7f9f9; color: #0f1419; }
+.site-header { background: #fff; backdrop-filter: none; }
+.header__inner { max-width: 88rem; min-height: 4.1rem; }
+.brand { color: var(--brand-700); font-weight: 800; letter-spacing: -.04em; }
+.brand__mark { display: none; }
+.nav__list { gap: .3rem; }
+.nav__link { color: #334155; border-radius: 7px; padding: .55rem .8rem; }
+.nav__link:hover, .nav__link[aria-current='page'] { background: var(--blue-wash); color: var(--brand-700); }
+.btn { border-radius: 8px; font-weight: 650; }
+.btn--primary { --btn-bg: var(--brand-500); --btn-border: var(--brand-500); --btn-fg: #fff; }
+.btn--primary:hover { --btn-bg: var(--brand-600); --btn-border: var(--brand-600); }
+.card, .department-tile { border-radius: 12px; box-shadow: none; }
+.card--course:hover { box-shadow: var(--shadow-md); }
+.card__media { background: linear-gradient(135deg, #d7efff, #a8dcf8); color: #0f6fb3; }
+.card__media-glyph { color: #0f6fb3; }
+.stat { border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 1.2rem; }
+.site-main { padding-block: clamp(1.5rem, 4vw, 3.5rem); }
+.site-footer { background: var(--navy); color: #fff; border: 0; }
+.site-footer a { color: #d7efff; }
+.page-head { border: 0; padding-block-end: 0; }
+.page-head__eyebrow { color: var(--brand-700); }
+.form--narrow, .form { max-width: 32rem; }
+input, select, textarea { border-radius: 8px !important; }
+.table thead th { background: #eef2f4; color: #29384b; text-transform: none; letter-spacing: 0; font-size: .82rem; }
+
+/* The supplied admin references use a dark vertical rail on desktop and a
+   horizontally scrollable section bar on phones. */
+html[data-page^='admin'] .site-main { padding: 0 0 3rem; }
+html[data-page^='admin'] .site-main > .container { width: 100%; max-width: none; padding-inline: 0; }
+html[data-page^='admin'] .page-head { display: none; }
+html[data-page^='admin'] .admin-layout { display: grid; grid-template-columns: 12.4rem minmax(0, 1fr); gap: 0; min-height: calc(100vh - var(--header-height)); }
+html[data-page^='admin'] .admin-layout > nav.card { background: var(--navy); color: #e8eef7; border: 0; border-radius: 0; box-shadow: none; padding: 1rem .65rem; }
+html[data-page^='admin'] .admin-layout > nav.card .card__section { padding: 0; }
+html[data-page^='admin'] .admin-layout > nav.card .list-plain { display: grid; gap: .2rem; }
+html[data-page^='admin'] .admin-layout > nav.card .nav__link { display: block; color: #dbe5f2; border-radius: 7px; padding: .62rem .75rem; font-size: .9rem; }
+html[data-page^='admin'] .admin-layout > nav.card .nav__link:hover,
+html[data-page^='admin'] .admin-layout > nav.card .nav__link[aria-current='page'] { color: #fff; background: var(--brand-700); }
+html[data-page^='admin'] .admin-layout > .stack-lg { min-width: 0; padding: clamp(1.2rem, 2.4vw, 2rem); }
+html[data-page^='admin'] .admin-layout > .stack-lg > section:first-child h2 { margin-block-end: 1.25rem; }
+html[data-page^='admin'] .admin-layout .table-wrap, html[data-page^='admin'] .admin-layout .card { background: #fff; }
+html[data-page^='admin'] .admin-layout .stat-grid > *, html[data-page^='admin'] .admin-layout .stat { border-radius: 12px; }
+
+/* Shared student workspace shell. */
+html[data-page='dashboard'] .site-main, html[data-page='my-courses'] .site-main,
+html[data-page='profile'] .site-main, html[data-page='certificates'] .site-main { background: #f7f9f9; }
+html[data-page='dashboard'] h1, html[data-page='my-courses'] h1,
+html[data-page='profile'] h1, html[data-page='certificates'] h1 { margin-block-end: 1.25rem; }
+
+.hero { display: block; padding-block: clamp(2.5rem, 8vw, 6rem); }
+.home-slider { position: relative; overflow: hidden; min-height: clamp(23rem, 44vw, 35rem); border-radius: 20px; background: linear-gradient(120deg, #0f1e38 0%, #142b4b 58%, #1767a0 100%); color: #fff; display: flex; align-items: center; padding: clamp(2rem, 7vw, 5.5rem); }
+.home-slider::after { content: ''; position: absolute; width: min(42vw, 34rem); aspect-ratio: 1; border: 1px solid rgb(255 255 255 / 17%); border-radius: 50%; right: -4%; top: 8%; box-shadow: 0 0 0 3rem rgb(255 255 255 / 4%), 0 0 0 6rem rgb(255 255 255 / 3%); pointer-events: none; }
+.home-slide { display: none; position: relative; z-index: 1; max-width: 46rem; animation: slide-in .45s ease both; }
+.home-slide.is-active { display: block; }
+.home-slide .page-head__eyebrow { color: #8ed5ff; }
+.home-slide h1 { color: #fff; font-size: clamp(2.5rem, 5.4vw, 4.7rem); max-width: 11ch; margin-block: 1rem; }
+.home-slide p { color: #d9e6f2; max-width: 53ch; font-size: clamp(1rem, 1.5vw, 1.2rem); }
+.home-slide .btn--primary { --btn-bg: var(--brand-500); }
+.slider-controls { position: absolute; z-index: 2; inset-inline: clamp(1.5rem, 4vw, 3rem); inset-block-end: 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+.slider-arrow { color: #fff; background: rgb(255 255 255 / 12%); border: 1px solid rgb(255 255 255 / 35%); border-radius: 50%; width: 2.7rem; height: 2.7rem; cursor: pointer; font-size: 1.2rem; }
+.slider-dots { display: flex; gap: .5rem; }
+.slider-dot { width: .65rem; height: .65rem; padding: 0; border: 0; border-radius: 99px; background: rgb(255 255 255 / 45%); cursor: pointer; }
+.slider-dot[aria-current='true'] { width: 1.8rem; background: #fff; }
+.home-slider + .hero__stats { max-width: 54rem; margin: 1.3rem auto 0; }
+@keyframes slide-in { from { opacity: .35; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 62rem) {
+  html[data-page^='admin'] .admin-layout { grid-template-columns: minmax(0,1fr); }
+  html[data-page^='admin'] .admin-layout > nav.card { position: sticky; top: var(--header-height); z-index: 10; overflow-x: auto; padding: .45rem .7rem; }
+  html[data-page^='admin'] .admin-layout > nav.card .list-plain { display: flex; width: max-content; gap: .2rem; }
+  html[data-page^='admin'] .admin-layout > nav.card .nav__link { white-space: nowrap; }
+  html[data-page^='admin'] .admin-layout > .stack-lg { padding: 1.1rem; }
+}
+@media (max-width: 42rem) {
+  .header__inner { gap: .5rem; }
+  .brand { font-size: 1.05rem; }
+  .header__actions .btn { min-height: 2.15rem; padding-inline: .65rem; font-size: .82rem; }
+  .home-slider { min-height: 32rem; align-items: flex-start; padding: 2rem 1.4rem 5rem; border-radius: 14px; }
+  .home-slider::after { width: 18rem; right: -10rem; top: auto; bottom: -7rem; }
+  .home-slide h1 { max-width: 12ch; font-size: 2.5rem; }
+  .slider-controls { inset-inline: 1.2rem; }
+  .hero__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .home-slide { animation: none; } }
+
+.workspace-sidebar { position: fixed; z-index: 20; inset-block: var(--header-height) 0; inset-inline-start: 0; width: 12.4rem; padding: 1.25rem .7rem; background: var(--navy); }
+.workspace-sidebar .list-plain { display: grid; gap: .25rem; }
+.workspace-sidebar__link { display: block; color: #dbe5f2; text-decoration: none; padding: .65rem .75rem; border-radius: 7px; font-weight: 550; }
+.workspace-sidebar__link:hover, .workspace-sidebar__link[aria-current='page'] { color: #fff; background: var(--brand-700); }
+html[data-page='dashboard'] .site-main, html[data-page='my-courses'] .site-main, html[data-page='certificates'] .site-main, html[data-page='profile'] .site-main,
+html[data-page='dashboard'] .site-footer, html[data-page='my-courses'] .site-footer, html[data-page='certificates'] .site-footer, html[data-page='profile'] .site-footer { margin-inline-start: 12.4rem; }
+@media (max-width: 62rem) {
+  .workspace-sidebar { position: sticky; inset-block: auto; width: 100%; padding: .45rem .7rem; overflow-x: auto; }
+  .workspace-sidebar .list-plain { display: flex; width: max-content; gap: .2rem; }
+  .workspace-sidebar__link { white-space: nowrap; }
+  html[data-page='dashboard'] .site-main, html[data-page='my-courses'] .site-main, html[data-page='certificates'] .site-main, html[data-page='profile'] .site-main,
+  html[data-page='dashboard'] .site-footer, html[data-page='my-courses'] .site-footer, html[data-page='certificates'] .site-footer, html[data-page='profile'] .site-footer { margin-inline-start: 0; }
+}

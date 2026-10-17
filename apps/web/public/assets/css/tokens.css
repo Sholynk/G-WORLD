@@ -150,3 +150,31 @@
     --shadow-lg: 0 20px 44px rgb(0 0 0 / 55%);
   }
 }
+
+/* G WORLD brand palette: inspired by X's crisp black, white and electric blue. */
+:root {
+  color-scheme: light;
+  --brand-50: #e8f5fd;
+  --brand-100: #d7efff;
+  --brand-300: #8ecdf5;
+  --brand-500: #1d9bf0;
+  --brand-600: #1687d4;
+  --brand-700: #0f6fb3;
+  --brand-900: #0f1419;
+  --surface: #ffffff;
+  --surface-2: #f7f9f9;
+  --surface-3: #eff3f4;
+  --surface-inset: #f7f9f9;
+  --border: #d8dee2;
+  --border-strong: #aab8c2;
+  --text: #0f1419;
+  --text-muted: #536471;
+  --text-subtle: #657786;
+  --text-on-brand: #ffffff;
+  --link: #1687d4;
+  --link-hover: #0f6fb3;
+  --focus-ring: #1d9bf0;
+  --shadow-sm: 0 1px 3px rgb(15 20 25 / 7%);
+  --shadow-md: 0 8px 24px rgb(15 20 25 / 9%);
+  --shadow-lg: 0 18px 44px rgb(15 20 25 / 14%);
+}
