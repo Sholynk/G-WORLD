@@ -50,7 +50,13 @@ export async function init({ signal, session }) {
     const onEnroll = enrolAction(session);
     courseHost.replaceChildren(
       ...(courses.length
-        ? courses.map((course, index) => courseCard(course, { actionLabel: 'Enroll', onEnroll, index }))
+        ? courses.map((course, index) =>
+            courseCard(course, {
+              actionLabel: onEnroll ? 'Enroll' : 'View course',
+              onEnroll,
+              index,
+            }),
+          )
         : [
             emptyState({
               title: 'No courses in this subject yet',

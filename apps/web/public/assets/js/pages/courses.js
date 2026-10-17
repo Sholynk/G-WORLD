@@ -91,7 +91,13 @@ export async function init({ signal, session }) {
 
       host.replaceChildren(
         ...(visible.length
-          ? visible.map((course, index) => courseCard(course, { actionLabel: 'Enroll', onEnroll, index }))
+          ? visible.map((course, index) =>
+              courseCard(course, {
+                actionLabel: onEnroll ? 'Enroll' : 'View course',
+                onEnroll,
+                index,
+              }),
+            )
           : [
               emptyState({
                 title: 'No courses match',

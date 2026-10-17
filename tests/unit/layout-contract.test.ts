@@ -202,6 +202,26 @@ describe('components', () => {
     expect(css).toMatch(/\.site-footer\s*\{[^}]*background-color:\s*var\(--black\)/);
     expect(css).toMatch(/\.site-footer\s*\{[^}]*color:\s*var\(--on-dark-muted\)/);
   });
+
+  it('gives every control a 44px tap target on a phone', () => {
+    // A small button grows to a full tap target on a touch screen.
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*\.btn--sm\s*\{[^}]*min-height:\s*var\(--tap-target\)/);
+    // The carousel bar is 4px tall; the button around it is not.
+    expect(css).toMatch(/\.hero__dot::before\s*\{[^}]*inset:\s*-20px/);
+    // A card title is the card's main action, so the link covers the card.
+    expect(css).toMatch(/\.card__title a::after\s*\{[^}]*position:\s*absolute/);
+    // A link in a table cell is at least as tall as a button.
+    expect(css).toMatch(/\.table td a\s*\{[^}]*min-height:\s*var\(--tap-target\)/);
+    // The brand and the links of the auth cards are tap targets too.
+    expect(css).toMatch(/\.brand\s*\{[^}]*min-height:\s*var\(--tap-target\)/);
+    expect(css).toMatch(/\.auth__links a\s*\{[^}]*min-height:\s*var\(--tap-target\)/);
+    // A checkbox is operated through its label.
+    expect(css).toMatch(/\.field-inline label\s*\{[^}]*min-height:\s*var\(--tap-target\)/);
+  });
+
+  it('keeps a tag inside a card as a pill around its own text', () => {
+    expect(css).toMatch(/\.card \.tag[^{]*\{[^}]*align-self:\s*flex-start/);
+  });
 });
 
 describe('public pages', () => {
@@ -465,6 +485,15 @@ describe('responsive rules', () => {
 
   it('turns the sidebar into a scrollable tab strip on mobile', () => {
     expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*\.app-sidebar\s*\{[^}]*overflow-x:\s*auto/);
+    // The links live in a <nav> inside the sidebar: without this rule the
+    // strip would stack the links vertically instead of laying them out in a
+    // row, which is what the template asks for.
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*\.app-sidebar nav\s*\{[^}]*display:\s*flex/);
+  });
+
+  it('keeps the mobile top bar on one line', () => {
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*\.app-topbar \.cluster\s*\{[^}]*flex-wrap:\s*nowrap/);
+    expect(css).toMatch(/@media \(max-width: 767px\)[\s\S]*\.app-topbar__name\s*\{[^}]*text-overflow:\s*ellipsis/);
   });
 
   it('keeps tables inside a horizontal scroll container', () => {

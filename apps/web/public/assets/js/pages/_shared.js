@@ -45,6 +45,8 @@ export function setBusy(node, busy) {
  */
 export function enrolAction(session) {
   if (!session?.user) return null;
+  // Only a learner enrols. An administrator gets the plain course link.
+  if (session.user.role && session.user.role !== 'student') return null;
 
   return async (course) => {
     try {

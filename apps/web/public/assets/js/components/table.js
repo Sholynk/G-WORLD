@@ -47,8 +47,12 @@ export function table({ caption, columns, rows, emptyMessage = 'Nothing to show 
         const raw = column.value ? column.value(row) : row[column.key];
         const content = column.render ? column.render(row) : humanize(raw);
         const cell = el('td', { attrs: { 'data-label': column.label, ...(column.numeric ? { class: 'table__numeric' } : {}) } });
-        if (content instanceof Node) cell.append(content);
-        else cell.textContent = content === null || content === undefined || content === '' ? '—' : String(content);
+        if (content instanceof Node) {
+          // A cell that holds a single link gets a link that covers the whole
+          // cell, so the tap target is the row height and not the text.
+          if (content.tagName === 'A') content.classList.add('table__link');
+          cell.append(content);
+        } else cell.textContent = content === null || content === undefined || content === '' ? '—' : String(content);
         return cell;
       });
 

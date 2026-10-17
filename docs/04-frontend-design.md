@@ -64,6 +64,21 @@ Everything is written desktop-first with a single `max-width: 767px` query
 * tables scroll inside their own container — the page never scrolls sideways;
 * the hero shows the text panel only.
 
+### 3.1 Touch targets
+
+Everything a finger has to hit is at least 44px tall, and a control that is
+drawn smaller keeps the size somewhere else:
+
+| Control | Drawn as | The tap target is |
+| --- | --- | --- |
+| Button (`.btn`) | 44px tall | the button |
+| Small button (`.btn--sm`) | 36px tall on desktop | 44px on a phone |
+| Card title | the title text | the whole card (`.card__title a::after`) |
+| Link in a table cell | the text | the cell, or a 44px box |
+| Carousel dot | a 4px bar | a 44px box around it (`.hero__dot::before`) |
+| Checkbox | a 1.15rem box | its 44px label |
+| Brand, footer and auth links | the text | a 44px box |
+
 ## 4. Motion and effects
 
 All of it is decorative, and all of it is switched off for visitors who ask

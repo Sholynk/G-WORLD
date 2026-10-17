@@ -35,6 +35,24 @@
   border-block-end: 1px solid var(--border);
 }
 
+.table td {
+  position: relative;
+}
+
+/* A link that is the only thing in its cell covers the whole cell. */
+.table__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Every other link in a cell still has to be a comfortable tap target. */
+.table td a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+}
+
 .table thead th {
   background-color: var(--surface-subtle);
   font-family: var(--font-display);

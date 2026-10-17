@@ -131,7 +131,11 @@ select {
   flex: 0 0 auto;
 }
 
+/* The label is the real tap target: it is as tall as a button. */
 .field-inline label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
   font-weight: 600;
   font-size: var(--text-body);
 }
