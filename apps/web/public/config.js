@@ -25,3 +25,10 @@ window.GWORLD_CONFIG = {
   /** Page size used by catalog lists. */
   pageSize: 12,
 };
+
+/*
+  The interface only animates when JavaScript is running, so the stylesheet
+  can hide the elements it is going to reveal. The class is set here, in the
+  head, before the first paint.
+*/
+document.documentElement.classList.add('js');

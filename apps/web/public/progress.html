@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-page="progress">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Progress · G WORLD</title>
+    <meta name="description" content="Lessons, quizzes and status for every course you are enrolled in.">
+    <link rel="canonical" href="https://g-world.pages.dev/progress.html">
+    <meta name="theme-color" content="#0C7ABF">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Sora:wght@600;700&display=swap">
+    <link rel="stylesheet" href="/assets/css/tokens.css">
+    <link rel="stylesheet" href="/assets/css/base.css">
+    <link rel="stylesheet" href="/assets/css/layout.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/forms.css">
+    <link rel="stylesheet" href="/assets/css/tables.css">
+    <link rel="stylesheet" href="/assets/css/animations.css">
+    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
+    <script src="/config.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <div class="app-shell">
+      <header class="app-topbar">
+        <a class="brand" href="/index.html">G WORLD</a>
+        <div class="cluster">
+          <span class="app-topbar__name" data-session-name>Student</span>
+          <button class="btn o" type="button" data-sign-out>Sign out</button>
+        </div>
+      </header>
+
+      <aside class="app-sidebar">
+        <nav aria-label="Learner sections">
+        <a class="app-sidebar__link" href="/dashboard.html">Dashboard</a>
+        <a class="app-sidebar__link" href="/my-courses.html">My courses</a>
+        <a class="app-sidebar__link" href="/progress.html" aria-current="page">Progress</a>
+        <a class="app-sidebar__link" href="/certificates.html">Certificates</a>
+        <a class="app-sidebar__link" href="/profile.html">Profile</a>
+        </nav>
+      </aside>
+
+      <main id="main" class="app-main app-page" tabindex="-1">
+        <h2>Progress</h2>
+
+        <div class="table-wrap" data-progress-table aria-busy="true"></div>
+        <div data-page-error></div>
+      </main>
+    </div>
+
+    <script type="module">
+      import { boot } from '/assets/js/core/boot.js';
+      import { init } from '/assets/js/pages/progress.js';
+      boot(init);
+    </script>
+  </body>
+</html>

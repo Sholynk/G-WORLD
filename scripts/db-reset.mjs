@@ -72,3 +72,7 @@ if (failed) {
 
 console.log(`\nDone: schema + ${files.length} seed file(s) in place.`);
 console.log('Start the API with `npm run dev:api`, then `npm run test:smoke`.');
+console.log(
+  '\nNote: an API that is already running keeps its old database open — restart it\n'
+    + '(`npm run dev`) so it serves the database that was just rebuilt.',
+);

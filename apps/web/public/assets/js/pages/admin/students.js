@@ -16,6 +16,7 @@ import { renderPagination } from '../../components/pagination.js';
 import { toastError, toastSuccess } from '../../components/toast.js';
 import { pageError } from '../_shared.js';
 import { describePage, filterValues, requireStaff } from './_shared.js';
+import { skeletonTable } from '../../components/skeleton.js';
 
 const STATUS_ACTIONS = {
   active: { label: 'Suspend', to: 'suspended' },
@@ -30,6 +31,7 @@ export async function init({ signal, session }) {
 
   const form = qs('[data-student-filters]');
   const tableHost = qs('[data-student-table]');
+  if (tableHost) skeletonTable(tableHost, 4, 4);
   const countLabel = qs('[data-student-count]');
   const paginationHost = qs('[data-pagination]');
 

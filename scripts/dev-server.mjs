@@ -32,6 +32,18 @@ const PORT = Number.parseInt(process.env.PORT ?? '5173', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const API_TARGET = (process.env.API_TARGET ?? 'http://127.0.0.1:8787').replace(/\/$/, '');
 
+/** Headers that describe one connection and must not be forwarded. */
+const HOP_BY_HOP = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+]);
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -54,13 +66,17 @@ const MIME = {
 /** Friendly URL → file, mirroring the `_redirects` file used by Pages. */
 const PRETTY_ROUTES = {
   '/': 'index.html',
-  '/browse': 'browse.html',
+  '/departments': 'departments.html',
+  '/subjects': 'subjects.html',
+  '/subject': 'subject.html',
   '/courses': 'courses.html',
   '/search': 'search.html',
   '/login': 'login.html',
   '/register': 'register.html',
+  '/reset': 'reset.html',
   '/dashboard': 'dashboard.html',
   '/my-courses': 'my-courses.html',
+  '/progress': 'progress.html',
   '/certificates': 'certificates.html',
   '/profile': 'profile.html',
   '/settings': 'settings.html',
@@ -195,16 +211,28 @@ async function proxy(request, response) {
     redirect: 'manual',
   });
 
+  // `fetch` transparently decodes a gzip/brotli body, so the upstream
+  // `content-encoding` no longer describes the bytes we are about to send.
+  // Forwarding it makes the browser fail with ERR_CONTENT_DECODING_FAILED.
+  // Hop-by-hop headers (including `transfer-encoding`) describe the upstream
+  // connection, not this one: forwarding them next to our own
+  // `content-length` produces a response that is not valid HTTP.
   const outgoing = {};
   for (const [key, value] of upstream.headers.entries()) {
+    const name = key.toLowerCase();
     // `set-cookie` must be forwarded one value per header line.
-    if (key.toLowerCase() === 'set-cookie') continue;
+    if (name === 'set-cookie') continue;
+    if (HOP_BY_HOP.has(name) || name === 'content-encoding' || name === 'content-length') continue;
     outgoing[key] = value;
   }
   const cookies = upstream.headers.getSetCookie?.() ?? [];
-
-  response.writeHead(upstream.status, { ...outgoing, ...(cookies.length ? { 'set-cookie': cookies } : {}) });
   const buffer = Buffer.from(await upstream.arrayBuffer());
+
+  response.writeHead(upstream.status, {
+    ...outgoing,
+    'content-length': String(buffer.length),
+    ...(cookies.length ? { 'set-cookie': cookies } : {}),
+  });
   response.end(buffer);
 }
 

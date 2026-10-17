@@ -19,6 +19,7 @@ import * as certificateRepo from '../../db/repositories/certificates.js';
 import * as analyticsRepo from '../../db/repositories/analytics.js';
 import * as enrollmentRepo from '../../db/repositories/enrollments.js';
 import { completeLesson, recalculateEnrollment, startLesson } from '../../services/learning.js';
+import { ensureCertificateQr } from '../../services/qr.js';
 import { audit } from '../../services/audit.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { badRequest, notFound } from '../../lib/errors.js';
@@ -143,6 +144,35 @@ studentLearningRoutes.get('/me/certificates/:certificateId', requireAuth(), asyn
       department_name: certificate.department_name,
       subject_name: certificate.subject_name,
     },
+  });
+});
+
+/**
+ * The certificate's QR code, rendered as SVG.
+ *
+ * The code is issued with the certificate and its payload is the public
+ * verification URL, so scanning it opens the page anybody can check. The image
+ * is generated on demand — nothing binary is stored in the database.
+ */
+studentLearningRoutes.get('/me/certificates/:certificateId/qr.svg', requireAuth(), async (c) => {
+  const auth = c.get('auth')!;
+  const certificateId = parseParam(c, 'certificateId', idSchema);
+  const db = createDb(c.env.DB);
+
+  const certificate = await certificateRepo.findCertificateById(db, certificateId);
+  if (!certificate || certificate.user_id !== auth.userId) throw notFound('Certificate not found');
+
+  const qr = await ensureCertificateQr(db, c.get('config'), {
+    userId: auth.userId,
+    certificateId: certificate.id,
+    verificationCode: certificate.verification_code,
+  });
+
+  return c.body(qr.svg, 200, {
+    'Content-Type': 'image/svg+xml; charset=utf-8',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+    'Cache-Control': 'private, max-age=300',
+    'X-Content-Type-Options': 'nosniff',
   });
 });
 

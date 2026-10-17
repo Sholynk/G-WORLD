@@ -130,17 +130,21 @@ const PAGE_MODULE_IMPORT = /import \{ init \} from '(\/assets\/js\/pages\/[^']+)
 /** Expectations per page: what must be true once `boot()` has finished. */
 const EXPECTATIONS = {
   'index.html': [
-    ['[data-home-stats] .stat__value', (nodes) => nodes.some((node) => node.textContent.trim() !== '—')],
-    ['[data-home-departments] .department-tile', (nodes) => nodes.length > 0],
-    ['[data-home-featured] .card', (nodes) => nodes.length > 0],
+    ['[data-home-departments] .card', (nodes) => nodes.length > 0],
   ],
-  'browse.html': [
-    ['[data-browse-departments] .department-tile', (nodes) => nodes.length > 0],
-    ['[data-subjects] .card', (nodes) => nodes.length > 0],
+  'departments.html': [
+    ['[data-departments-list] .card', (nodes) => nodes.length > 0],
+  ],
+  'subjects.html': [
+    ['[data-subjects-list] .card', (nodes) => nodes.length > 0],
+    ['#department-filter option', (nodes) => nodes.length > 1],
+  ],
+  'subject.html': [
+    ['[data-subject-name]', (nodes) => (nodes[0]?.textContent ?? '').length > 2],
+    ['[data-subject-courses] .card, [data-subject-courses] .empty-state', (nodes) => nodes.length > 0],
   ],
   'courses.html': [
-    ['[data-course-list] .card', (nodes) => nodes.length > 0],
-    ['[data-result-count]', (nodes) => /\d/.test(nodes[0]?.textContent ?? '')],
+    ['[data-courses-list] .card', (nodes) => nodes.length > 0],
   ],
   'course.html': [
     ['[data-course-header] h1', (nodes) => (nodes[0]?.textContent ?? '').length > 2],
@@ -169,29 +173,35 @@ const EXPECTATIONS = {
   'login.html': [['[data-login-form]', (nodes) => nodes.length === 1]],
   'register.html': [['[data-register-form]', (nodes) => nodes.length === 1]],
   'verify-email.html': [['[data-verify-card]', (nodes) => (nodes[0]?.textContent ?? '').length > 20]],
-  'forgot-password.html': [['[data-forgot-form]', (nodes) => nodes.length === 1]],
+  'reset.html': [['[data-reset-form]', (nodes) => nodes.length === 1]],
   'reset-password.html': [['[data-reset-form]', (nodes) => nodes.length === 1]],
   'dashboard.html': [
-    ['[data-dashboard-stats] .stat', (nodes) => nodes.length >= 6],
-    ['[data-dashboard-courses] .card, [data-dashboard-courses] .empty-state', (nodes) => nodes.length > 0],
+    ['[data-dashboard-stats] .stat', (nodes) => nodes.length === 3],
+    ['[data-dashboard-continue] .card, [data-dashboard-continue] .empty-state', (nodes) => nodes.length > 0],
   ],
   'my-courses.html': [['[data-enrolment-list] .card, [data-enrolment-list] .empty-state', (nodes) => nodes.length > 0]],
-  'certificates.html': [['[data-certificate-list] .card, [data-certificate-list] .empty-state', (nodes) => nodes.length > 0]],
+  'certificates.html': [['[data-certificates-list] .card, [data-certificates-list] .empty-state', (nodes) => nodes.length > 0]],
+  'progress.html': [['[data-progress-table] table, [data-progress-table] .empty-state', (nodes) => nodes.length > 0]],
   // Holds a real certificate number, verification code and holder name.
   'certificate.html': [['[data-certificate-card]', (nodes) => (nodes[0]?.textContent ?? '').length > 40]],
-  'profile.html': [['#display_name', (nodes) => (nodes[0]?.value ?? '').length > 0]],
+  'profile.html': [['#full_name', (nodes) => (nodes[0]?.value ?? '').length > 0]],
   'settings.html': [
     ['[data-session-list] table', (nodes) => nodes.length > 0],
     ['[data-qr-card] .qr-card', (nodes) => nodes.length > 0],
   ],
   'admin/scan.html': [['[data-scan-form]', (nodes) => nodes.length === 1]],
-  'admin/index.html': [['[data-admin-stats] .stat', (nodes) => nodes.length >= 5]],
+  'admin/index.html': [
+    ['[data-admin-stats] .stat', (nodes) => nodes.length === 4],
+    ['[data-admin-trend] .chart__bar', (nodes) => nodes.length === 7],
+    ['[data-admin-enrollments] table', (nodes) => nodes.length > 0],
+  ],
+  'admin/content.html': [['[data-content-table] table', (nodes) => nodes.length > 0]],
   'admin/students.html': [['[data-student-table] table', (nodes) => nodes.length > 0]],
   'admin/enrollments.html': [['[data-enrolment-table] table', (nodes) => nodes.length > 0]],
   'admin/certificates.html': [['[data-certificate-table] table', (nodes) => nodes.length > 0]],
   'admin/departments.html': [['[data-department-table] table', (nodes) => nodes.length > 0]],
   'admin/subjects.html': [['[data-subject-table] table', (nodes) => nodes.length > 0]],
-  'admin/courses.html': [['[data-course-table] table', (nodes) => nodes.length > 0]],
+  'admin/courses.html': [['[data-courses-table] table', (nodes) => nodes.length > 0]],
   'admin/course-editor.html': [['[data-editor-modules] .card', (nodes) => nodes.length > 0]],
   'admin/assessments.html': [
     ['[data-quiz-table] table', (nodes) => nodes.length > 0],
@@ -205,7 +215,8 @@ const EXPECTATIONS = {
   ],
   'admin/settings.html': [
     ['[data-role-table] table', (nodes) => nodes.length > 0],
-    ['[data-email-table] table', (nodes) => nodes.length > 0],
+    // The outbox is empty on a fresh database, so an empty state is correct.
+    ['[data-email-table] table, [data-email-table] .empty-state', (nodes) => nodes.length > 0],
   ],
 };
 
@@ -213,10 +224,13 @@ const EXPECTATIONS = {
 const MEMBER_ONLY = new Set([
   'dashboard.html',
   'my-courses.html',
+  'progress.html',
   'certificates.html',
   'certificate.html',
   'profile.html',
   'settings.html',
+  'lesson.html',
+  'quiz.html',
 ]);
 
 /**
@@ -231,6 +245,7 @@ const PAGE_QUERY = {
   'verify.html': '?code=XK4T-9QW2-M7PL',
   'search.html': '?q=css',
   'certificate.html': '?id=cert_demo_1',
+  'subject.html': '?subject=web-development',
   'admin/course-editor.html': '?course=crs_html_css',
 };
 
@@ -345,7 +360,14 @@ async function runPage(relativePath, jar) {
 
     // Give fire-and-forget follow-ups (outline, QR) a moment to land.
     await new Promise((resolve) => setTimeout(resolve, 120));
-    await window.happyDOM?.waitUntilComplete?.().catch(() => {});
+    // The page may keep decorative timers running (the hero carousel rotates
+    // every five seconds, the typewriter loops), so the "everything has
+    // settled" wait is bounded: the page is judged on what it has already
+    // rendered, not on timers that will never end.
+    await Promise.race([
+      window.happyDOM?.waitUntilComplete?.().catch(() => {}) ?? Promise.resolve(),
+      new Promise((resolve) => setTimeout(resolve, 400)),
+    ]);
 
     // An error panel rendered by boot()/pageError() counts as a failure even
     // though it was handled gracefully: the page did not show real content.

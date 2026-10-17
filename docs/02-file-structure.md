@@ -132,16 +132,18 @@ G-WORLD/
 │       ├── wrangler.toml          Pages project config + service binding to the API
 │       ├── functions/api/[[path]].ts  Same-origin proxy Pages -> Worker service binding
 │       └── public/
-│           ├── index.html                    Home: hero, departments, featured courses
-│           ├── browse.html                   Departments + subjects explorer
+│           ├── index.html                    Home: hero, department cards, learning flow
+│           ├── departments.html              Department grid (public catalogue API)
+│           ├── subjects.html                 Subject grid + department filter
+│           ├── subject.html                  One subject and its courses
 │           ├── courses.html                  Catalog with search, filters, pagination
 │           ├── course.html                   Public course detail + curriculum preview
 │           ├── lesson.html                   Enrolled lesson player (YouTube + resources)
 │           ├── quiz.html                     Quiz runner (attempts, scoring feedback)
 │           ├── login.html  register.html  verify-email.html
-│           ├── forgot-password.html  reset-password.html
-│           ├── dashboard.html                Student dashboard: progress, next lesson
-│           ├── my-courses.html  certificates.html  certificate.html
+│           ├── reset.html  reset-password.html
+│           ├── dashboard.html                Student dashboard: totals, next lesson
+│           ├── my-courses.html  progress.html  certificates.html  certificate.html
 │           ├── profile.html  settings.html   Account + QR identity card
 │           ├── search.html
 │           ├── verify.html                   Public certificate/ID verification
@@ -151,24 +153,26 @@ G-WORLD/
 │           ├── _headers                      CSP, HSTS, cache + security headers
 │           ├── _redirects                    short links (/verify/:code …); clean URLs are Pages' own
 │           ├── admin/
-│           │   ├── index.html                Admin dashboard (KPIs, quick actions)
+│           │   ├── index.html                Admin analytics: totals, trend chart, enrollments
 │           │   ├── students.html  enrollments.html  certificates.html
 │           │   ├── departments.html  subjects.html  courses.html  course-editor.html
+│           │   ├── content.html              Lessons and videos of a course
 │           │   ├── assessments.html  audit.html  scan.html  settings.html
 │           └── assets/
 │               ├── css/  tokens.css, base.css, layout.css, components.css,
-│               │         forms.css, tables.css, animations.css,
-│               │         pages/{home,catalog,course,lesson,dashboard,auth}.css
-│               │         admin/{admin,editor}.css
+│               │         forms.css, tables.css, animations.css
 │               └── js/
-│                   ├── core/       config.js, api.js, session.js, dom.js, store.js,
-│                   │               format.js, validate.js, errors.js, seo.js
-│                   ├── components/ header.js, footer.js, toast.js, modal.js,
+│                   ├── core/       config.js, api.js, session.js, dom.js, boot.js,
+│                   │               format.js, errors.js, motion.js
+│                   ├── components/ header.js, footer.js, cards.js, toast.js, modal.js,
 │                   │               table.js, pagination.js, form.js, progress.js,
-│                   │               video.js, qrcode.js, empty-state.js, skeletons.js
-│                   ├── pages/      one module per public page (home.js, courses.js, …)
-│                   └── admin/      admin-shell.js, resources.js (schema-driven CRUD),
-│                                   scanner.js, charts.js
+│                   │               video.js, qrcode.js, empty-state.js, skeletons.js,
+│                   │               carousel.js, typewriter.js, skeleton.js,
+│                   │               loading.js, back-to-top.js
+│                   ├── pages/      one module per page (home.js, departments.js,
+│                   │               subjects.js, subject.js, courses.js, …)
+│                   └── admin/      one module per admin page (analytics.js, content.js,
+│                                   scan.js, students.js, …)
 │
 ├── scripts/
 │   ├── dev-up.mjs          one command: API worker + static dev server

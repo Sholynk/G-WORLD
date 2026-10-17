@@ -6,13 +6,16 @@
 User-agent: *
 Allow: /
 Allow: /courses.html
-Allow: /browse.html
+Allow: /departments.html
+Allow: /subjects.html
 Allow: /verify.html
 Disallow: /dashboard.html
 Disallow: /my-courses.html
+Disallow: /progress.html
 Disallow: /certificates.html
 Disallow: /certificate.html
 Disallow: /profile.html
+Disallow: /lesson.html
 Disallow: /settings.html
 Disallow: /quiz.html
 Disallow: /admin/

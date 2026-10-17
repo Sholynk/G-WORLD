@@ -192,3 +192,34 @@ produce different artifacts.
 | `/browse` redirects to itself (ERR_TOO_MANY_REDIRECTS) | a `200` rewrite targets a `.html` file | delete the rule; `npm run build:web` now fails on it (§2 “Routing”) |
 | `Infinite loop detected ... and has been ignored` in the build log | same as above | as above |
 | Pages shows the old site | build output directory does not match `pages_build_output_dir` | set both to `public` / `apps/web/public` |
+
+### 5.1 The Workers Builds check fails in a second on every branch
+
+The `Workers Builds: g-world` check currently reports **failure** for every
+branch in this repository, and it does so *instantly* — the check starts and
+finishes in the same second, which means the build never got as far as
+running a command. It is not a code problem:
+
+* the same check is **green on `main`**;
+* it failed the same way on the five branches behind pull requests #1–#5,
+  which were merged;
+* `npm run build -w @g-world/api` (the worker bundle) and the same command
+  with `--env production` both succeed locally, and the `ci` workflow is green
+  on every branch.
+
+The build configuration lives in the Cloudflare dashboard (the “Workers
+Builds” settings of the `g-world` worker), not in the repository, so the fix
+is on that side:
+
+1. open **Workers & Pages → g-world → Settings → Builds**;
+2. check the **Build command** and the **Root directory** against §3 — with
+   the root directory set to the repository root the command is
+   `npm run build -w @g-world/api`;
+3. check that the build is not restricted to one branch, and that a branch
+   build can reach the environment it deploys to (a preview build needs the
+   secrets of that environment);
+4. re-run the check from the GitHub checks page once the settings are saved.
+
+Until then, treat a red `Workers Builds` check on a branch as a known
+dashboard issue and rely on the `ci` workflow, which runs the same commands a
+developer runs locally.

@@ -64,7 +64,7 @@ export function videoPlayer(video, { autoload = false } = {}) {
         button,
         el('p', {
           class: 'subtle',
-          attrs: { style: 'color: #d1d5db;' },
+          attrs: { style: 'color: var(--on-dark-muted);' },
           text: video.provider === 'youtube' ? 'Loads from YouTube (privacy-enhanced mode).' : '',
         }),
       ],

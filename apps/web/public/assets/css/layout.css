@@ -1,55 +1,248 @@
 /* ==========================================================================
-   G WORLD — page shell, grid and spacing utilities
+   G WORLD — page shell, navigation, grids and the student/admin application
    --------------------------------------------------------------------------
-   Layout is CSS Grid + Flexbox with fluid `clamp()` spacing; the only media
-   queries are the handful of places where a one- vs two-column decision has to
-   change (header, hero, lesson player, admin split view).
+   Layout rules that the whole site depends on:
+     · one content width (1280px) with 48px gutters (16px on mobile);
+     · one breakpoint (768px) below which every grid collapses to one column;
+     · the page never scrolls sideways — tables and the sidebar tab strip
+       scroll inside their own container.
    ========================================================================== */
 
+/* ----------------------------------------------------------------- content */
+
 .container {
-  width: min(100% - 2 * var(--space-4), var(--container));
+  width: 100%;
+  max-width: var(--container-width);
   margin-inline: auto;
+  padding-inline: var(--page-pad-x);
 }
 
 .container--narrow {
-  width: min(100% - 2 * var(--space-4), 48rem);
+  max-width: 780px;
 }
 
 .container--wide {
-  width: min(100% - 2 * var(--space-4), 88rem);
+  max-width: 1440px;
 }
 
-/* ------------------------------------------------------------------ shell */
-
-.skip-target:focus {
-  outline: none;
-}
+/* ------------------------------------------------------------- public nav */
 
 .site-header {
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-header);
-  background-color: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(10px);
+  background-color: var(--surface);
   border-block-end: 1px solid var(--border);
+  transition: box-shadow var(--transition);
 }
+
+/* Once the page is scrolled the bar lifts off the content. */
+.site-header.is-scrolled {
+  box-shadow: 0 10px 24px rgb(0 0 0 / 6%);
+}
+
+.site-nav {
+  background-color: var(--surface);
+}
+
+.site-nav__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: var(--header-height);
+  padding-block: var(--nav-pad-y);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--blue);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brand:hover {
+  color: var(--blue);
+}
+
+.site-nav__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-inline-end: auto;
+}
+
+.site-nav__link {
+  color: var(--black);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--text-body);
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  min-height: var(--tap-target);
+}
+
+.site-nav__link:hover,
+.site-nav__link[aria-current='page'] {
+  color: var(--blue);
+}
+
+/* The underline that grows under the link on hover. */
+.site-nav__link::after {
+  content: '';
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline: 0;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--blue);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--transition);
+}
+
+.site-nav__link:hover::after,
+.site-nav__link[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+/* The panel of the mobile menu holds the same links, without the underline. */
+.site-nav__panel .site-nav__link::after {
+  display: none;
+}
+
+.site-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.site-nav__name {
+  font-weight: 600;
+  color: var(--black);
+}
+
+/* The "Menu" disclosure replaces the links and the register button on mobile. */
+.site-nav__menu {
+  display: none;
+  position: relative;
+}
+
+.site-nav__menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.site-nav__menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.site-nav__panel {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + var(--space-2));
+  z-index: var(--z-header);
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 12%);
+}
+
+.site-nav__panel .site-nav__link,
+.site-nav__panel .btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+@media (max-width: 767px) {
+  .site-nav__inner {
+    gap: var(--space-4);
+  }
+
+  .site-nav__links,
+  .site-nav__actions {
+    display: none;
+  }
+
+  .site-nav__menu {
+    display: block;
+    margin-inline-start: auto;
+  }
+}
+
+/* ------------------------------------------------------------ page shell */
 
 .site-main {
   flex: 1 0 auto;
-  padding-block: var(--space-6) var(--space-8);
+  padding-block: var(--space-8) var(--space-9);
 }
 
 .site-footer {
   flex: 0 0 auto;
-  border-block-start: 1px solid var(--border);
-  background-color: var(--surface);
-  padding-block: var(--space-6) var(--space-4);
+  background-color: var(--black);
+  color: var(--on-dark-muted);
+  padding-block: var(--footer-pad-y);
 }
 
-/* ---------------------------------------------------------------- sections */
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.site-footer a {
+  color: var(--on-dark-muted);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--white);
+  text-decoration: underline;
+}
+
+.site-footer__brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--white);
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-small);
+}
+
+/* Footer links are tap targets too, so they keep the 44px minimum height. */
+.site-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+}
+
+.site-footer__sep {
+  color: var(--on-dark-muted);
+  opacity: 0.6;
+}
+
+/* --------------------------------------------------------------- sections */
 
 .section {
-  padding-block: var(--space-6);
+  padding-block: var(--space-8);
 }
 
 .section + .section {
@@ -62,7 +255,7 @@
   gap: var(--space-3);
   align-items: end;
   justify-content: space-between;
-  margin-block-end: var(--space-5);
+  margin-block-end: var(--space-6);
 }
 
 .section__head h2,
@@ -70,33 +263,90 @@
   margin-block-end: var(--space-1);
 }
 
-/* -------------------------------------------------------------------- grid */
+.page-head {
+  margin-block-end: var(--space-8);
+}
+
+.page-head__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--text-small);
+  font-weight: 600;
+  color: var(--blue-dark-text);
+  margin-block-end: var(--space-2);
+}
+
+/* ------------------------------------------------------------------- hero */
+
+/* The hero itself is a component (see components.css); here only the shell. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface-subtle);
+  border-block-end: 1px solid var(--border);
+}
+
+.hero > .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ------------------------------------------------------------------ grids */
 
 .grid {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--grid-gap);
 }
 
+.grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Fluid variants used by the pages that size their own cards. */
 .grid--cards {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
-}
-
-.grid--departments {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
 }
 
 .grid--two {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
 }
 
+/* The lesson page: the lesson itself, then its curriculum beside it. */
+.lesson-layout {
+  display: grid;
+  gap: var(--grid-gap);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .lesson-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+  }
+}
+
 .grid--sidebar {
   grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 62rem) {
-  .grid--sidebar {
-    grid-template-columns: minmax(0, 2.1fr) minmax(18rem, 1fr);
-    align-items: start;
+@media (max-width: 1023px) {
+  .grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .grid--3,
+  .grid--4,
+  .grid--2 {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -111,7 +361,7 @@
 }
 
 .stack-lg > * + * {
-  margin-block-start: var(--space-6);
+  margin-block-start: var(--space-7);
 }
 
 .cluster {
@@ -133,73 +383,181 @@
   justify-content: flex-end;
 }
 
-/* --------------------------------------------------------------- page header */
+/* ------------------------------------------------------------------- auth */
 
-.page-head {
-  padding-block-end: var(--space-5);
-  border-block-end: 1px solid var(--border);
-  margin-block-end: var(--space-6);
+.auth {
+  margin-block-start: var(--space-9);
+  margin-inline: auto;
+  max-width: var(--auth-card-width);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
-.page-head__eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: var(--step--1);
-  font-weight: 600;
-  color: var(--brand-600);
+.auth h1 {
+  font-size: 26px;
   margin-block-end: var(--space-2);
 }
 
-/* ------------------------------------------------------------------- hero */
-
-.hero {
-  display: grid;
-  gap: var(--space-6);
-  align-items: center;
-  padding-block: var(--space-7);
+.auth__lead {
+  color: var(--text-muted);
+  margin-block-end: var(--space-6);
 }
 
-@media (min-width: 56rem) {
-  .hero {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-}
-
-.hero__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: var(--space-4);
+.auth__links {
   margin-block-start: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--text-small);
+  text-align: center;
 }
 
-/* --------------------------------------------------------- lesson layout */
+/* The links between the forms are tap targets as well. */
+.auth__links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-target);
+}
 
-.lesson-layout {
+@media (max-width: 767px) {
+  .auth {
+    margin-block-start: var(--space-6);
+    margin-inline: var(--space-4);
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
+/* ------------------------------------------------- student / admin shell */
+
+.app-shell {
+  flex: 1 0 auto;
   display: grid;
-  gap: var(--space-5);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   align-items: start;
+  min-height: 100vh;
 }
 
-@media (min-width: 68rem) {
-  .lesson-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+.app-topbar {
+  grid-column: 1 / -1;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--app-topbar-height);
+  background-color: var(--surface);
+  border-block-end: 1px solid var(--border);
+  padding: var(--space-3) var(--page-pad-x);
+}
+
+.app-topbar__name {
+  font-weight: 600;
+  color: var(--black);
+}
+
+.app-sidebar {
+  background-color: var(--black);
+  padding: var(--space-6) 14px;
+  position: sticky;
+  inset-block-start: var(--app-topbar-height);
+  min-height: calc(100vh - var(--app-topbar-height));
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--on-dark-muted);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-sidebar__link:hover {
+  color: var(--white);
+  background-color: var(--blue-dark-text);
+}
+
+.app-sidebar__link[aria-current='page'] {
+  background-color: var(--blue);
+  color: var(--white);
+}
+
+.app-main {
+  padding: var(--app-pad);
+  min-width: 0;
+}
+
+.app-page h2 {
+  font-size: var(--text-h2-app);
+  margin-block-end: var(--space-6);
+}
+
+.app-page h3 {
+  margin-block-end: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-topbar {
+    padding: var(--nav-pad-y) var(--page-pad-x);
+  }
+
+  /* The name and the button stay on one line; a long name is cut off with an
+     ellipsis instead of pushing the bar onto two rows. */
+  .app-topbar .cluster {
+    flex-wrap: nowrap;
+    margin-inline-start: auto;
+  }
+
+  .app-topbar__name {
+    max-width: 7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* On mobile the sidebar becomes a horizontal, scrollable tab strip that sits
+     directly under the top bar. */
+  .app-sidebar {
+    position: static;
+    min-height: 0;
+    padding: var(--space-2) var(--page-pad-x);
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The navigation is the part that scrolls: the links stay in one row. */
+  .app-sidebar nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: none;
+  }
+
+  .app-sidebar__link {
+    border-radius: var(--radius-pill);
+  }
+
+  .app-main {
+    padding: var(--app-pad-mobile);
   }
 }
 
-/* ----------------------------------------------------------- admin layout */
-
-.admin-layout {
-  display: grid;
-  gap: var(--space-5);
-}
-
-@media (min-width: 64rem) {
-  .admin-layout {
-    grid-template-columns: 15rem minmax(0, 1fr);
-  }
-}
-
-/* --------------------------------------------------------------- spacing --- */
+/* --------------------------------------------------------------- spacing */
 
 .section-tight {
   padding-block: var(--space-4);
@@ -220,11 +578,17 @@
 .mb-5 {
   margin-block-end: var(--space-5);
 }
+.mb-6 {
+  margin-block-end: var(--space-6);
+}
 .mt-4 {
   margin-block-start: var(--space-4);
 }
 .mt-5 {
   margin-block-start: var(--space-5);
+}
+.mt-6 {
+  margin-block-start: var(--space-6);
 }
 
 .text-center {
@@ -232,7 +596,7 @@
 }
 
 .measure {
-  max-width: var(--measure);
+  max-width: 68ch;
 }
 
 .full-width {

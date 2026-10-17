@@ -47,8 +47,12 @@ export function table({ caption, columns, rows, emptyMessage = 'Nothing to show 
         const raw = column.value ? column.value(row) : row[column.key];
         const content = column.render ? column.render(row) : humanize(raw);
         const cell = el('td', { attrs: { 'data-label': column.label, ...(column.numeric ? { class: 'table__numeric' } : {}) } });
-        if (content instanceof Node) cell.append(content);
-        else cell.textContent = content === null || content === undefined || content === '' ? '—' : String(content);
+        if (content instanceof Node) {
+          // A cell that holds a single link gets a link that covers the whole
+          // cell, so the tap target is the row height and not the text.
+          if (content.tagName === 'A') content.classList.add('table__link');
+          cell.append(content);
+        } else cell.textContent = content === null || content === undefined || content === '' ? '—' : String(content);
         return cell;
       });
 
@@ -91,7 +95,11 @@ export function table({ caption, columns, rows, emptyMessage = 'Nothing to show 
 
 /** Convenience: render a table straight into a container. */
 export function renderTable(container, options) {
-  container.replaceChildren(table(options));
+  const node = table(options);
+  // A page that already provides the scroll container (`.table-wrap`) must not
+  // get a second one around the table — that would draw two borders.
+  const content = container.classList?.contains('table-wrap') ? (node.firstElementChild ?? node) : node;
+  container.replaceChildren(content);
   container.setAttribute('aria-busy', 'false');
   return container;
 }
