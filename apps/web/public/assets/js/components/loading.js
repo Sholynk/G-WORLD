@@ -47,7 +47,7 @@ export function setButtonLoading(button, loading, label) {
  * @returns {{finish: () => void}|null}
  */
 export function startTopLoader(timeout = 4000) {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined' || !document.body) return null;
 
   const existing = document.querySelector('.top-loader');
   if (existing) return { finish: () => existing.classList.add('is-done') };
@@ -68,6 +68,12 @@ export function startTopLoader(timeout = 4000) {
     loader.classList.add('is-done');
     window.setTimeout(() => loader.remove(), 400);
   };
+
+  // A page that is already loaded does not need the bar at all.
+  if (document.readyState === 'complete') {
+    finish();
+    return { finish };
+  }
 
   window.setTimeout(finish, timeout);
   window.addEventListener('load', finish, { once: true });

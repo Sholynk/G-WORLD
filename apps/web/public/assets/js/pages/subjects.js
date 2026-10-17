@@ -38,7 +38,7 @@ export async function init({ signal }) {
 
       host.replaceChildren(
         ...(visible.length
-          ? visible.map((subject) => subjectCard(subject))
+          ? visible.map((subject, index) => subjectCard(subject, index))
           : [
               emptyState({
                 title: 'No subjects here yet',

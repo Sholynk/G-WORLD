@@ -1294,6 +1294,12 @@
   width: 30%;
 }
 
+/* A table stands in as a stack of rows, and every row as a row of cells. */
+.skeleton--table {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .skeleton--row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));

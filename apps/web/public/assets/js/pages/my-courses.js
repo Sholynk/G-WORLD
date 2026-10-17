@@ -33,7 +33,7 @@ export async function init({ signal, session }) {
 
     host.replaceChildren(
       ...(rows.length
-        ? rows.map((enrollment, index) => enrolledCourseCard(enrollment, details[index]))
+        ? rows.map((enrollment, index) => enrolledCourseCard(enrollment, details[index], index))
         : [
             emptyState({
               title: 'No courses yet',

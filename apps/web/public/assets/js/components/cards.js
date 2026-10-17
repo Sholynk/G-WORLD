@@ -13,6 +13,22 @@
 import { el } from '../core/dom.js';
 import { formatNumber, humanize } from '../core/format.js';
 
+/**
+ * The attributes that make a card fade in when it scrolls into view.
+ *
+ * The delay staggers the cards of a grid, so a list arrives one card after the
+ * other instead of all at once.
+ *
+ * @param {number} [index] the position of the card in its grid
+ * @returns {Record<string, string>}
+ */
+export function revealAttrs(index = 0) {
+  return {
+    'data-reveal': '',
+    style: `--reveal-delay: ${Math.min(index, 8) * 70}ms`,
+  };
+}
+
 /** The neutral image block from the template. */
 export function imagePlaceholder(label = 'Image') {
   return el('div', {
@@ -54,9 +70,10 @@ export function courseTag(course) {
  * Department card: image, title, a short description and the number of
  * subjects inside the department.
  */
-export function departmentCard(department) {
+export function departmentCard(department, index = 0) {
   return el('article', {
     class: 'card card--course',
+    attrs: revealAttrs(index),
     children: [
       cardMedia(department.image_url, ''),
       el('h3', {
@@ -81,9 +98,10 @@ export function departmentCard(department) {
 }
 
 /** Subject card: image, department tag, title, description and course count. */
-export function subjectCard(subject) {
+export function subjectCard(subject, index = 0) {
   return el('article', {
     class: 'card card--course',
+    attrs: revealAttrs(index),
     children: [
       cardMedia(null, ''),
       tag(subject.department_name ?? 'Subject'),
@@ -137,6 +155,7 @@ export function courseCard(course, options = {}) {
 
   return el('article', {
     class: 'card card--course',
+    attrs: revealAttrs(options.index ?? 0),
     children: [
       cardMedia(course.thumbnail_url, ''),
       tag(courseTag(course)),
@@ -219,7 +238,7 @@ export function nextLessonPosition(detail) {
  * @param {object} enrollment
  * @param {object} [detail]  the enrolment detail payload, when it was loaded
  */
-export function enrolledCourseCard(enrollment, detail = null) {
+export function enrolledCourseCard(enrollment, detail = null, index = 0) {
   const percent = Math.max(0, Math.min(100, Math.round(Number(enrollment.progress_percent ?? 0))));
   const done = Number(enrollment.lessons_completed ?? 0);
   const total = Number(enrollment.total_lessons ?? 0);
@@ -232,6 +251,7 @@ export function enrolledCourseCard(enrollment, detail = null) {
 
   return el('article', {
     class: 'card card--course',
+    attrs: revealAttrs(index),
     children: [
       tag(enrollment.status === 'completed' ? 'Completed' : 'In progress'),
       el('h3', {

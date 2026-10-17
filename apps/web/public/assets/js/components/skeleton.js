@@ -48,7 +48,7 @@ export function skeletonGrid(host, count = 3) {
 export function skeletonTable(host, rows = 4, columns = 4) {
   if (!host) return;
   host.replaceChildren(
-    el('div', { class: 'skeleton--row', attrs: { 'aria-hidden': 'true' } }, [
+    el('div', { class: 'skeleton--table', attrs: { 'aria-hidden': 'true' } }, [
       ...Array.from({ length: rows }, () =>
         el('div', {
           class: 'skeleton--row',

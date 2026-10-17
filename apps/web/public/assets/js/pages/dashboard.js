@@ -67,7 +67,7 @@ export async function init({ signal, session }) {
 
     continueHost.replaceChildren(
       ...(active.length
-        ? active.map((enrollment, index) => enrolledCourseCard(enrollment, details[index]))
+        ? active.map((enrollment, index) => enrolledCourseCard(enrollment, details[index], index))
         : [
             emptyState({
               title: 'Nothing in progress',

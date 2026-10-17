@@ -128,19 +128,6 @@
   }
 }
 
-/* A soft ring that pulses behind the "new" marker. */
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgb(12 122 191 / 35%);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgb(12 122 191 / 0%);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(12 122 191 / 0%);
-  }
-}
-
 /* --------------------------------------------------------------- the page */
 
 .reveal {
@@ -152,20 +139,19 @@
   animation: fade-up 320ms ease-out both;
 }
 
-/* Scroll reveal: hidden until the observer marks the element. */
+/*
+  Scroll reveal: the element is hidden until the observer marks it, and the
+  animation keeps it in place when it ends. The `data-reveal` marker stays on
+  the element — the rule below needs both the attribute and the class.
+*/
 .js [data-reveal] {
   opacity: 0;
   transform: translateY(16px);
-  transition:
-    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: var(--reveal-delay, 0ms);
-  will-change: opacity, transform;
 }
 
 .js [data-reveal].is-revealed {
-  opacity: 1;
-  transform: none;
+  animation: reveal-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
 }
 
 /* --------------------------------------------------------------- spinners */
@@ -188,13 +174,20 @@
 
 /* ------------------------------------------------------- progress + chart */
 
+/*
+  The bar fills itself when it appears. The fill mode is `backwards` and not
+  `forwards`, so once the animation is over the bar falls back to the width in
+  the style sheet — that is what lets the lesson page move a bar that is
+  already on the page.
+*/
 .progress__bar {
-  animation: progress-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: progress-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
+/* The analytics bars grow from the baseline, one after the other. */
 .chart__bar {
   transform-origin: bottom;
-  animation: bar-grow 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bar-grow 640ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: calc(var(--bar-index, 0) * 70ms);
 }
 

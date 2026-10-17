@@ -89,7 +89,7 @@ export function createTypewriter({ element, phrases, startDelay = 600 } = {}) {
   const run = () => {
     stopped = false;
     if (reduced) {
-      text.textContent = phrases[0];
+      text.textContent = phrases[index % phrases.length];
       schedule(swap, HOLD_TIME);
       return;
     }

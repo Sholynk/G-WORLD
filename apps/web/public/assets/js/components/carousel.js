@@ -41,8 +41,15 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
   let timer = null;
   let raf = null;
   let startedAt = 0;
-  let stopped = false;
-  let userPaused = prefersReducedMotion();
+
+  /*
+    Three independent reasons to stop rotating. The carousel only runs when
+    none of them applies, so hiding the tab never leaves the slider dead.
+  */
+  let pausedByVisitor = prefersReducedMotion();
+  let hovered = false;
+  let focused = false;
+  let hidden = Boolean(document.hidden);
 
   const paint = () => {
     slides.forEach((slide, position) => {
@@ -66,15 +73,15 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
     });
 
     if (toggle) {
-      toggle.textContent = userPaused ? 'Play' : 'Pause';
-      toggle.setAttribute('aria-pressed', userPaused ? 'true' : 'false');
+      toggle.textContent = pausedByVisitor ? 'Play' : 'Pause';
+      toggle.setAttribute('aria-pressed', pausedByVisitor ? 'true' : 'false');
     }
   };
 
-  const goTo = (target, { restart = true } = {}) => {
+  const goTo = (target) => {
     index = (target + slides.length) % slides.length;
     paint();
-    if (restart) start();
+    start();
   };
 
   const next = () => goTo(index + 1);
@@ -97,32 +104,26 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
     if (ratio < 1) raf = window.requestAnimationFrame(tick);
   };
 
+  const shouldRun = () => !pausedByVisitor && !hovered && !focused && !hidden;
+
   const start = () => {
     stopTimer();
-    if (userPaused) {
+    if (!shouldRun()) {
       if (progressBar) progressBar.style.width = '0%';
       return;
     }
+
     startedAt = performance.now();
     if (progressBar) {
       progressBar.style.width = '0%';
       raf = window.requestAnimationFrame(tick);
     }
+
     timer = window.setTimeout(() => {
       index = (index + 1) % slides.length;
       paint();
       start();
     }, duration);
-  };
-
-  const pause = () => {
-    stopped = true;
-    stopTimer();
-  };
-
-  const resume = () => {
-    stopped = false;
-    start();
   };
 
   /* ------------------------------------------------------------- controls */
@@ -135,10 +136,9 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
   });
 
   toggle?.addEventListener('click', () => {
-    userPaused = !userPaused;
+    pausedByVisitor = !pausedByVisitor;
     paint();
-    if (userPaused) stopTimer();
-    else start();
+    start();
   });
 
   root.addEventListener('keydown', (event) => {
@@ -152,22 +152,37 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
   });
 
   // Hovering or focusing the slider pauses the rotation.
-  root.addEventListener('mouseenter', pause);
-  root.addEventListener('mouseleave', resume);
-  root.addEventListener('focusin', pause);
+  root.addEventListener('mouseenter', () => {
+    hovered = true;
+    stopTimer();
+  });
+
+  root.addEventListener('mouseleave', () => {
+    hovered = false;
+    start();
+  });
+
+  root.addEventListener('focusin', () => {
+    focused = true;
+    stopTimer();
+  });
+
   root.addEventListener('focusout', (event) => {
-    if (!root.contains(event.relatedTarget)) resume();
+    if (root.contains(event.relatedTarget)) return;
+    focused = false;
+    start();
   });
 
   // A backgrounded tab must not keep the carousel running.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pause();
-    else if (!stopped) resume();
+    hidden = Boolean(document.hidden);
+    start();
   });
 
   /* --------------------------------------------------------------- swipe */
 
   let touchStart = null;
+
   root.addEventListener(
     'touchstart',
     (event) => {
@@ -175,6 +190,7 @@ export function createCarousel({ root, duration = SLIDE_DURATION } = {}) {
     },
     { passive: true },
   );
+
   root.addEventListener(
     'touchend',
     (event) => {

@@ -29,19 +29,25 @@ export function prefersReducedMotion() {
  * The elements are hidden by CSS only when JavaScript is running (the `js`
  * class on <html>), so a page without JavaScript still shows everything.
  *
+ * Elements that arrive later — the cards of a list that was just loaded, for
+ * instance — are picked up by a mutation observer, so a page can call this
+ * once and still animate everything it renders.
+ *
  * @param {ParentNode} [root] where to look for the elements
  */
 export function revealOnScroll(root = document) {
-  const targets = [...root.querySelectorAll('[data-reveal]')];
-  if (!targets.length) return;
-
+  /*
+    The marker stays on the element: the stylesheet uses it together with the
+    `is-revealed` class to run the animation, and the animation keeps the
+    element in place when it ends. Removing the marker here would take the
+    element out of the animation entirely.
+  */
   const show = (element) => {
     element.classList.add('is-revealed');
-    element.removeAttribute('data-reveal');
   };
 
   if (prefersReducedMotion() || !window.IntersectionObserver) {
-    for (const element of targets) show(element);
+    for (const element of root.querySelectorAll('[data-reveal]')) show(element);
     return;
   }
 
@@ -56,7 +62,27 @@ export function revealOnScroll(root = document) {
     { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
   );
 
-  for (const element of targets) observer.observe(element);
+  const observe = (element) => {
+    if (!element?.matches?.('[data-reveal]')) return;
+    if (element.classList.contains('is-revealed')) return;
+    observer.observe(element);
+  };
+
+  for (const element of root.querySelectorAll('[data-reveal]')) observe(element);
+
+  // Watch for elements that are added after this call.
+  if (root === document && window.MutationObserver && document.body) {
+    const mutations = new window.MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!node?.matches) continue;
+          observe(node);
+          for (const child of node.querySelectorAll?.('[data-reveal]') ?? []) observe(child);
+        }
+      }
+    });
+    mutations.observe(document.body, { childList: true, subtree: true });
+  }
 }
 
 /**
@@ -96,7 +122,11 @@ export function countUp(element, value, options = {}) {
 }
 
 /**
- * Counts up every number marked with `data-count` once it is on screen.
+ * Counts up every number marked with `data-count`.
+ *
+ * A number that is already on screen when the page is ready counts up. A
+ * number that is still below the fold keeps its final value — a figure that
+ * reads "0" until the visitor scrolls to it is worse than no animation at all.
  *
  * @param {ParentNode} [root]
  */
@@ -104,9 +134,17 @@ export function countUpOnScroll(root = document) {
   const targets = [...root.querySelectorAll('[data-count]')];
   if (!targets.length) return;
 
+  const decimalsOf = (element) => Number(element.dataset.countDecimals ?? 0);
+
   const run = (element) => {
     const value = Number(element.getAttribute('data-count') ?? 0);
-    countUp(element, value, { decimals: Number(element.dataset.countDecimals ?? 0) });
+    countUp(element, value, { decimals: decimalsOf(element) });
+  };
+
+  const show = (element) => {
+    const value = Number(element.getAttribute('data-count') ?? 0);
+    element.textContent =
+      decimalsOf(element) > 0 ? value.toFixed(decimalsOf(element)) : Math.round(value).toLocaleString('en-US');
   };
 
   if (prefersReducedMotion() || !window.IntersectionObserver) {
@@ -114,16 +152,14 @@ export function countUpOnScroll(root = document) {
     return;
   }
 
-  const observer = new window.IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        run(entry.target);
-        observer.unobserve(entry.target);
-      }
-    },
-    { threshold: 0.4 },
-  );
+  const height = window.innerHeight || 800;
 
-  for (const element of targets) observer.observe(element);
+  for (const element of targets) {
+    // Already on screen? Count it up now. Below the fold? Keep the real
+    // number — a figure that reads "0" until the visitor scrolls to it is
+    // worse than no animation at all.
+    const box = element.getBoundingClientRect?.();
+    if (box && box.top < height && box.bottom > 0) run(element);
+    else show(element);
+  }
 }

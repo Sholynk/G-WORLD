@@ -66,7 +66,7 @@ async function loadDepartments(host, signal) {
 
     host.replaceChildren(
       ...(visible.length
-        ? visible.map((department) => departmentCard(department))
+        ? visible.map((department, index) => departmentCard(department, index))
         : [
             emptyState({
               title: 'No departments published yet',

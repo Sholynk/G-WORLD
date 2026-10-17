@@ -22,7 +22,7 @@ export async function init({ signal }) {
 
     host.replaceChildren(
       ...(departments?.length
-        ? departments.map((department) => departmentCard(department))
+        ? departments.map((department, index) => departmentCard(department, index))
         : [
             emptyState({
               title: 'No departments published yet',
