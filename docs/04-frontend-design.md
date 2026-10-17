@@ -118,3 +118,32 @@ Every effect is an addition, never a requirement:
   slides that are not on screen are hidden from assistive technology;
 * the skeletons are replaced by the real content, and the empty states carry
   the same message.
+
+## 6. Checking the layout in a browser
+
+The smoke tests (`npm run test:web`) load the pages into a DOM and assert that
+they render; they never lay a page out, so they cannot see a broken grid, a
+hidden reveal or a tap target that is too small. Those need a real browser:
+
+```bash
+npm run dev                 # the site on http://localhost:32951
+```
+
+Then open the pages at the two widths of the template and walk this list:
+
+| # | Check | How |
+| --- | --- | --- |
+| 1 | The page never scrolls sideways | `document.documentElement.scrollWidth === clientWidth` (tables and the tab strip scroll inside their own box) |
+| 2 | Every control has a 44px tap target | `document.elementFromPoint()` around the control, or the finger on a phone |
+| 3 | The mobile menu opens and closes | the "Menu" disclosure under the nav |
+| 4 | The sidebar is a horizontal tab strip on a phone | the student and admin pages |
+| 5 | The carousel rotates, pauses and resumes | the home page |
+| 6 | The filters narrow the list | the courses page |
+| 7 | A keyboard focus is visible | <kbd>Tab</kbd> through the page |
+| 8 | The console is clean | the browser's console |
+
+A headless browser (for example Chromium through `puppeteer-core`) can run the
+same list automatically; the important part is that it talks to the **dev
+server**, not to the API directly, because the dev server is what a developer
+and the preview actually use.
+
