@@ -25,17 +25,31 @@ pages_build_output_dir = "public"
 # Absolute origin of the API worker. The Pages Function uses this when the
 # service binding below is not configured (for example in local `wrangler pages
 # dev`, which does not resolve bindings across projects).
-API_ORIGIN = "https://g-world-api.<your-subdomain>.workers.dev"
+API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
 
 # A service binding avoids the public internet (and an extra TLS handshake) when
-# the API worker is in the same Cloudflare account. Uncomment after deploying the
-# worker, then remove API_ORIGIN or leave it as a fallback.
-# [[services]]
-# binding = "API"
-# service = "g-world-api"
+# the API worker is in the same Cloudflare account. Enabled now that the worker
+# is deployed; API_ORIGIN above stays as a fallback for `wrangler pages dev`.
+[[services]]
+binding = "API"
+service = "g-world-api"
+
+# Production environment (used when Cloudflare Pages deploys from the main branch)
+[env.production]
+[env.production.vars]
+API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+
+[[env.production.services]]
+binding = "API"
+service = "g-world-api"
 
 # Preview deployments inherit the same bindings; nothing secret is stored here —
 # session secrets and email keys live only in the API worker's environment.
+# There is no separate staging worker yet, so previews use the production API.
 [env.preview]
 [env.preview.vars]
 API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+
+[[env.preview.services]]
+binding = "API"
+service = "g-world-api"
