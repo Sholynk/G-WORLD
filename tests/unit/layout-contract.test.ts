@@ -231,20 +231,63 @@ describe('public pages', () => {
   it('gives the home page the hero and the two sections of the template', () => {
     const document = parse('index.html');
 
-    expect(document.querySelector('.hero .tag')?.textContent?.trim()).toBe('Open to visitors');
-    expect(document.querySelector('.hero h1')?.textContent?.trim()).toBe('Learn by department, subject and skill.');
+    const active = document.querySelector('.hero__slide.is-active');
+    expect(active?.querySelector('.tag')?.textContent?.trim()).toBe('Open to visitors');
+    expect(active?.querySelector('h1')?.textContent?.trim()).toBe('Learn by department, subject and skill.');
 
-    const buttons = [...document.querySelectorAll('.hero__actions .btn')];
+    const buttons = [...(active?.querySelectorAll('.hero__actions .btn') ?? [])];
     expect(buttons.map((node) => node.textContent?.trim())).toEqual(['Get started', 'Explore departments']);
     expect(buttons[0].className).not.toContain(' o');
     expect(buttons[1].className).toContain(' o');
 
     const headings = [...document.querySelectorAll('main h2')].map((node) => node.textContent?.trim());
-    expect(headings).toEqual(['Explore departments', 'How learning flows']);
+    expect(headings).toEqual(['Explore departments', 'How learning flows', 'Start with one lesson.']);
 
     expect(document.querySelectorAll('[data-home-departments].grid--3')).toHaveLength(1);
     const flow = document.querySelector('#flow-heading')?.closest('section');
     expect(flow?.querySelectorAll('.grid--4 > .card')).toHaveLength(4);
+  });
+
+  it('turns the hero into a slider that rotates every five seconds', () => {
+    const document = parse('index.html');
+
+    const slider = document.querySelector('[data-hero-slider]');
+    expect(slider).not.toBeNull();
+    expect(slider?.getAttribute('aria-roledescription')).toBe('carousel');
+
+    const slides = [...document.querySelectorAll('[data-hero-slide]')];
+    expect(slides.length).toBeGreaterThanOrEqual(3);
+    expect(slides.filter((node) => node.classList.contains('is-active'))).toHaveLength(1);
+    // Every slide but the first one is hidden from assistive technology.
+    expect(slides.filter((node) => node.getAttribute('aria-hidden') === 'true')).toHaveLength(slides.length - 1);
+
+    // The controls: two arrows, one dot per slide and a pause button.
+    expect(document.querySelector('[data-hero-prev]')).not.toBeNull();
+    expect(document.querySelector('[data-hero-next]')).not.toBeNull();
+    expect(document.querySelectorAll('[data-hero-dot]')).toHaveLength(slides.length);
+    expect(document.querySelector('[data-hero-toggle]')?.textContent?.trim()).toBe('Pause');
+    expect(document.querySelector('[data-hero-progress-bar]')).not.toBeNull();
+
+    // The rotation interval lives in one place: the carousel module.
+    const carousel = readFileSync(
+      path.join(PUBLIC_DIR, 'assets/js/components/carousel.js'),
+      'utf8',
+    );
+    expect(carousel).toContain('export const SLIDE_DURATION = 5000;');
+  });
+
+  it('gives the home page a typewriter line and a numbers strip', () => {
+    const document = parse('index.html');
+
+    const typewriter = document.querySelector('[data-typewriter]');
+    expect(typewriter).not.toBeNull();
+    expect(typewriter?.querySelector('[data-typewriter-text]')).not.toBeNull();
+    expect(typewriter?.querySelector('[data-typewriter-caret]')).not.toBeNull();
+    // The animated text is duplicated for screen readers in a static sentence.
+    expect(typewriter?.querySelector('.visually-hidden')?.textContent).toContain('short video lessons');
+
+    const strip = document.querySelector('[data-home-stats]');
+    expect(strip?.querySelectorAll('[data-count]')).toHaveLength(5);
   });
 
   it('gives the departments page its heading and its three-column grid', () => {
@@ -436,5 +479,53 @@ describe('responsive rules', () => {
 
   it('never lets the page itself scroll sideways', () => {
     expect(css).toMatch(/body\s*\{[^}]*overflow-x:\s*hidden/);
+  });
+});
+
+describe('motion and loading effects', () => {
+  const animations = readFileSync(path.join(CSS_DIR, 'animations.css'), 'utf8');
+
+  it('keeps the reveal system off when JavaScript is not running', () => {
+    // The hidden state is scoped to `.js`, so a page without JavaScript still
+    // shows its content.
+    expect(animations).toMatch(/\.js \[data-reveal\]\s*\{/);
+    expect(animations).toMatch(/\.js \[data-reveal\]\.is-revealed\s*\{/);
+    const config = read('config.js');
+    expect(config).toContain("document.documentElement.classList.add('js')");
+  });
+
+  it('switches every animation off for visitors who asked for less motion', () => {
+    expect(animations).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(animations).toMatch(/animation-duration:\s*0\.01ms !important/);
+    expect(animations).toMatch(/transition-duration:\s*0\.01ms !important/);
+  });
+
+  it('ships the loading effects: skeletons, a busy button and the top loader', () => {
+    expect(css).toMatch(/\.skeleton\s*\{[^}]*animation:\s*skeleton-shimmer/);
+    expect(css).toMatch(/\.btn\.is-loading::after\s*\{[^}]*animation:\s*spin/);
+    expect(animations).toMatch(/\.top-loader__bar\s*\{/);
+
+    const skeleton = readFileSync(path.join(PUBLIC_DIR, 'assets/js/components/skeleton.js'), 'utf8');
+    expect(skeleton).toContain('export function skeletonGrid');
+    expect(skeleton).toContain('export function skeletonTable');
+    expect(skeleton).toContain('export function skeletonStats');
+
+    const loading = readFileSync(path.join(PUBLIC_DIR, 'assets/js/components/loading.js'), 'utf8');
+    expect(loading).toContain('export function setButtonLoading');
+    expect(loading).toContain('export function startTopLoader');
+  });
+
+  it('animates the progress bars and the analytics chart', () => {
+    expect(animations).toContain('@keyframes progress-fill');
+    expect(animations).toContain('@keyframes bar-grow');
+    expect(animations).toContain('@keyframes reveal-in');
+    expect(animations).toContain('@keyframes caret-blink');
+  });
+
+  it('gives the interface its shared effects on every page', () => {
+    const boot = readFileSync(path.join(PUBLIC_DIR, 'assets/js/core/boot.js'), 'utf8');
+    expect(boot).toContain('revealOnScroll');
+    expect(boot).toContain('mountBackToTop');
+    expect(boot).toContain('startTopLoader');
   });
 });

@@ -28,8 +28,17 @@
 /* ------------------------------------------------------------- public nav */
 
 .site-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
   background-color: var(--surface);
   border-block-end: 1px solid var(--border);
+  transition: box-shadow var(--transition);
+}
+
+/* Once the page is scrolled the bar lifts off the content. */
+.site-header.is-scrolled {
+  box-shadow: 0 10px 24px rgb(0 0 0 / 6%);
 }
 
 .site-nav {
@@ -72,12 +81,37 @@
   font-size: var(--text-body);
   display: inline-flex;
   align-items: center;
+  position: relative;
   min-height: var(--tap-target);
 }
 
 .site-nav__link:hover,
 .site-nav__link[aria-current='page'] {
   color: var(--blue);
+}
+
+/* The underline that grows under the link on hover. */
+.site-nav__link::after {
+  content: '';
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline: 0;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--blue);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--transition);
+}
+
+.site-nav__link:hover::after,
+.site-nav__link[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+/* The panel of the mobile menu holds the same links, without the underline. */
+.site-nav__panel .site-nav__link::after {
+  display: none;
 }
 
 .site-nav__actions {
@@ -241,33 +275,17 @@
 
 /* ------------------------------------------------------------------- hero */
 
+/* The hero itself is a component (see components.css); here only the shell. */
 .hero {
-  padding-block: var(--space-9) var(--space-8);
-  max-width: 820px;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface-subtle);
+  border-block-end: 1px solid var(--border);
 }
 
-.hero h1 {
-  margin-block-end: var(--space-4);
-}
-
-.hero p {
-  font-size: 17px;
-  color: var(--text-muted);
-  max-width: 62ch;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-block-start: var(--space-6);
-}
-
-.hero__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--grid-gap);
-  margin-block-start: var(--space-8);
+.hero > .container {
+  position: relative;
+  z-index: 1;
 }
 
 /* ------------------------------------------------------------------ grids */
@@ -413,13 +431,17 @@
 
 .app-topbar {
   grid-column: 1 / -1;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-header);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  min-height: var(--app-topbar-height);
   background-color: var(--surface);
   border-block-end: 1px solid var(--border);
-  padding: var(--nav-pad-y) var(--page-pad-x);
+  padding: var(--space-3) var(--page-pad-x);
 }
 
 .app-topbar__name {
@@ -431,8 +453,8 @@
   background-color: var(--black);
   padding: var(--space-6) 14px;
   position: sticky;
-  inset-block-start: 0;
-  min-height: calc(100vh - var(--header-height));
+  inset-block-start: var(--app-topbar-height);
+  min-height: calc(100vh - var(--app-topbar-height));
 }
 
 .app-sidebar__link {

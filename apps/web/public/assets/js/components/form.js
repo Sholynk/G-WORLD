@@ -8,6 +8,7 @@
  */
 import { clearFieldErrors, el, formValues, qs, qsa, showFieldErrors } from '../core/dom.js';
 import { describeError } from '../core/errors.js';
+import { setButtonLoading } from './loading.js';
 
 /** Shows/hides a password input's reveal button. */
 export function wirePasswordToggles(root = document) {
@@ -42,8 +43,7 @@ export function wireForm(form, onSubmit) {
 
   const setBusy = (busy) => {
     if (submitButton) {
-      submitButton.disabled = busy;
-      submitButton.setAttribute('aria-busy', busy ? 'true' : 'false');
+      setButtonLoading(submitButton, busy);
     }
     form.setAttribute('aria-busy', busy ? 'true' : 'false');
   };

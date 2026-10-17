@@ -59,16 +59,151 @@
     </header>
 
     <main id="main" class="site-main" tabindex="-1">
-      <section class="container hero">
-        <p class="tag">Open to visitors</p>
-        <h1>Learn by department, subject and skill.</h1>
-        <p>
-          Every course is built from short video lessons, quizzes that check what you understood and a
-          certificate that anyone can verify with a QR code.
-        </p>
-        <div class="hero__actions">
-          <a class="btn" href="/register.html">Get started</a>
-          <a class="btn o" href="/departments.html">Explore departments</a>
+      <section class="hero" aria-roledescription="carousel" aria-label="Highlights" data-hero-slider>
+        <span class="hero__blob hero__blob--1" aria-hidden="true" style="width: 420px; height: 420px; inset-block-start: -120px; inset-inline-end: -80px;"></span>
+        <span class="hero__blob hero__blob--2" aria-hidden="true" style="width: 300px; height: 300px; inset-block-end: -140px; inset-inline-start: 30%;"></span>
+
+        <div class="container hero__inner">
+          <div class="hero__grid">
+            <div class="hero__viewport" data-hero-viewport>
+              <article class="hero__slide is-active" data-hero-slide role="group" aria-roledescription="slide" aria-label="1 of 3">
+                <p class="tag">Open to visitors</p>
+                <h1>Learn by department, subject and skill.</h1>
+                <p class="hero__lead">
+                  Every course is built from short video lessons, quizzes that check what you understood and a
+                  certificate that anyone can verify with a QR code.
+                </p>
+                <div class="hero__actions">
+                  <a class="btn" href="/register.html">Get started</a>
+                  <a class="btn o" href="/departments.html">Explore departments</a>
+                </div>
+              </article>
+
+              <article class="hero__slide" data-hero-slide role="group" aria-roledescription="slide" aria-label="2 of 3" aria-hidden="true">
+                <p class="tag">A clear path</p>
+                <h1>Departments, subjects, courses — in that order.</h1>
+                <p class="hero__lead">
+                  Start with a field of study, narrow it to a subject, then work through a course of modules and
+                  lessons. You always know what comes next.
+                </p>
+                <div class="hero__actions">
+                  <a class="btn" href="/subjects.html">Browse subjects</a>
+                  <a class="btn o" href="/courses.html">See the courses</a>
+                </div>
+              </article>
+
+              <article class="hero__slide" data-hero-slide role="group" aria-roledescription="slide" aria-label="3 of 3" aria-hidden="true">
+                <p class="tag">Proof of work</p>
+                <h1>Finish a course and hold a certificate anyone can check.</h1>
+                <p class="hero__lead">
+                  Every certificate carries a QR code. A recruiter, a school or a friend can scan it and see the
+                  name, the course and the date — no login needed.
+                </p>
+                <div class="hero__actions">
+                  <a class="btn" href="/verify.html">Verify a certificate</a>
+                  <a class="btn o" href="/register.html">Create an account</a>
+                </div>
+              </article>
+            </div>
+
+            <div class="hero__visual" data-hero-visual aria-hidden="true">
+              <div class="hero__visual-item is-active" data-hero-visual-item>
+                <div class="mock">
+                  <div class="mock__head">
+                    <span class="tag">In progress</span>
+                    <span class="mock__badge">Module 2 of 3</span>
+                  </div>
+                  <p class="mock__title">JavaScript Fundamentals</p>
+                  <p class="mock__meta">The DOM and events · Lesson 2 of 6</p>
+                  <span class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Course progress">
+                    <span class="progress__bar" style="--progress-value: 50%"></span>
+                  </span>
+                  <p class="mock__meta">3 of 6 lessons complete</p>
+                </div>
+              </div>
+
+              <div class="hero__visual-item" data-hero-visual-item aria-hidden="true">
+                <div class="mock">
+                  <div class="mock__head">
+                    <span class="tag">Technology</span>
+                    <span class="mock__badge">3 subjects</span>
+                  </div>
+                  <p class="mock__title">Web Development</p>
+                  <ul class="mock__list">
+                    <li><span class="mock__bullet">01</span> HTML &amp; CSS Foundations</li>
+                    <li><span class="mock__bullet">02</span> JavaScript Fundamentals</li>
+                    <li><span class="mock__bullet">03</span> Accessible Interfaces</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="hero__visual-item" data-hero-visual-item aria-hidden="true">
+                <div class="mock">
+                  <div class="mock__row">
+                    <span class="mock__qr"></span>
+                    <div>
+                      <p class="mock__title">Certificate of completion</p>
+                      <p class="mock__meta">GW-CERT-2026-A1B2C3</p>
+                      <span class="mock__badge">QR verified</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p class="hero__typewriter" data-typewriter>
+            <span class="hero__typewriter-label">Every course includes</span>
+            <span class="typewriter">
+              <span class="typewriter__text" data-typewriter-text aria-hidden="true">short video lessons</span>
+              <span class="typewriter__caret" data-typewriter-caret aria-hidden="true"></span>
+            </span>
+            <span class="visually-hidden">short video lessons, quizzes with feedback and QR-verified certificates.</span>
+          </p>
+        </div>
+
+        <div class="container hero__controls">
+          <button class="hero__arrow" type="button" data-hero-prev aria-label="Previous slide">
+            <span aria-hidden="true">←</span>
+          </button>
+          <div class="hero__dots" data-hero-dots>
+            <button class="hero__dot is-active" type="button" data-hero-dot="0" aria-label="Slide 1" aria-current="true"></button>
+            <button class="hero__dot" type="button" data-hero-dot="1" aria-label="Slide 2" aria-current="false"></button>
+            <button class="hero__dot" type="button" data-hero-dot="2" aria-label="Slide 3" aria-current="false"></button>
+          </div>
+          <button class="hero__arrow" type="button" data-hero-next aria-label="Next slide">
+            <span aria-hidden="true">→</span>
+          </button>
+          <button class="hero__toggle" type="button" data-hero-toggle aria-pressed="false">Pause</button>
+        </div>
+
+        <div class="hero__progress" aria-hidden="true">
+          <span class="hero__progress-bar" data-hero-progress-bar></span>
+        </div>
+      </section>
+
+      <section class="container" aria-label="Platform numbers">
+        <div class="stats-strip" data-home-stats>
+          <div class="stats-strip__item">
+            <span class="stats-strip__value" data-count="0">0</span>
+            <span class="stats-strip__label">Departments</span>
+          </div>
+          <div class="stats-strip__item">
+            <span class="stats-strip__value" data-count="0">0</span>
+            <span class="stats-strip__label">Courses</span>
+          </div>
+          <div class="stats-strip__item">
+            <span class="stats-strip__value" data-count="0">0</span>
+            <span class="stats-strip__label">Lessons</span>
+          </div>
+          <div class="stats-strip__item">
+            <span class="stats-strip__value" data-count="0">0</span>
+            <span class="stats-strip__label">Learners</span>
+          </div>
+          <div class="stats-strip__item">
+            <span class="stats-strip__value" data-count="0">0</span>
+            <span class="stats-strip__label">Certificates issued</span>
+          </div>
         </div>
       </section>
 
@@ -91,22 +226,38 @@
           </div>
         </div>
         <div class="grid grid--4">
-          <article class="card">
+          <article class="card" data-reveal>
             <h3 class="card__title">Departments</h3>
             <p class="card__summary">Fields of study such as computer science, design or business.</p>
           </article>
-          <article class="card">
+          <article class="card" data-reveal style="--reveal-delay: 80ms">
             <h3 class="card__title">Subjects</h3>
             <p class="card__summary">The topics inside a department, each with its own set of courses.</p>
           </article>
-          <article class="card">
+          <article class="card" data-reveal style="--reveal-delay: 160ms">
             <h3 class="card__title">Courses</h3>
             <p class="card__summary">Skills, modules and lessons you can work through at your own pace.</p>
           </article>
-          <article class="card">
+          <article class="card" data-reveal style="--reveal-delay: 240ms">
             <h3 class="card__title">Certificates</h3>
             <p class="card__summary">Finish a course and earn a QR-verified certificate of completion.</p>
           </article>
+        </div>
+      </section>
+
+      <section class="container section" aria-labelledby="cta-heading">
+        <div class="cta-band" data-reveal>
+          <div>
+            <h2 id="cta-heading">Start with one lesson.</h2>
+            <p>
+              Create an account, pick a course and work through it at your own pace. Your progress is saved, and
+              the certificate is yours to share.
+            </p>
+          </div>
+          <div class="btn-row">
+            <a class="btn" href="/register.html">Create an account</a>
+            <a class="btn o" href="/courses.html">Browse courses</a>
+          </div>
         </div>
       </section>
 

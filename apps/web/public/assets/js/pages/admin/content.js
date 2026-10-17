@@ -11,12 +11,14 @@ import { formatDuration, humanize } from '../../core/format.js';
 import { renderTable } from '../../components/table.js';
 import { pageError, setBusy } from '../_shared.js';
 import { requireStaff } from './_shared.js';
+import { skeletonTable } from '../../components/skeleton.js';
 
 export async function init({ signal, session }) {
   const current = await requireStaff(session);
   if (!current) return;
 
   const host = qs('[data-content-table]');
+  if (host) skeletonTable(host, 4, 4);
   const select = qs('[data-content-course]');
   if (!host) return;
 

@@ -10,6 +10,7 @@ import { qs } from '../core/dom.js';
 import { enrolledCourseCard } from '../components/cards.js';
 import { emptyState } from '../components/empty-state.js';
 import { needSession, pageError, setBusy } from './_shared.js';
+import { skeletonGrid } from '../components/skeleton.js';
 
 export async function init({ signal, session }) {
   const current = await needSession(session);
@@ -17,6 +18,8 @@ export async function init({ signal, session }) {
 
   const host = qs('[data-enrolment-list]');
   if (!host) return;
+
+  skeletonGrid(host, 3);
 
   try {
     const enrollments = await api.get('/me/enrollments', { signal });

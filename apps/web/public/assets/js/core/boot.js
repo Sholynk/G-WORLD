@@ -44,6 +44,7 @@ export async function boot(init, options = {}) {
 
   await header.mountHeader().catch((error) => console.error('[boot] header failed', error));
   footer.mountFooter();
+  mountChromeEffects();
 
   const main = qs('main');
   if (main && !main.hasAttribute('aria-labelledby')) {
@@ -106,4 +107,40 @@ export async function boot(init, options = {}) {
 /** Marks the document as ready, which the CSS uses to reveal progressive content. */
 export function markReady() {
   document.documentElement.dataset.ready = 'true';
+}
+
+/**
+ * The small effects every page shares: the scroll reveal, the back-to-top
+ * button and the shadow the header grows once the page is scrolled.
+ *
+ * They are all optional: if a browser cannot do them, the page is unchanged.
+ */
+function mountChromeEffects() {
+  const motion = import('../core/motion.js');
+  const backToTop = import('../components/back-to-top.js');
+  const loading = import('../components/loading.js');
+
+  motion
+    .then(({ revealOnScroll }) => revealOnScroll())
+    .catch((error) => console.error('[boot] reveal failed', error));
+
+  backToTop
+    .then(({ mountBackToTop }) => mountBackToTop())
+    .catch((error) => console.error('[boot] back to top failed', error));
+
+  // The thin bar at the top of the page while the page settles.
+  loading
+    .then(({ startTopLoader }) => startTopLoader())
+    .catch((error) => console.error('[boot] top loader failed', error));
+
+  const header = qs('[data-site-header]');
+  if (!header) return;
+
+  const update = () => {
+    const offset = window.scrollY ?? document.documentElement.scrollTop ?? 0;
+    header.classList.toggle('is-scrolled', offset > 8);
+  };
+
+  window.addEventListener('scroll', update, { passive: true });
+  update();
 }

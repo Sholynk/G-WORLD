@@ -9,9 +9,11 @@
 import { api } from '../../core/api.js';
 import { el, qs } from '../../core/dom.js';
 import { formatDate, formatNumber } from '../../core/format.js';
+import { countUp } from '../../core/motion.js';
 import { renderTable } from '../../components/table.js';
 import { pageError, setBusy } from '../_shared.js';
 import { requireStaff } from './_shared.js';
+import { skeletonStats, skeletonTable } from '../../components/skeleton.js';
 
 const MONTHS_SHOWN = 7;
 
@@ -41,6 +43,8 @@ export async function init({ signal, session }) {
   const statHost = qs('[data-admin-stats]');
   const trendHost = qs('[data-admin-trend]');
   const tableHost = qs('[data-admin-enrollments]');
+  if (tableHost) skeletonTable(tableHost, 4, 4);
+  if (statHost) skeletonStats(statHost, 4);
 
   try {
     const [stats, trend] = await Promise.all([
@@ -60,13 +64,18 @@ export async function init({ signal, session }) {
         el('div', {
           class: 'stat',
           children: [
-            el('p', { class: 'stat__value', text: formatNumber(value ?? 0) }),
+            el('p', { class: 'stat__value', text: '0', attrs: { 'data-count': String(value ?? 0) } }),
             el('p', { class: 'stat__label', text: label }),
           ],
         }),
       ),
     );
     setBusy(statHost, false);
+
+    // The totals count up once they are on screen.
+    for (const node of statHost.querySelectorAll('[data-count]')) {
+      countUp(node, Number(node.getAttribute('data-count') ?? 0));
+    }
 
     // --------------------------------------------------------- chart
     const byPeriod = new Map((trend.months ?? []).map((month) => [month.period, month.enrollments ?? 0]));
@@ -82,7 +91,7 @@ export async function init({ signal, session }) {
           el('div', {
             class: 'chart__bar',
             attrs: {
-              style: `--bar-height: ${Math.max(4, Math.round((values[index] / peak) * 160))}px`,
+              style: `--bar-height: ${Math.max(4, Math.round((values[index] / peak) * 160))}px; --bar-index: ${index}`,
               title: `${monthLabel(period)}: ${formatNumber(values[index])} enrollments`,
             },
           }),

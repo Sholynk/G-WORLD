@@ -163,10 +163,12 @@ G-WORLD/
 │               │         forms.css, tables.css, animations.css
 │               └── js/
 │                   ├── core/       config.js, api.js, session.js, dom.js, boot.js,
-│                   │               format.js, errors.js
+│                   │               format.js, errors.js, motion.js
 │                   ├── components/ header.js, footer.js, cards.js, toast.js, modal.js,
 │                   │               table.js, pagination.js, form.js, progress.js,
-│                   │               video.js, qrcode.js, empty-state.js, skeletons.js
+│                   │               video.js, qrcode.js, empty-state.js, skeletons.js,
+│                   │               carousel.js, typewriter.js, skeleton.js,
+│                   │               loading.js, back-to-top.js
 │                   ├── pages/      one module per page (home.js, departments.js,
 │                   │               subjects.js, subject.js, courses.js, …)
 │                   └── admin/      one module per admin page (analytics.js, content.js,

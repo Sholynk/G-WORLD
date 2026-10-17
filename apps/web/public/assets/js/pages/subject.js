@@ -10,6 +10,7 @@ import { qs, queryParam } from '../core/dom.js';
 import { courseCard } from '../components/cards.js';
 import { emptyState } from '../components/empty-state.js';
 import { enrolAction, pageError, setBusy } from './_shared.js';
+import { skeletonGrid } from '../components/skeleton.js';
 
 export async function init({ signal, session }) {
   const slug = queryParam('subject');
@@ -18,6 +19,8 @@ export async function init({ signal, session }) {
   const descriptionHost = qs('[data-subject-description]');
   const courseHost = qs('[data-subject-courses]');
   if (!courseHost) return;
+
+  skeletonGrid(courseHost, 3);
 
   if (!slug) {
     nameHost.textContent = 'Subject not found';

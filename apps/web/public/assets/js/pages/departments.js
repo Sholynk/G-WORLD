@@ -9,10 +9,13 @@ import { qs } from '../core/dom.js';
 import { departmentCard } from '../components/cards.js';
 import { emptyState } from '../components/empty-state.js';
 import { pageError, setBusy } from './_shared.js';
+import { skeletonGrid } from '../components/skeleton.js';
 
 export async function init({ signal }) {
   const host = qs('[data-departments-list]');
   if (!host) return;
+
+  skeletonGrid(host, 3);
 
   try {
     const departments = await api.get('/departments', { signal });

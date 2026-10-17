@@ -68,6 +68,7 @@ path needs to special-case CORS. `npm run db:reset:local` re-migrates and re-see
 | [docs/01-architecture.md](docs/01-architecture.md) | System diagram, request lifecycle, module boundaries |
 | [docs/02-file-structure.md](docs/02-file-structure.md) | Annotated repository map (`npm run check:structure` keeps it honest) |
 | [docs/03-database.md](docs/03-database.md) | Schema domains, tables, relationships, migration rules |
+| [docs/04-frontend-design.md](docs/04-frontend-design.md) | The design system: palette, type scale, breakpoint, motion and loading effects |
 | [docs/06-deployment.md](docs/06-deployment.md) | GitHub → Cloudflare Pages/Workers/D1, build settings, failure modes |
 
 ## License

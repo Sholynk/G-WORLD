@@ -9,12 +9,14 @@ import { el, qs } from '../core/dom.js';
 import { humanize } from '../core/format.js';
 import { renderTable } from '../components/table.js';
 import { needSession, pageError, setBusy } from './_shared.js';
+import { skeletonTable } from '../components/skeleton.js';
 
 export async function init({ signal, session }) {
   const current = await needSession(session);
   if (!current) return;
 
   const host = qs('[data-progress-table]');
+  if (host) skeletonTable(host, 4, 4);
   if (!host) return;
 
   try {

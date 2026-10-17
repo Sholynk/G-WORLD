@@ -592,11 +592,7 @@
   box-shadow: none;
 }
 
-.skeleton--card {
-  height: 8rem;
-  border-radius: var(--radius-lg);
-}
-
+/* The card skeleton lives with the loading states further down. */
 /* -------------------------------------------------------------- pagination */
 
 .pagination {
@@ -893,4 +889,539 @@
   font-family: var(--font-mono);
   font-size: var(--text-small);
   letter-spacing: 0.06em;
+}
+
+/* ==========================================================================
+   Hero — slider
+   --------------------------------------------------------------------------
+   The hero is a three-slide carousel. It is written in the HTML so the first
+   slide is readable without JavaScript; the carousel module only takes over
+   the rotation, the controls and the progress line.
+   ========================================================================== */
+
+.hero__inner {
+  position: relative;
+  padding-block: var(--space-9) var(--space-8);
+}
+
+.hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: var(--space-9);
+}
+
+.hero__viewport {
+  position: relative;
+  min-height: 320px;
+}
+
+.hero__slide {
+  display: none;
+  animation: slide-in-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero__slide.is-active {
+  display: block;
+}
+
+.hero__slide .tag {
+  margin-block-end: var(--space-4);
+}
+
+.hero__slide h1 {
+  margin-block-end: var(--space-4);
+  max-width: 18ch;
+}
+
+.hero__lead {
+  font-size: 17px;
+  line-height: var(--leading-loose);
+  color: var(--text-muted);
+  max-width: 54ch;
+  margin: 0;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block-start: var(--space-6);
+}
+
+/* The line under the headline that types itself out. */
+.hero__typewriter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-block-start: var(--space-5);
+  font-size: var(--text-small);
+  color: var(--text-muted);
+}
+
+.hero__typewriter-label {
+  font-weight: 600;
+  color: var(--gray-text);
+}
+
+/* ------------------------------------------------------------- hero visual */
+
+.hero__visual {
+  position: relative;
+  min-height: 340px;
+}
+
+.hero__visual-item {
+  display: none;
+}
+
+.hero__visual-item.is-active {
+  display: block;
+  animation: fade-in 420ms ease-out both;
+}
+
+/* The "product shot" is drawn with the design system itself: no images, no
+   new colours, just cards, tags and a progress bar. */
+.mock {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px rgb(0 0 0 / 8%);
+}
+
+.mock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.mock__title {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  font-weight: 600;
+  margin: 0;
+}
+
+.mock__meta {
+  font-size: var(--text-small);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.mock__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mock__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mock__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-small);
+  color: var(--text-muted);
+}
+
+.mock__bullet {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background-color: var(--blue-tint);
+  color: var(--blue-dark-text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mock__qr {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--white);
+  background-image:
+    linear-gradient(90deg, var(--blue) 22%, transparent 22%),
+    linear-gradient(var(--blue) 22%, transparent 22%),
+    linear-gradient(90deg, var(--blue-dark-text) 16%, transparent 16%),
+    linear-gradient(var(--blue-dark-text) 16%, transparent 16%);
+  background-size: 28px 28px, 28px 28px, 16px 16px, 16px 16px;
+  background-position:
+    0 0,
+    14px 14px,
+    28px 0,
+    44px 14px;
+  background-repeat: repeat;
+}
+
+.mock__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--blue-tint);
+  color: var(--blue-dark-text);
+  font-size: var(--text-tag);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------ hero controls */
+
+.hero__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-block-end: var(--space-7);
+}
+
+.hero__arrow {
+  display: inline-grid;
+  place-items: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--black);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.hero__arrow:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background-color: var(--blue-tint);
+}
+
+.hero__dots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hero__dot {
+  width: 28px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--border);
+  cursor: pointer;
+  transition: background-color var(--transition), width var(--transition);
+}
+
+.hero__dot:hover {
+  background-color: var(--gray-text);
+}
+
+.hero__dot.is-active {
+  width: 44px;
+  background-color: var(--blue);
+}
+
+.hero__toggle {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--gray-text);
+  font-size: var(--text-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero__toggle:hover {
+  color: var(--blue);
+  background-color: var(--blue-tint);
+}
+
+/* The thin line that fills while the current slide is on screen. */
+.hero__progress {
+  position: relative;
+  height: 3px;
+  background-color: var(--blue-tint);
+}
+
+.hero__progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  background-color: var(--blue);
+}
+
+/* ------------------------------------------------------------ numbers strip */
+
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--grid-gap);
+  padding-block: var(--space-7);
+  border-block-end: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
+.stats-strip__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stats-strip__value {
+  font-family: var(--font-display);
+  font-size: var(--text-stat);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--blue-dark-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-strip__label {
+  font-size: var(--text-small);
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.card {
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition),
+    border-color var(--transition);
+}
+
+.card--course:hover,
+.card:hover {
+  border-color: var(--blue);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px rgb(0 0 0 / 8%);
+}
+
+.card__title a {
+  transition: color var(--transition-fast);
+}
+
+/* ---------------------------------------------------------- loading states */
+
+/* A button that is working: the label stays, a spinner takes its place. */
+.btn.is-loading {
+  pointer-events: none;
+  position: relative;
+  color: transparent;
+}
+
+.btn.is-loading::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: -0.55rem 0 0 -0.55rem;
+  border: 2px solid rgb(255 255 255 / 35%);
+  border-block-start-color: var(--white);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.btn.o.is-loading::after,
+.btn--ghost.is-loading::after {
+  border-color: rgb(12 122 191 / 30%);
+  border-block-start-color: var(--blue);
+}
+
+/* Skeleton placeholders keep the shape of the content that is coming. */
+.skeleton {
+  border-radius: var(--radius-md);
+  background-image: linear-gradient(
+    90deg,
+    var(--surface-muted) 0%,
+    var(--surface-subtle) 40%,
+    var(--surface-muted) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton--card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.skeleton--media {
+  height: 110px;
+  border-radius: var(--radius-md);
+}
+
+.skeleton--line {
+  height: 14px;
+}
+
+.skeleton--line-short {
+  width: 55%;
+}
+
+.skeleton--line-tiny {
+  height: 10px;
+  width: 30%;
+}
+
+.skeleton--row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: var(--space-3);
+}
+
+.skeleton--cell {
+  height: 44px;
+  border-radius: var(--radius-md);
+}
+
+/* ---------------------------------------------------------- back to top */
+
+.back-to-top {
+  position: fixed;
+  inset-block-end: var(--space-6);
+  inset-inline-end: var(--space-6);
+  z-index: var(--z-header);
+  display: inline-grid;
+  place-items: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--black);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity var(--transition), transform var(--transition), visibility var(--transition),
+    border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.back-to-top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.back-to-top:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+@media (max-width: 767px) {
+  .hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+
+  .hero__visual {
+    display: none;
+  }
+
+  .hero__inner {
+    padding-block: var(--space-8) var(--space-6);
+  }
+
+  .hero__viewport {
+    /* The slides are not the same height, so the panel keeps a fixed height
+       and the page does not jump while the carousel rotates. */
+    min-height: 400px;
+    align-content: start;
+  }
+
+  .back-to-top {
+    inset-block-end: var(--space-4);
+    inset-inline-end: var(--space-4);
+  }
+}
+
+/* ---------------------------------------------------------------- CTA band */
+
+/*
+  The closing call to action of the public pages: one blue panel, white text
+  and the two buttons. White on blue is the only white-on-blue combination
+  the design system allows.
+*/
+.cta-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  background-color: var(--blue);
+  color: var(--white);
+}
+
+.cta-band h2 {
+  color: var(--white);
+  margin-block-end: var(--space-2);
+}
+
+.cta-band p {
+  color: var(--white);
+  max-width: 52ch;
+  margin: 0;
+  opacity: 0.92;
+}
+
+.cta-band .btn {
+  background-color: var(--white);
+  color: var(--blue-dark-text);
+}
+
+.cta-band .btn:hover {
+  background-color: var(--blue-tint);
+  color: var(--blue-dark-text);
+}
+
+.cta-band .btn.o {
+  background-color: transparent;
+  color: var(--white);
+  border-color: var(--white);
+}
+
+.cta-band .btn.o:hover {
+  background-color: var(--white);
+  color: var(--blue-dark-text);
+}
+
+@media (max-width: 767px) {
+  .cta-band {
+    padding: var(--space-6);
+    gap: var(--space-5);
+  }
 }

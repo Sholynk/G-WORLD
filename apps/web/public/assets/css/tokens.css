@@ -86,6 +86,8 @@
   --container-width: 1280px;
   --tap-target: 44px;
   --header-height: 68px;
+  /* The bar of the student and admin area, which the sidebar sits under. */
+  --app-topbar-height: 72px;
 
   /* --- motion ----------------------------------------------------------- */
   --transition-fast: 120ms ease-out;

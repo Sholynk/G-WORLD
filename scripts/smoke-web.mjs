@@ -360,7 +360,14 @@ async function runPage(relativePath, jar) {
 
     // Give fire-and-forget follow-ups (outline, QR) a moment to land.
     await new Promise((resolve) => setTimeout(resolve, 120));
-    await window.happyDOM?.waitUntilComplete?.().catch(() => {});
+    // The page may keep decorative timers running (the hero carousel rotates
+    // every five seconds, the typewriter loops), so the "everything has
+    // settled" wait is bounded: the page is judged on what it has already
+    // rendered, not on timers that will never end.
+    await Promise.race([
+      window.happyDOM?.waitUntilComplete?.().catch(() => {}) ?? Promise.resolve(),
+      new Promise((resolve) => setTimeout(resolve, 400)),
+    ]);
 
     // An error panel rendered by boot()/pageError() counts as a failure even
     // though it was handled gracefully: the page did not show real content.

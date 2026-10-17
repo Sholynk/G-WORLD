@@ -4,12 +4,16 @@
  * One request to `/me/dashboard` fills the page: the three totals and the
  * courses the learner can continue. The module and lesson labels come from the
  * enrolment details, which are fetched for the two cards that are shown.
+ *
+ * The totals count up when they appear, and the cards are preceded by
+ * skeletons so the page never looks empty while it loads.
  */
 import { api } from '../core/api.js';
 import { el, qs } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { countUp } from '../core/motion.js';
 import { enrolledCourseCard } from '../components/cards.js';
 import { emptyState } from '../components/empty-state.js';
+import { skeletonGrid, skeletonStats } from '../components/skeleton.js';
 import { needSession, pageError, setBusy } from './_shared.js';
 
 export async function init({ signal, session }) {
@@ -24,6 +28,9 @@ export async function init({ signal, session }) {
   const statHost = qs('[data-dashboard-stats]');
   const continueHost = qs('[data-dashboard-continue]');
 
+  if (statHost) skeletonStats(statHost, 3);
+  if (continueHost) skeletonGrid(continueHost, 2);
+
   try {
     const data = await api.get('/me/dashboard', { signal });
     const stats = data.stats ?? {};
@@ -37,13 +44,18 @@ export async function init({ signal, session }) {
         el('div', {
           class: 'stat',
           children: [
-            el('p', { class: 'stat__value', text: formatNumber(value ?? 0) }),
+            el('p', { class: 'stat__value', text: '0', attrs: { 'data-count': String(value ?? 0) } }),
             el('p', { class: 'stat__label', text: label }),
           ],
         }),
       ),
     );
     setBusy(statHost, false);
+
+    // The totals count up once they are on screen.
+    for (const node of statHost.querySelectorAll('[data-count]')) {
+      countUp(node, Number(node.getAttribute('data-count') ?? 0));
+    }
 
     // Two cards, as the template shows.
     const active = (data.courses?.active ?? []).slice(0, 2);
