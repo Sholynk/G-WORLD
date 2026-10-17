@@ -1,4 +1,4 @@
-# G WORLD — https://gworld.pages.dev
+# G WORLD — https://g-world.pages.dev
 # Crawlers are welcome on the catalogue and certificate verification. Everything
 # behind a session is disallowed: those pages return the same markup as an empty
 # shell, so indexing them would only waste a crawl budget.
@@ -18,4 +18,4 @@ Disallow: /quiz.html
 Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://gworld.pages.dev/sitemap.xml
+Sitemap: https://g-world.pages.dev/sitemap.xml

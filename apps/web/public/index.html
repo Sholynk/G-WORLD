@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Learn a field, prove it, get certified · G WORLD</title>
     <meta name="description" content="G WORLD takes you from a field of study to a certificate: departments, subjects, courses, lessons, quizzes and verified credentials.">
-    <link rel="canonical" href="https://gworld.pages.dev/index.html">
+    <link rel="canonical" href="https://g-world.pages.dev/index.html">
     <meta name="theme-color" content="#4f46e5">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="manifest" href="/manifest.webmanifest">
@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/assets/css/forms.css">
     <link rel="stylesheet" href="/assets/css/tables.css">
     <link rel="stylesheet" href="/assets/css/animations.css">
+    <link rel="stylesheet" href="/assets/css/visual-refresh.css">
     <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
     <script src="/config.js"></script>
   </head>
@@ -27,39 +28,41 @@
     <header class="site-header" data-site-header></header>
 
     <main id="main" class="site-main" tabindex="-1">
-      <section class="container hero">
-        <div class="stack">
-          <p class="page-head__eyebrow">Departments · Courses · Certificates</p>
-          <h1>Learn the world. Prove it.</h1>
-          <p class="lede">
-            Every course on G WORLD follows the same path: browse a department, enrol in a
-            course, work through modules and lessons, pass the assessments, then hold a
-            certificate anyone can verify from a single code.
-          </p>
-          <div class="cluster">
-            <a class="btn btn--primary" href="/courses.html">Browse courses</a>
-            <a class="btn" href="/browse.html">Explore departments</a>
-          </div>
-          <div class="hero__stats" data-home-stats aria-busy="true">
-            <div class="stat"><p class="stat__value">—</p><p class="stat__label">Departments</p></div>
-            <div class="stat"><p class="stat__value">—</p><p class="stat__label">Courses</p></div>
-            <div class="stat"><p class="stat__value">—</p><p class="stat__label">Lessons</p></div>
-            <div class="stat"><p class="stat__value">—</p><p class="stat__label">Learners</p></div>
+      <section class="container hero" aria-label="Welcome to G WORLD">
+        <div class="home-slider" data-home-slider aria-roledescription="carousel" aria-label="G WORLD learning highlights">
+          <article class="home-slide is-active" data-slide aria-hidden="false">
+            <p class="page-head__eyebrow">Learn with purpose</p>
+            <h1>Turn curiosity into capability.</h1>
+            <p>Explore fields of study, build practical skills, and learn at your own pace with courses designed to move you forward.</p>
+            <div class="cluster"><a class="btn btn--primary" href="/courses.html">Explore courses</a><a class="btn" href="/browse.html">Browse departments</a></div>
+          </article>
+          <article class="home-slide" data-slide aria-hidden="true" inert>
+            <p class="page-head__eyebrow">A clear path to progress</p>
+            <h1>Learn one lesson at a time.</h1>
+            <p>Follow structured modules, practise what you learn, and keep track of your progress as you work towards your next goal.</p>
+            <div class="cluster"><a class="btn btn--primary" href="/register.html">Create your free account</a><a class="btn" href="/browse.html">See what you can learn</a></div>
+          </article>
+          <article class="home-slide" data-slide aria-hidden="true" inert>
+            <p class="page-head__eyebrow">Achievement you can share</p>
+            <h1>Make your learning count.</h1>
+            <p>Complete your course, demonstrate your knowledge, and earn a certificate that can be verified online.</p>
+            <div class="cluster"><a class="btn btn--primary" href="/register.html">Start learning</a><a class="btn" href="/verify.html">Verify a certificate</a></div>
+          </article>
+          <div class="slider-controls">
+            <button class="slider-arrow" type="button" data-slide-prev aria-label="Previous slide">‹</button>
+            <div class="slider-dots" role="group" aria-label="Choose a slide">
+              <button class="slider-dot" type="button" data-slide-to="0" aria-label="Slide 1" aria-current="true"></button>
+              <button class="slider-dot" type="button" data-slide-to="1" aria-label="Slide 2" aria-current="false"></button>
+              <button class="slider-dot" type="button" data-slide-to="2" aria-label="Slide 3" aria-current="false"></button>
+            </div>
+            <button class="slider-arrow" type="button" data-slide-next aria-label="Next slide">›</button>
           </div>
         </div>
-        <div class="card">
-          <div class="card__section stack-sm">
-            <h2 class="card__title">How a course works</h2>
-            <ol class="stack-sm">
-              <li><strong>Enrol</strong> — one click, no payment details.</li>
-              <li><strong>Learn</strong> — modules, lessons, videos and resources.</li>
-              <li><strong>Prove it</strong> — quizzes and assignments, marked by the server.</li>
-              <li><strong>Certify</strong> — a numbered certificate with a QR code.</li>
-            </ol>
-          </div>
-          <div class="card__footer">
-            <p class="subtle mb-0">Preview lessons are open to everyone — no account needed.</p>
-          </div>
+        <div class="hero__stats" data-home-stats aria-busy="true">
+          <div class="stat"><p class="stat__value">—</p><p class="stat__label">Departments</p></div>
+          <div class="stat"><p class="stat__value">—</p><p class="stat__label">Courses</p></div>
+          <div class="stat"><p class="stat__value">—</p><p class="stat__label">Lessons</p></div>
+          <div class="stat"><p class="stat__value">—</p><p class="stat__label">Learners</p></div>
         </div>
       </section>
 
@@ -111,6 +114,41 @@
       </div>
     </noscript>
 
+
+    <script>
+      (() => {
+        const carousel = document.querySelector('[data-home-slider]');
+        if (!carousel) return;
+        const slides = [...carousel.querySelectorAll('[data-slide]')];
+        const dots = [...carousel.querySelectorAll('[data-slide-to]')];
+        let active = 0;
+        let timer;
+        const show = (index) => {
+          active = (index + slides.length) % slides.length;
+          slides.forEach((slide, i) => {
+            const selected = i === active;
+            slide.classList.toggle('is-active', selected);
+            slide.setAttribute('aria-hidden', String(!selected));
+            slide.inert = !selected;
+          });
+          dots.forEach((dot, i) => dot.setAttribute('aria-current', String(i === active)));
+        };
+        const restart = () => {
+          window.clearInterval(timer);
+          if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            timer = window.setInterval(() => show(active + 1), 6000);
+          }
+        };
+        carousel.querySelector('[data-slide-prev]').addEventListener('click', () => { show(active - 1); restart(); });
+        carousel.querySelector('[data-slide-next]').addEventListener('click', () => { show(active + 1); restart(); });
+        dots.forEach((dot, i) => dot.addEventListener('click', () => { show(i); restart(); }));
+        carousel.addEventListener('mouseenter', () => window.clearInterval(timer));
+        carousel.addEventListener('mouseleave', restart);
+        carousel.addEventListener('focusin', () => window.clearInterval(timer));
+        carousel.addEventListener('focusout', restart);
+        restart();
+      })();
+    </script>
     <script type="module">
       import { boot } from '/assets/js/core/boot.js';
       import { init } from '/assets/js/pages/home.js';

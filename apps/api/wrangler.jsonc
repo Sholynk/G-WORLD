@@ -3,7 +3,7 @@
  *
  * Local development:  npm run dev:api         (wrangler dev, port 8787)
  * Migrations (local): npm run db:migrate:local
- * Deploy:             npm run deploy:api      (runs the config check first)
+ * Deploy production:  npm run deploy:production -w @g-world/api
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * BEFORE THE FIRST DEPLOY
@@ -33,7 +33,7 @@
     {
       "binding": "DB",
       "database_name": "g_world",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e65dab59-c29a-4c35-9c91-f786fba614ab",
       "migrations_dir": "../../database/migrations"
     }
   ],
@@ -87,13 +87,13 @@
 
     "production": {
       "name": "g-world-api",
-      "workers_dev": false,
+      "workers_dev": true,
       "observability": { "enabled": true },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "g_world",
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "e65dab59-c29a-4c35-9c91-f786fba614ab",
           "migrations_dir": "../../database/migrations"
         }
       ],
@@ -108,7 +108,7 @@
       },
       "vars": {
         "ENVIRONMENT": "production",
-        "APP_BASE_URL": "https://gworld.pages.dev",
+        "APP_BASE_URL": "https://g-world.pages.dev",
         "API_BASE_URL": "/api/v1",
         // Empty: the Pages proxy makes the frontend same-origin, so no
         // cross-origin request is ever allowed. Add exact origins here only if

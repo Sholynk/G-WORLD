@@ -129,6 +129,28 @@ export async function mountHeader() {
     navHost.classList.toggle('nav--open', !open);
   });
 
+  const learnerPaths = ['/dashboard.html', '/my-courses.html', '/certificates.html', '/profile.html'];
+  if (learnerPaths.includes(currentPath)) {
+    const learnerLinks = [
+      ['/dashboard.html', 'Dashboard'],
+      ['/my-courses.html', 'My courses'],
+      ['/certificates.html', 'Certificates'],
+      ['/profile.html', 'Profile'],
+    ];
+    const learnerNav = el('aside', { class: 'workspace-sidebar' });
+    const learnerList = el('ul', { class: 'list-plain' });
+    learnerLinks.forEach(([href, label]) => {
+      const link = el('a', {
+        class: 'workspace-sidebar__link',
+        text: label,
+        attrs: { href, ...(currentPath === href ? { 'aria-current': 'page' } : {}) },
+      });
+      learnerList.append(el('li', { children: [link] }));
+    });
+    learnerNav.append(el('nav', { attrs: { 'aria-label': 'Learner sections' }, children: [learnerList] }));
+    host.insertAdjacentElement('afterend', learnerNav);
+  }
+
   function repaint(session) {
     const links = [
       ...PUBLIC_LINKS,
