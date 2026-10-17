@@ -38,4 +38,4 @@ API_ORIGIN = "https://g-world-api.<your-subdomain>.workers.dev"
 # session secrets and email keys live only in the API worker's environment.
 [env.preview]
 [env.preview.vars]
-API_ORIGIN = "https://g-world-api-staging.<your-subdomain>.workers.dev"
+API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
