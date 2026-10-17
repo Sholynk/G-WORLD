@@ -1,8 +1,9 @@
 /* ==========================================================================
    G WORLD — forms
-   Labels are always visible (never a placeholder standing in for a label),
-   errors are attached to the field with aria-describedby, and the whole form
-   works with a keyboard alone.
+   --------------------------------------------------------------------------
+   Every input is full width, at least 44px tall, framed by a 1px gray border
+   with an 8px radius, and its label always sits above it in weight 600.
+   Labels are never replaced by a placeholder.
    ========================================================================== */
 
 .form {
@@ -11,7 +12,7 @@
 }
 
 .form--narrow {
-  max-inline-size: 30rem;
+  max-width: 30rem;
 }
 
 .field {
@@ -20,53 +21,65 @@
 }
 
 .field > label,
-.field > .field__label {
+.field > .field__label,
+label.field > .field__label {
   font-weight: 600;
-  font-size: var(--step--1);
+  font-size: var(--text-body);
 }
 
 .field__hint {
-  font-size: var(--step--1);
-  color: var(--text-subtle);
+  font-size: var(--text-small);
+  color: var(--text-muted);
   margin: 0;
 }
 
 .field__error,
 .field-error {
-  font-size: var(--step--1);
-  color: var(--danger-700);
+  font-size: var(--text-small);
+  color: var(--blue-dark-text);
+  font-weight: 600;
   margin: 0;
 }
 
 .field input,
 .field select,
-.field textarea {
-  inline-size: 100%;
-  padding: var(--space-2) var(--space-3);
-  min-block-size: 2.6rem;
-  border: 1px solid var(--border-strong);
+.field textarea,
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+input[type='tel'],
+input[type='number'],
+select,
+textarea {
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 10px 12px;
+  border: 1px solid var(--gray-text);
   border-radius: var(--radius-md);
   background-color: var(--surface);
   color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .field textarea {
-  min-block-size: 8rem;
+  min-height: 8rem;
   resize: vertical;
-  line-height: 1.5;
+  line-height: var(--leading-body);
 }
 
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
-  border-color: var(--brand-300);
+  border-color: var(--blue);
 }
 
 .field input:focus-visible,
 .field select:focus-visible,
 .field textarea:focus-visible {
-  border-color: var(--brand-500);
+  border-color: var(--blue);
   outline: 3px solid var(--focus-ring);
   outline-offset: 1px;
 }
@@ -74,16 +87,26 @@
 .field input[aria-invalid='true'],
 .field select[aria-invalid='true'],
 .field textarea[aria-invalid='true'] {
-  border-color: var(--danger-600);
-  background-color: color-mix(in srgb, var(--danger-100) 45%, var(--surface));
+  border-color: var(--black);
+  background-color: var(--surface-muted);
 }
 
 .field input:disabled,
 .field select:disabled,
 .field textarea:disabled {
-  background-color: var(--surface-3);
-  color: var(--text-subtle);
+  background-color: var(--surface-muted);
+  color: var(--text-muted);
   cursor: not-allowed;
+}
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--gray-text) 50%),
+    linear-gradient(135deg, var(--gray-text) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-inline-end: 36px;
 }
 
 /* Two fields side by side on wide screens, stacked on narrow ones. */
@@ -101,16 +124,16 @@
 
 .field-inline input[type='checkbox'],
 .field-inline input[type='radio'] {
-  inline-size: 1.15rem;
-  block-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
   margin-block-start: 0.22rem;
-  accent-color: var(--brand-600);
+  accent-color: var(--blue);
   flex: 0 0 auto;
 }
 
 .field-inline label {
-  font-weight: 500;
-  font-size: var(--step--1);
+  font-weight: 600;
+  font-size: var(--text-body);
 }
 
 /* Password field with a reveal button. */
@@ -128,7 +151,7 @@
   inset-inline-end: var(--space-2);
   transform: translateY(-50%);
   border: 1px solid var(--border);
-  background-color: var(--surface-2);
+  background-color: var(--surface-subtle);
   border-radius: var(--radius-sm);
   padding: 0.15rem var(--space-2);
   font-size: 0.72rem;
@@ -140,8 +163,8 @@
   display: flex;
   gap: var(--space-1);
   align-items: center;
-  font-size: var(--step--1);
-  color: var(--text-subtle);
+  font-size: var(--text-small);
+  color: var(--text-muted);
 }
 
 .strength__bars {
@@ -151,17 +174,17 @@
 }
 
 .strength__bar {
-  block-size: 4px;
+  height: 4px;
   flex: 1 1 0;
   border-radius: var(--radius-pill);
-  background-color: var(--surface-3);
+  background-color: var(--surface-muted);
 }
 
 .strength__bar--on {
-  background-color: var(--success-600);
+  background-color: var(--blue);
 }
 
-/* Search + filter controls used by the catalog toolbar. */
+/* Search and filter controls used by the catalog toolbar. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -171,7 +194,7 @@
 
 .toolbar .field {
   flex: 1 1 12rem;
-  min-inline-size: 10rem;
+  min-width: 10rem;
 }
 
 .search-input {
@@ -184,7 +207,7 @@
   flex: 1 1 auto;
 }
 
-/* Radio/checkbox groups rendered as a chip row (quiz options). */
+/* Radio and checkbox groups rendered as a chip row (quiz options). */
 .choice-group {
   display: grid;
   gap: var(--space-2);
@@ -206,31 +229,31 @@
 }
 
 .choice:hover {
-  border-color: var(--brand-300);
-  background-color: var(--surface-2);
+  border-color: var(--blue);
+  background-color: var(--surface-subtle);
 }
 
 .choice input {
-  inline-size: 1.2rem;
-  block-size: 1.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
   margin-block-start: 0.15rem;
-  accent-color: var(--brand-600);
+  accent-color: var(--blue);
   flex: 0 0 auto;
 }
 
 .choice:has(input:checked) {
-  border-color: var(--brand-500);
-  background-color: var(--brand-50);
+  border-color: var(--blue);
+  background-color: var(--blue-tint);
 }
 
 .choice--correct {
-  border-color: var(--success-600);
-  background-color: var(--success-100);
+  border-color: var(--blue);
+  background-color: var(--blue-tint);
 }
 
 .choice--wrong {
-  border-color: var(--danger-600);
-  background-color: var(--danger-100);
+  border-color: var(--black);
+  background-color: var(--surface-muted);
 }
 
 .fieldset {
@@ -241,7 +264,7 @@
 }
 
 .fieldset legend {
-  font-weight: 650;
+  font-weight: 600;
   padding-inline: var(--space-2);
 }
 
@@ -254,16 +277,18 @@
 }
 
 .form-status {
-  font-size: var(--step--1);
+  font-size: var(--text-small);
   color: var(--text-muted);
 }
 
 .form-status--error {
-  color: var(--danger-700);
+  color: var(--blue-dark-text);
+  font-weight: 600;
 }
 
 .form-status--success {
-  color: var(--success-700);
+  color: var(--blue-dark-text);
+  font-weight: 600;
 }
 
 /* Verification-code input (six or eight groups like XK4T-9QW2-M7PL). */

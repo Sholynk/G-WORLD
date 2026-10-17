@@ -1,69 +1,94 @@
 /**
  * Page — profile.
  *
- * `PATCH /me/profile` accepts a subset of the profile; the page loads the
- * current values from `/me` and sends only what changed, so an older saved form
- * cannot silently reset a field someone else updated.
+ * The card holds the learner's full name, the e-mail address on the account
+ * and a field for a new password. The API is the authority: the name is saved
+ * with `PATCH /me/profile` and a new password goes through
+ * `POST /auth/change-password`, which asks for the current password first.
  */
 import { api } from '../core/api.js';
-import { qs, qsa } from '../core/dom.js';
-import { formatDate, humanize } from '../core/format.js';
-import { renderCheckOptions, readCheckGroup, wireForm } from '../components/form.js';
+import { el, qs } from '../core/dom.js';
+import { wireForm } from '../components/form.js';
+import { openModal } from '../components/modal.js';
 import { toastSuccess } from '../components/toast.js';
-import { fill, needSession, pageError } from './_shared.js';
+import { needSession, pageError } from './_shared.js';
 
-const INTEREST_OPTIONS = [
-  { id: 'Technology', name: 'Technology and software' },
-  { id: 'Business', name: 'Business and enterprise' },
-  { id: 'Health', name: 'Health and care' },
-  { id: 'Data', name: 'Data and analysis' },
-  { id: 'Creative', name: 'Creative and design' },
-  { id: 'Science', name: 'Science and engineering' },
-];
+/**
+ * Asks for the current password in a dialog and hands the value to `onSubmit`.
+ * The password is never stored anywhere but the request body.
+ */
+function askForCurrentPassword(onSubmit) {
+  const input = el('input', {
+    attrs: {
+      id: 'current-password',
+      name: 'current_password',
+      type: 'password',
+      autocomplete: 'current-password',
+      required: '',
+    },
+  });
+
+  openModal({
+    title: 'Confirm your current password',
+    body: el('div', {
+      class: 'field',
+      children: [
+        el('label', { text: 'Current password', attrs: { for: 'current-password' } }),
+        input,
+      ],
+    }),
+    confirmLabel: 'Change password',
+    onConfirm: async () => {
+      const value = input.value;
+      if (!value) throw new Error('Enter your current password.');
+      await onSubmit(value);
+    },
+  });
+}
 
 export async function init({ signal, session }) {
   const current = await needSession(session);
   if (!current) return;
 
   const form = qs('[data-profile-form]');
-  const interestsHost = qs('[data-profile-interests]');
-  const user = current.user;
-  const profile = user.profile ?? {};
+  if (!form) return;
 
-  fill('[data-profile-summary]', `${user.email} · ${user.role}${user.student_number ? ` · ${user.student_number}` : ''}`);
-  if (profile.member_since ?? user.created_at) {
-    qs('[data-profile-summary]').textContent += ` · joined ${formatDate(profile.member_since ?? user.created_at)}`;
-  }
-
-  form.elements.display_name.value = profile.display_name ?? '';
-  form.elements.full_name.value = profile.full_name ?? '';
-  form.elements.education_level.value = profile.education_level ?? '';
-  form.elements.country.value = profile.country ?? '';
-  form.elements.timezone.value = profile.timezone ?? '';
-  form.elements.goals.value = profile.goals ?? '';
-  form.elements.bio.value = profile.bio ?? '';
-
-  renderCheckOptions(interestsHost, INTEREST_OPTIONS, {
-    name: 'interests[]',
-    selected: profile.interests ?? [],
-  });
-  fill('[data-profile-goals-hint]', '');
+  const profile = current.user?.profile ?? {};
+  form.elements.full_name.value = profile.full_name ?? profile.display_name ?? '';
+  form.elements.email.value = current.user?.email ?? '';
+  // The e-mail address identifies the account and is verified; changing it is
+  // a support task, so the field is shown but read-only.
+  form.elements.email.readOnly = true;
 
   wireForm(form, async (values, { setStatus }) => {
-    const payload = {
-      display_name: values.display_name,
-      full_name: values.full_name || null,
-      education_level: values.education_level || null,
-      country: values.country || null,
-      timezone: values.timezone || null,
-      goals: values.goals || null,
-      bio: values.bio || null,
-      interests: readCheckGroup(interestsHost),
-    };
+    const fullName = values.full_name?.trim() ?? '';
+    const newPassword = values.new_password ?? '';
 
     setStatus('Saving…');
-    await api.patch('/me/profile', payload, { signal });
+    if (fullName && fullName !== (profile.full_name ?? profile.display_name ?? '')) {
+      await api.patch('/me/profile', { full_name: fullName, display_name: fullName }, { signal });
+    }
+
+    if (newPassword) {
+      await new Promise((resolve, reject) => {
+        askForCurrentPassword(async (currentPassword) => {
+          try {
+            await api.post(
+              '/auth/change-password',
+              { current_password: currentPassword, new_password: newPassword },
+              { signal },
+            );
+            resolve();
+          } catch (error) {
+            reject(error);
+            throw error;
+          }
+        });
+      });
+    }
+
+    form.elements.new_password.value = '';
     setStatus('Saved.', 'success');
-    toastSuccess('Profile updated.');
+    toastSuccess('Your profile has been updated.');
   });
 }

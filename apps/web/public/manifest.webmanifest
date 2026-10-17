@@ -1,13 +1,13 @@
 {
   "name": "G WORLD — learn a field, prove it",
   "short_name": "G WORLD",
-  "description": "Departments, courses, lessons, quizzes and verifiable certificates.",
+  "description": "Departments, subjects, courses, lessons, quizzes and verifiable certificates.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f7f8fc",
-  "theme_color": "#4f46e5",
+  "background_color": "#ffffff",
+  "theme_color": "#0C7ABF",
   "lang": "en",
   "categories": ["education"],
   "icons": [
@@ -15,6 +15,7 @@
   ],
   "shortcuts": [
     { "name": "Browse courses", "url": "/courses.html" },
+    { "name": "Departments", "url": "/departments.html" },
     { "name": "My dashboard", "url": "/dashboard.html" },
     { "name": "Verify a certificate", "url": "/verify.html" }
   ]

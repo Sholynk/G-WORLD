@@ -91,7 +91,11 @@ export function table({ caption, columns, rows, emptyMessage = 'Nothing to show 
 
 /** Convenience: render a table straight into a container. */
 export function renderTable(container, options) {
-  container.replaceChildren(table(options));
+  const node = table(options);
+  // A page that already provides the scroll container (`.table-wrap`) must not
+  // get a second one around the table — that would draw two borders.
+  const content = container.classList?.contains('table-wrap') ? (node.firstElementChild ?? node) : node;
+  container.replaceChildren(content);
   container.setAttribute('aria-busy', 'false');
   return container;
 }

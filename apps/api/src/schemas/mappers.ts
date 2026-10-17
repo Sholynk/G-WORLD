@@ -123,6 +123,7 @@ export function toPublicCourseCardDto(row: PublicCourseRow) {
     thumbnail_url: row.thumbnail_url,
     instructor_name: row.instructor_name,
     is_featured: Boolean(row.is_featured),
+    enrollment_open: Boolean(row.enrollment_open),
     department: { name: row.department_name, slug: row.department_slug, icon: row.department_icon },
     subject: { name: row.subject_name, slug: row.subject_slug },
     module_count: Number(row.module_count ?? 0),

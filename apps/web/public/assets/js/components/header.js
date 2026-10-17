@@ -1,187 +1,105 @@
 /**
- * Components — site header (and the session chip inside it).
+ * Components — public site header.
  *
- * The header is rendered by JavaScript rather than duplicated in every HTML file:
- * one source of truth for navigation, one place that knows how to sign out.
- * Header markup is navigation chrome, not content, so pages keep their own
- * content in HTML for crawlers and no-JS visitors.
+ * The header markup itself lives in the HTML of every public page (so the
+ * navigation is there even before JavaScript runs and for crawlers). This
+ * module only *enhances* it:
+ *
+ *   1. it marks the current page in the navigation (`aria-current="page"`);
+ *   2. it swaps the visitor links ("Log in", "Register") for the signed-in
+ *      ones ("My learning", the learner's name) once the session is known;
+ *   3. it closes the mobile "Menu" disclosure when the visitor clicks away
+ *      from it or presses Escape.
+ *
+ * The layout is the one from the approved template: a white bar with a 1px
+ * bottom border, the brand on the left, the links in the middle and the
+ * account actions on the right. Below 768px the links and the register button
+ * collapse into a "Menu" button.
  */
-import { config } from '../core/config.js';
-import { el, qs } from '../core/dom.js';
-import { initials } from '../core/format.js';
-import { getSession, isAdmin, onSessionChange, signOut } from '../core/session.js';
-import { toastError, toastSuccess } from './toast.js';
+import { qs, qsa } from '../core/dom.js';
+import { getSession, onSessionChange } from '../core/session.js';
 
 const PUBLIC_LINKS = [
-  { href: '/index.html', label: 'Home' },
-  { href: '/browse.html', label: 'Departments' },
+  { href: '/departments.html', label: 'Departments' },
+  { href: '/subjects.html', label: 'Subjects' },
   { href: '/courses.html', label: 'Courses' },
-  { href: '/verify.html', label: 'Verify' },
 ];
 
-const MEMBER_LINKS = [
-  { href: '/dashboard.html', label: 'Dashboard' },
-  { href: '/my-courses.html', label: 'My courses' },
-  { href: '/certificates.html', label: 'Certificates' },
-];
+/** Links that only exist for a signed-in learner. */
+const LEARNER_LINKS = [{ href: '/dashboard.html', label: 'My learning' }];
 
-const ADMIN_LINKS = [{ href: '/admin/index.html', label: 'Admin' }];
-
-function navList(links, currentPath) {
-  return el('ul', {
-    class: 'nav__list',
-    children: links.map((link) =>
-      el('li', {
-        children: [
-          el('a', {
-            class: 'nav__link',
-            text: link.label,
-            attrs: {
-              href: link.href,
-              ...(currentPath === link.href ? { 'aria-current': 'page' } : {}),
-            },
-          }),
-        ],
-      }),
-    ),
-  });
+/** The path the browser is on, without the extension. */
+function currentPath() {
+  const path = window.location.pathname.replace(/\/index\.html$/, '/');
+  return path.length > 1 ? path.replace(/\/$/, '') : '/';
 }
 
-function sessionChip(session) {
-  if (!session?.user) {
-    return el('div', {
-      class: 'header__actions',
-      children: [
-        el('a', { class: 'btn btn--ghost', text: 'Sign in', attrs: { href: '/login.html' } }),
-        el('a', { class: 'btn btn--primary', text: 'Create account', attrs: { href: '/register.html' } }),
-      ],
-    });
+/** Marks the navigation entry that matches the current page. */
+function markCurrentLink(root) {
+  const path = currentPath();
+  for (const link of qsa('.site-nav__link[href]', root)) {
+    const href = link.getAttribute('href')?.split('?')[0] ?? '';
+    const normalised = href.replace(/\/index\.html$/, '/');
+    if (normalised === path) link.setAttribute('aria-current', 'page');
   }
+}
 
-  const name = session.user.profile?.display_name ?? session.user.email;
-  return el('div', {
-    class: 'header__actions',
-    children: [
-      el('a', {
-        class: 'user-chip',
-        attrs: { href: '/profile.html', title: 'Your profile' },
-        children: [
-          el('span', { class: 'user-chip__avatar', text: initials(name), attrs: { 'aria-hidden': 'true' } }),
-          el('span', { class: 'user-chip__name', text: name }),
-        ],
-      }),
-      el('button', {
-        class: 'btn btn--ghost',
-        text: 'Sign out',
-        attrs: { type: 'button', 'data-action': 'sign-out' },
-      }),
-    ],
+/**
+ * Paints the account actions for the current session state.
+ * The same markup exists in the desktop bar and in the mobile "Menu" panel,
+ * so both are updated together.
+ */
+function paintSession(root, session) {
+  const signedIn = Boolean(session?.user);
+  const name = session?.user?.profile?.display_name ?? session?.user?.email ?? '';
+
+  for (const node of qsa('[data-nav-login]', root)) node.hidden = signedIn;
+  for (const node of qsa('[data-nav-register]', root)) node.hidden = signedIn;
+  for (const node of qsa('[data-nav-session]', root)) node.hidden = !signedIn;
+  for (const node of qsa('[data-nav-name]', root)) node.textContent = name;
+  for (const node of qsa('[data-nav-learning]', root)) {
+    node.hidden = !signedIn;
+    node.setAttribute('href', LEARNER_LINKS[0].href);
+  }
+}
+
+/** Closes the mobile disclosure when the visitor clicks outside it. */
+function wireMenu(root) {
+  const menu = qs('.site-nav__menu', root);
+  if (!menu) return;
+
+  document.addEventListener('click', (event) => {
+    if (!menu.open) return;
+    if (menu.contains(event.target)) return;
+    menu.open = false;
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && menu.open) {
+      menu.open = false;
+      qs('summary', menu)?.focus();
+    }
   });
 }
 
-/** Builds and inserts the header into `[data-site-header]`. */
+/**
+ * Enhances the header of the current page.
+ * @returns {HTMLElement|null} the header element
+ */
 export async function mountHeader() {
   const host = qs('[data-site-header]');
   if (!host) return null;
 
-  const currentPath = window.location.pathname.endsWith('/') ? '/index.html' : window.location.pathname;
-  const navHost = el('nav', { class: 'nav', attrs: { 'aria-label': 'Main navigation' } });
-  let actionsHost = el('div', { class: 'header__actions' });
+  markCurrentLink(host);
+  wireMenu(host);
 
-  const menuButton = el('button', {
-    class: 'nav-toggle',
-    attrs: {
-      type: 'button',
-      'aria-expanded': 'false',
-      'aria-controls': 'primary-navigation',
-      'aria-label': 'Show navigation',
-    },
-    children: [
-      el('span', { class: 'nav-toggle__bar' }),
-      el('span', { class: 'nav-toggle__bar' }),
-      el('span', { class: 'nav-toggle__bar' }),
-    ],
-  });
-  navHost.id = 'primary-navigation';
+  const paint = (session) => paintSession(host, session);
+  paint(null);
+  onSessionChange(paint);
+  paint(await getSession().catch(() => null));
 
-  host.replaceChildren(
-    el('div', {
-      class: 'header__inner container',
-      children: [
-        el('a', {
-          class: 'brand',
-          attrs: { href: '/index.html' },
-          children: [
-            el('span', { class: 'brand__mark', text: 'GW', attrs: { 'aria-hidden': 'true' } }),
-            el('span', { class: 'brand__text', children: [el('strong', { text: config.siteName })] }),
-          ],
-        }),
-        navHost,
-        actionsHost,
-        menuButton,
-      ],
-    }),
-  );
-
-  menuButton.addEventListener('click', () => {
-    const open = menuButton.getAttribute('aria-expanded') === 'true';
-    menuButton.setAttribute('aria-expanded', String(!open));
-    navHost.classList.toggle('nav--open', !open);
-  });
-
-  const learnerPaths = ['/dashboard.html', '/my-courses.html', '/certificates.html', '/profile.html'];
-  if (learnerPaths.includes(currentPath)) {
-    const learnerLinks = [
-      ['/dashboard.html', 'Dashboard'],
-      ['/my-courses.html', 'My courses'],
-      ['/certificates.html', 'Certificates'],
-      ['/profile.html', 'Profile'],
-    ];
-    const learnerNav = el('aside', { class: 'workspace-sidebar' });
-    const learnerList = el('ul', { class: 'list-plain' });
-    learnerLinks.forEach(([href, label]) => {
-      const link = el('a', {
-        class: 'workspace-sidebar__link',
-        text: label,
-        attrs: { href, ...(currentPath === href ? { 'aria-current': 'page' } : {}) },
-      });
-      learnerList.append(el('li', { children: [link] }));
-    });
-    learnerNav.append(el('nav', { attrs: { 'aria-label': 'Learner sections' }, children: [learnerList] }));
-    host.insertAdjacentElement('afterend', learnerNav);
-  }
-
-  function repaint(session) {
-    const links = [
-      ...PUBLIC_LINKS,
-      ...(session ? MEMBER_LINKS : []),
-      ...(isAdmin(session) ? ADMIN_LINKS : []),
-    ];
-    navHost.replaceChildren(navList(links, currentPath));
-    const next = sessionChip(session);
-    actionsHost.replaceWith(next);
-    actionsHost = next;
-  }
-
-  // Paint the visitor state first so the header is usable while `/me` is in flight.
-  repaint(null);
-
-  host.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-action="sign-out"]');
-    if (!button) return;
-    button.disabled = true;
-    try {
-      await signOut();
-      toastSuccess('You are signed out.');
-      repaint(null);
-      window.location.assign('/index.html');
-    } catch (error) {
-      button.disabled = false;
-      toastError(error?.message ?? 'Could not sign out.');
-    }
-  });
-
-  onSessionChange(repaint);
-  repaint(await getSession().catch(() => null));
   return host;
 }
+
+/** Exported for the tests: the links the public navigation is built from. */
+export const publicNavLinks = PUBLIC_LINKS;

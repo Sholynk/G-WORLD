@@ -1,161 +1,123 @@
 /**
- * Page — course catalogue.
+ * Page — courses.
  *
- * One endpoint (`GET /courses`) does the searching, filtering, sorting and
- * paging. The form only decides what to send; the URL is kept in sync so a
- * filtered view can be shared, bookmarked or reloaded.
+ * The catalogue of published courses. The filters (department, subject, level,
+ * status) and the search box narrow the list in the browser, so they feel
+ * instant; the URL keeps the chosen department so a filtered list can be
+ * shared.
  */
 import { api } from '../core/api.js';
-import { el, qs } from '../core/dom.js';
-import { config } from '../core/config.js';
-import { courseCard } from '../components/course-card.js';
+import { debounce, el, qs, queryParam } from '../core/dom.js';
+import { courseCard } from '../components/cards.js';
 import { emptyState } from '../components/empty-state.js';
-import { renderPagination } from '../components/pagination.js';
-import { skeletonGrid } from '../components/skeletons.js';
-import { pageError, setBusy } from './_shared.js';
+import { enrolAction, pageError, setBusy } from './_shared.js';
 
-const SORTS = new Set(['newest', 'oldest', 'title', 'duration', 'difficulty']);
-const DIFFICULTIES = new Set(['beginner', 'intermediate', 'advanced']);
-
-export async function init({ signal }) {
-  const form = qs('[data-course-filters]');
-  const listHost = qs('[data-course-list]');
-  const countLabel = qs('[data-result-count]');
-  const paginationHost = qs('[data-pagination]');
-
-  const url = new URL(window.location.href);
-  const state = {
-    q: url.searchParams.get('q') ?? '',
-    department: url.searchParams.get('department') ?? '',
-    subject: url.searchParams.get('subject') ?? '',
-    difficulty: DIFFICULTIES.has(url.searchParams.get('difficulty')) ? url.searchParams.get('difficulty') : '',
-    sort: SORTS.has(url.searchParams.get('sort')) ? url.searchParams.get('sort') : 'newest',
-    page: Number(url.searchParams.get('page') ?? 1) || 1,
-  };
-
-  // Reflect the current state into the form before the first fetch.
-  for (const [key, value] of Object.entries(state)) {
-    const field = form.elements[key];
-    if (field) field.value = key === 'page' ? String(value) : value;
-  }
-
-  // Departments and subjects populate the two selects; failures are not fatal.
-  const [departments, subjects] = await Promise.all([
-    api.get('/departments', { signal }).catch(() => []),
-    api.get('/subjects', { query: { per_page: 100 }, signal }).catch(() => []),
-  ]);
-
-  const departmentSelect = qs('[data-filter-department]');
-  const subjectSelect = qs('[data-filter-subject]');
-  departmentSelect.append(
-    ...departments.map((department) => el('option', { text: department.name, attrs: { value: department.slug } })),
-  );
-  const renderSubjectOptions = () => {
-    const wanted = departmentSelect.value;
-    const visible = wanted ? subjects.filter((subject) => subject.department_slug === wanted) : subjects;
-    subjectSelect.replaceChildren(
-      el('option', { text: 'All', attrs: { value: '' } }),
-      ...visible.map((subject) => el('option', { text: subject.name, attrs: { value: subject.slug } })),
-    );
-    subjectSelect.value = state.subject;
-  };
-  renderSubjectOptions();
-  departmentSelect.value = state.department;
-
-  async function load() {
-    setBusy(listHost, true);
-    listHost.replaceChildren(...skeletonGrid(config.pageSize).childNodes);
-
-    const params = {
-      page: state.page,
-      per_page: config.pageSize,
-      sort: state.sort,
-    };
-    if (state.q) params.q = state.q;
-    if (state.department) params.department = state.department;
-    if (state.subject) params.subject = state.subject;
-    if (state.difficulty) params.difficulty = state.difficulty;
-
-    const data = await api.get('/courses', { query: params, signal });
-
-    countLabel.textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'course' : 'courses'}${
-      state.q ? ` matching “${state.q}”` : ''
-    }`;
-
-    listHost.replaceChildren(
-      ...(data.items.length
-        ? data.items.map((course) => courseCard(course, { showDepartment: true }))
-        : [
-            emptyState({
-              title: 'No courses match those filters',
-              message: 'Try clearing the search box or choosing a different department.',
-              action: { label: 'Clear filters', href: '/courses.html' },
-            }),
-          ]),
-    );
-    setBusy(listHost, false);
-
-    renderPagination(paginationHost, {
-      page: data.pagination.page,
-      perPage: data.pagination.per_page,
-      total: data.pagination.total,
-      itemNoun: 'course',
-      onPage: (page) => {
-        state.page = page;
-        syncUrl();
-        load().catch((error) => pageError(error, () => load()));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      },
-    });
-  }
-
-  function syncUrl() {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(state)) {
-      if (value && !(key === 'page' && value === 1) && !(key === 'sort' && value === 'newest')) {
-        params.set(key, String(value));
-      }
-    }
-    const query = params.toString();
-    window.history.replaceState(null, '', query ? `${window.location.pathname}?${query}` : window.location.pathname);
-  }
-
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const values = Object.fromEntries(new FormData(form).entries());
-    state.q = String(values.q ?? '').trim();
-    state.department = String(values.department ?? '');
-    state.subject = String(values.subject ?? '');
-    state.difficulty = DIFFICULTIES.has(values.difficulty) ? values.difficulty : '';
-    state.sort = SORTS.has(values.sort) ? values.sort : 'newest';
-    state.page = 1;
-    syncUrl();
-    load().catch((error) => pageError(error, () => load()));
-  });
-
-  departmentSelect.addEventListener('change', () => {
-    state.subject = '';
-    renderSubjectOptions();
-  });
-
-  form.addEventListener('reset', () => {
-    // Let the browser clear the inputs first, then reset the model and reload.
-    setTimeout(() => {
-      state.q = '';
-      state.department = '';
-      state.subject = '';
-      state.difficulty = '';
-      state.sort = 'newest';
-      state.page = 1;
-      renderSubjectOptions();
-      syncUrl();
-      load().catch((error) => pageError(error, () => load()));
-    }, 0);
-  });
+export async function init({ signal, session }) {
+  const host = qs('[data-courses-list]');
+  const departmentSelect = qs('[data-course-department]');
+  const subjectSelect = qs('[data-course-subject]');
+  const levelSelect = qs('[data-course-level]');
+  const statusSelect = qs('[data-course-status]');
+  const searchInput = qs('[data-course-search]');
+  if (!host) return;
 
   try {
-    await load();
+    const [departments, subjects, page, enrolments] = await Promise.all([
+      api.get('/departments', { signal }),
+      api.get('/subjects', { signal }),
+      api.get('/courses', { signal, query: { per_page: 48 } }),
+      session?.user ? api.get('/me/enrollments', { signal }).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    for (const department of departments ?? []) {
+      departmentSelect.append(el('option', { text: department.name, attrs: { value: department.slug } }));
+    }
+
+    const allSubjects = subjects ?? [];
+    for (const subject of allSubjects) {
+      subjectSelect.append(el('option', { text: subject.name, attrs: { value: subject.slug } }));
+    }
+
+    // The learner-only statuses only make sense for a signed-in visitor.
+    if (session?.user) {
+      statusSelect.append(el('option', { text: 'In progress', attrs: { value: 'in-progress' } }));
+      statusSelect.append(el('option', { text: 'Completed', attrs: { value: 'completed' } }));
+    }
+
+    const courses = page?.items ?? [];
+    const onEnroll = enrolAction(session);
+
+    /** The learner's own progress, keyed by course id. */
+    const progress = new Map(
+      (enrolments ?? []).map((row) => [row.course?.id ?? row.course_id, row.status]),
+    );
+
+    /** Keeps the subject list in step with the chosen department. */
+    const syncSubjects = () => {
+      const department = departmentSelect.value;
+      const previous = subjectSelect.value;
+      subjectSelect.replaceChildren(el('option', { text: 'All subjects', attrs: { value: '' } }));
+      for (const subject of allSubjects) {
+        if (department && subject.department_slug !== department) continue;
+        subjectSelect.append(el('option', { text: subject.name, attrs: { value: subject.slug } }));
+      }
+      subjectSelect.value = previous;
+    };
+
+    const render = () => {
+      const department = departmentSelect.value;
+      const subject = subjectSelect.value;
+      const level = levelSelect.value;
+      const status = statusSelect.value;
+      const term = (searchInput?.value ?? '').trim().toLowerCase();
+
+      const visible = courses.filter((course) => {
+        if (department && course.department?.slug !== department) return false;
+        if (subject && course.subject?.slug !== subject) return false;
+        if (level && course.difficulty !== level) return false;
+        if (status === 'open' && course.enrollment_open === false) return false;
+        if (status === 'in-progress' && progress.get(course.id) !== 'active') return false;
+        if (status === 'completed' && progress.get(course.id) !== 'completed') return false;
+        if (!term) return true;
+        return (
+          course.title.toLowerCase().includes(term) ||
+          (course.summary ?? '').toLowerCase().includes(term) ||
+          (course.subject?.name ?? '').toLowerCase().includes(term)
+        );
+      });
+
+      host.replaceChildren(
+        ...(visible.length
+          ? visible.map((course) => courseCard(course, { actionLabel: 'Enroll', onEnroll }))
+          : [
+              emptyState({
+                title: 'No courses match',
+                message: 'Try another department or subject, or clear the search box.',
+                action: { label: 'Browse departments', href: '/departments.html' },
+              }),
+            ]),
+      );
+      setBusy(host, false);
+    };
+
+    // A department can be linked to directly: /courses.html?department=design
+    const linked = queryParam('department');
+    if (linked && departments?.some((department) => department.slug === linked)) {
+      departmentSelect.value = linked;
+    }
+    syncSubjects();
+
+    departmentSelect.addEventListener('change', () => {
+      syncSubjects();
+      render();
+    });
+    subjectSelect.addEventListener('change', render);
+    levelSelect.addEventListener('change', render);
+    statusSelect.addEventListener('change', render);
+    searchInput?.addEventListener('input', debounce(render, 200));
+    render();
   } catch (error) {
-    pageError(error, () => load());
+    setBusy(host, false);
+    pageError(error, () => init({ signal, session }));
   }
 }

@@ -1,18 +1,22 @@
 /**
- * Admin page — QR / code lookup.
+ * Admin page — QR scanner.
  *
- * A student card carries a QR code; scanning it with any camera opens the public
- * verification page. This screen is for staff who are handed a code printed on
- * paper: paste it and the record comes back from the API.
+ * The camera preview is the browser's own: `getUserMedia` puts the rear
+ * camera on screen, and where the browser can decode QR codes natively
+ * (`BarcodeDetector`) a scanned code is verified without touching the
+ * keyboard. Staff can always type or paste the code instead.
  */
 import { api } from '../../core/api.js';
 import { el, qs } from '../../core/dom.js';
-import { formatDate, formatNumber, humanize } from '../../core/format.js';
+import { formatDate, humanize } from '../../core/format.js';
 import { toastError } from '../../components/toast.js';
+import { pageError, setBusy } from '../_shared.js';
 import { requireStaff } from './_shared.js';
 
-function row(term, value, mono = false) {
-  return el('div', { children: [el('dt', { text: term }), el('dd', { class: mono ? 'mono' : '', text: String(value ?? '—') })] });
+function row(term, value) {
+  return el('div', {
+    children: [el('dt', { text: term }), el('dd', { text: value === null || value === undefined ? '—' : String(value) })],
+  });
 }
 
 export async function init({ signal, session }) {
@@ -20,118 +24,153 @@ export async function init({ signal, session }) {
   if (!current) return;
 
   const form = qs('[data-scan-form]');
-  const resultHost = qs('[data-scan-result]');
   const status = qs('[data-scan-status]');
+  const resultSection = qs('[data-scan-result]');
+  const resultCard = qs('[data-scan-result-card]');
+  const video = qs('[data-scan-video]');
+  const frame = qs('[data-scan-frame]');
+  const startButton = qs('[data-scan-start]');
+  const stopButton = qs('[data-scan-stop]');
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!form.reportValidity()) return;
+  if (!form) return;
 
-    const code = qs('#code').value.trim().toUpperCase();
+  let stream = null;
+  let detector = null;
+  let scanning = false;
+
+  /** Looks a code up and shows the certificate behind it. */
+  async function verify(rawCode) {
+    const code = String(rawCode ?? '').trim().toUpperCase();
+    if (!code) return;
+
     status.textContent = 'Looking up…';
-    resultHost.hidden = true;
+    status.className = 'form-status';
+    resultSection.hidden = true;
 
     try {
-      // Student cards use the qr endpoint; certificate codes go through
-      // verification, which is the same public check an employer would run.
-      if (/^GW-STUDENT/.test(code)) {
-        // Two reads: the QR record itself (which proves the code exists and is
-        // not revoked) and the public student identity behind it.
-        const [record, student] = await Promise.all([
-          api.get(`/admin/qr/${encodeURIComponent(code)}`, { signal }),
-          api.get(`/verify/student/${encodeURIComponent(code)}`, { signal }).catch(() => null),
-        ]);
-        const identity = student?.identity ?? student ?? {};
-        resultHost.replaceChildren(
-          el('section', {
-            class: 'card',
-            children: [
-              el('div', {
-                class: 'card__section stack-sm',
-                children: [
-                  el('p', {
-                    class: `badge ${record.revoked ? 'badge--danger' : 'badge--success'}`,
-                    text: record.revoked ? 'Code revoked' : 'Student code recognised',
-                  }),
-                  el('h2', { class: 'card__title', text: identity.name ?? 'Student' }),
-                ],
-              }),
-              el('div', {
-                class: 'card__footer',
-                children: [
-                  el('dl', {
-                    class: 'detail-list',
-                    children: [
-                      row('Student number', identity.student_number, true),
-                      row('Email', identity.email),
-                      row('Member since', identity.member_since ? formatDate(identity.member_since) : '—'),
-                      row('Courses enrolled', formatNumber(identity.courses_enrolled ?? 0)),
-                      row('Courses completed', formatNumber(identity.courses_completed ?? 0)),
-                      row('Certificates', formatNumber(identity.certificates ?? 0)),
-                      row('Times scanned', formatNumber(record.scan_count ?? 0)),
-                      row('Expires', record.expires_at ? formatDate(record.expires_at) : 'No expiry'),
-                    ],
-                  }),
-                ],
-              }),
-              el('div', {
-                class: 'card__footer',
-                children: [
-                  el('a', {
-                    class: 'btn btn--sm',
-                    text: 'Open public verification',
-                    attrs: { href: `/verify.html?code=${encodeURIComponent(code)}` },
-                  }),
-                ],
-              }),
-            ],
-          }),
-        );
-        status.textContent = 'Student record found.';
-        status.className = 'form-status form-status--success';
-      } else {
-        const certificate = await api.get(`/verify/certificate/${encodeURIComponent(code)}`, { signal });
-        resultHost.replaceChildren(
-          el('section', {
-            class: 'card',
-            children: [
-              el('div', {
-                class: 'card__section stack-sm',
-                children: [
-                  el('p', {
-                    class: `badge ${certificate.valid ? 'badge--success' : 'badge--danger'}`,
-                    text: certificate.valid ? 'Valid certificate' : 'Revoked or invalid',
-                  }),
-                  el('h2', { class: 'card__title', text: certificate.course_title ?? 'Certificate' }),
-                  el('p', { class: 'muted mb-0', text: certificate.holder_name ?? '' }),
-                ],
-              }),
-              el('div', {
-                class: 'card__footer',
-                children: [
-                  el('dl', {
-                    class: 'detail-list',
-                    children: [
-                      row('Certificate number', certificate.certificate_number, true),
-                      row('Verification code', certificate.verification_code, true),
-                      row('Student number', certificate.student_number, true),
-                      row('Grade', humanize(certificate.grade)),
-                      row('Issued', formatDate(certificate.issued_at)),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
-        );
-        status.textContent = certificate.valid ? 'Certificate found and valid.' : 'Certificate found, not valid.';
-        status.className = 'form-status form-status--success';
-      }
-      resultHost.hidden = false;
+      const certificate = await api.get(`/verify/certificate/${encodeURIComponent(code)}`, { signal });
+
+      resultCard.replaceChildren(
+        el('div', {
+          class: 'card__section stack-sm',
+          children: [
+            el('span', { class: 'tag', text: certificate.valid ? 'Verified' : 'Revoked' }),
+            el('h3', {
+              class: 'card__title',
+              text: certificate.course_title ?? 'Certificate',
+            }),
+            el('p', { class: 'muted mb-0', text: certificate.holder_name ?? 'G WORLD learner' }),
+          ],
+        }),
+        el('div', {
+          class: 'card__section',
+          children: [
+            el('dl', {
+              class: 'detail-list',
+              children: [
+                row('Student', certificate.holder_name),
+                row('Course', certificate.course_title),
+                row('Date issued', formatDate(certificate.issued_at)),
+                row('Certificate number', certificate.certificate_number),
+                row('Verification code', certificate.verification_code),
+                row('Grade', humanize(certificate.grade)),
+              ],
+            }),
+          ],
+        }),
+        el('div', {
+          class: 'card__section',
+          children: [
+            el('a', {
+              class: 'btn o',
+              text: 'Open public verification',
+              attrs: { href: `/verify.html?code=${encodeURIComponent(code)}` },
+            }),
+          ],
+        }),
+      );
+
+      resultSection.hidden = false;
+      status.textContent = certificate.valid ? 'Certificate verified.' : 'Certificate found, but it is revoked.';
+      status.className = 'form-status form-status--success';
     } catch (error) {
       status.className = 'form-status form-status--error';
       status.textContent = error.message;
       toastError(error.message);
     }
+  }
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    verify(qs('#code').value);
   });
+
+  /* ------------------------------------------------------------- camera */
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      status.textContent = 'This browser cannot open the camera — type the code instead.';
+      status.className = 'form-status form-status--error';
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false,
+      });
+      video.srcObject = stream;
+      video.hidden = false;
+      await video.play();
+      startButton.hidden = true;
+      stopButton.hidden = false;
+
+      // Native QR decoding where the browser supports it.
+      if ('BarcodeDetector' in window) {
+        detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        scanning = true;
+        watch();
+      } else {
+        status.textContent = 'Camera on. Type or paste the code to verify it.';
+      }
+    } catch (error) {
+      status.textContent = 'The camera could not be opened — type the code instead.';
+      status.className = 'form-status form-status--error';
+    }
+  }
+
+  function stopCamera() {
+    scanning = false;
+    for (const track of stream?.getTracks() ?? []) track.stop();
+    stream = null;
+    if (video) {
+      video.srcObject = null;
+      video.hidden = true;
+    }
+    startButton.hidden = false;
+    stopButton.hidden = true;
+  }
+
+  /** Watches the video frames for a QR code and verifies the first one seen. */
+  async function watch() {
+    if (!scanning || !detector || !video) return;
+    try {
+      const codes = await detector.detect(video);
+      if (codes.length) {
+        scanning = false;
+        await verify(codes[0].rawValue);
+        return;
+      }
+    } catch {
+      // A frame that cannot be decoded is normal; keep watching.
+    }
+    if (scanning) requestAnimationFrame(watch);
+  }
+
+  startButton?.addEventListener('click', startCamera);
+  stopButton?.addEventListener('click', stopCamera);
+  window.addEventListener('pagehide', stopCamera);
+
+  setBusy(qs('[data-scan-form]'), false);
 }

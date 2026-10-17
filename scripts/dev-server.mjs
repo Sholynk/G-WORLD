@@ -54,13 +54,17 @@ const MIME = {
 /** Friendly URL → file, mirroring the `_redirects` file used by Pages. */
 const PRETTY_ROUTES = {
   '/': 'index.html',
-  '/browse': 'browse.html',
+  '/departments': 'departments.html',
+  '/subjects': 'subjects.html',
+  '/subject': 'subject.html',
   '/courses': 'courses.html',
   '/search': 'search.html',
   '/login': 'login.html',
   '/register': 'register.html',
+  '/reset': 'reset.html',
   '/dashboard': 'dashboard.html',
   '/my-courses': 'my-courses.html',
+  '/progress': 'progress.html',
   '/certificates': 'certificates.html',
   '/profile': 'profile.html',
   '/settings': 'settings.html',
