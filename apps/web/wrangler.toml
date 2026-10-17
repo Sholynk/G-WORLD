@@ -34,9 +34,22 @@ API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
 binding = "API"
 service = "g-world-api"
 
+# Production environment (used when Cloudflare Pages deploys from the main branch)
+[env.production]
+[env.production.vars]
+API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+
+[[env.production.services]]
+binding = "API"
+service = "g-world-api"
+
 # Preview deployments inherit the same bindings; nothing secret is stored here —
 # session secrets and email keys live only in the API worker's environment.
 # There is no separate staging worker yet, so previews use the production API.
 [env.preview]
 [env.preview.vars]
 API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+
+[[env.preview.services]]
+binding = "API"
+service = "g-world-api"
