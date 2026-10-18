@@ -13,6 +13,7 @@
  */
 import { Hono } from 'hono';
 import type { AppEnv, AppContext } from '../../env.js';
+import { authorScope, assertResourceOwner } from '../../middleware/author-scope.js';
 import { createDb } from '../../db/client.js';
 import * as articlesRepo from '../../db/repositories/articles.js';
 import * as authorsRepo from '../../db/repositories/authors.js';
@@ -24,6 +25,8 @@ import { accountSuspended, notFound, unauthenticated } from '../../lib/errors.js
 import { ok } from '../helpers.js';
 
 export const publicContentRoutes = new Hono<AppEnv>();
+// Editorial contact details and review notes are not public article metadata.
+const publicArticle = (article: articlesRepo.ArticleDto) => ({ ...article, submitterEmail: '', reviewNotes: '' });
 
 /**
  * Inline session guard for endpoints that are public for published content but
@@ -47,7 +50,9 @@ publicContentRoutes.get('/articles', async (c) => {
   if (query.status !== 'published') assertEditorialSession(c);
 
   const db = dbFrom(c);
+  const scope = await authorScope(c);
   const filters = {
+    ownerUserId: query.status !== 'published' ? scope?.userId : undefined,
     category: query.category,
     q: query.q,
     status: query.status === 'all' ? undefined : query.status,
@@ -62,7 +67,7 @@ publicContentRoutes.get('/articles', async (c) => {
 
   const page = query.limit ? Math.floor((query.offset ?? 0) / query.limit) + 1 : 1;
   const totalPages = query.limit ? Math.max(1, Math.ceil(total / query.limit)) : 1;
-  return ok(c, items, {
+  return ok(c, query.status === 'published' ? items.map(publicArticle) : items, {
     pagination: {
       page,
       per_page: query.limit ?? total,
@@ -76,8 +81,8 @@ publicContentRoutes.get('/articles', async (c) => {
 
 publicContentRoutes.get('/articles/categories', async (c) => {
   const db = dbFrom(c);
-  const requested = c.req.query('status') || 'published';
-  return ok(c, await articlesRepo.categories(db, requested === 'all' ? 'published' : requested));
+  // Category discovery never exposes private draft metadata.
+  return ok(c, await articlesRepo.categories(db, 'published'));
 });
 
 publicContentRoutes.get('/articles/:idOrSlug', async (c) => {
@@ -89,8 +94,11 @@ publicContentRoutes.get('/articles/:idOrSlug', async (c) => {
   if (!article) throw notFound('Article not found');
 
   // Unpublished articles are an editorial preview: session required.
-  if (article.status !== 'published') assertEditorialSession(c);
-  return ok(c, article);
+  if (article.status !== 'published') {
+    assertEditorialSession(c);
+    await assertResourceOwner(c, 'articles', article.id);
+  }
+  return ok(c, article.status === 'published' ? publicArticle(article) : article);
 });
 
 publicContentRoutes.get('/articles/:id/sources', async (c) => {
@@ -99,7 +107,10 @@ publicContentRoutes.get('/articles/:id/sources', async (c) => {
   const db = dbFrom(c);
   const article = await articlesRepo.getById(db, id);
   if (!article) throw notFound('Article not found');
-  if (article.status !== 'published') assertEditorialSession(c);
+  if (article.status !== 'published') {
+    assertEditorialSession(c);
+    await assertResourceOwner(c, 'articles', article.id);
+  }
   return ok(c, await articlesRepo.sourcesForArticle(db, article.id));
 });
 
@@ -129,5 +140,5 @@ publicContentRoutes.get('/settings', async (c) => {
 
 publicContentRoutes.get('/images', async (c) => {
   const db = dbFrom(c);
-  return ok(c, await mediaRepo.list(db));
+  return ok(c, await mediaRepo.list(db, (await authorScope(c))?.userId));
 });

@@ -2,6 +2,7 @@
    editorial session (sk_session cookie) — there is no admin token any more. */
 (() => {
   const API = '/api/v1';
+  let currentAuthor = null;
   const state = { articles: [], selectedId: null, images: [], authors: [], selectedAuthorId: null };
 
   const $ = (id) => document.getElementById(id);
@@ -35,6 +36,10 @@
       const csrf = readCookie('sk_csrf');
       if (csrf) headers['X-CSRF-Token'] = csrf;
     }
+    const sensitive = method === 'DELETE'
+      || (['PUT', 'PATCH'].includes(method) && path === '/admin/settings')
+      || (method === 'POST' && ['/admin/system/maintenance', '/auth/change-password'].includes(path));
+    if (isOwner && sensitive) headers['X-Owner-Confirmation'] = await confirmSensitiveAction(method, path);
     const response = await fetch(`${API}${path}`, { ...options, method, headers, credentials: 'same-origin' });
     if (response.status === 401 && !path.startsWith('/auth/')) {
       goToLogin();
@@ -67,6 +72,9 @@
         // Only hold the live stream open while the dashboard is on screen.
         disconnectDashboardStream();
       }
+      if (tab.dataset.panel === 'accounts') loadAccounts();
+      if (tab.dataset.panel === 'profile') loadSelfProfile();
+      if (tab.dataset.panel === 'author-analytics') loadSelfAnalytics();
       if (tab.dataset.panel === 'authors') loadAuthors();
       if (tab.dataset.panel === 'media') loadImages();
       if (tab.dataset.panel === 'comments') loadComments();
@@ -133,6 +141,10 @@
       seoDescription: '', tags: [], keyTakeaways: [], relatedSlugs: [], faqs: [], sources: []
     };
 
+    if (currentAuthor) {
+      values.author = currentAuthor.name; values.authorSlug = currentAuthor.slug;
+      if (!article) values.status = 'draft';
+    }
     $('articleId').value = article?.id || '';
     $('formTitle').textContent = article ? `Editing: ${article.title}` : 'New article';
     ['title', 'category', 'subcategory', 'contentType', 'slug', 'description', 'hook',
@@ -184,7 +196,10 @@
       scheduled: 'Schedules publishing at the date/time you set (requires approval on this CMS).',
       published: 'Publishes immediately. Only editors-in-chief should use this.'
     };
-    help.textContent = msgs[status] || '';
+    const authorMessages = { draft: 'Only you and the website owner can access this draft.',
+      published: 'Publish your article immediately.', scheduled: 'Publish automatically at the scheduled time while your account is active.',
+      pending: 'This article is awaiting review. You may publish your own article when it is ready.' };
+    help.textContent = (currentAuthor ? authorMessages[status] : msgs[status]) || '';
   }
   $('status')?.addEventListener('change', () => { setSubmitButtonLabel(); updateStatusHelp(); });
 
@@ -763,7 +778,7 @@
     form.append('image', file);
     form.append('alt', alt);
     try {
-      await request('/images', { method: 'POST', body: form });
+      await request('/admin/images', { method: 'POST', body: form });
       $('uploadForm').reset();
       loadImages();
       toast('Image uploaded');
@@ -1316,6 +1331,7 @@
   }
 
   async function loadDashboard() {
+    if (currentAuthor) return;
     // A burst of reader activity can fire several change events at once.
     // Collapse them: run one refresh, and queue at most one more behind it.
     if (dashboardLoading) {
@@ -1372,7 +1388,7 @@
    * established the dashboard falls back to polling rather than going stale.
    */
   function connectDashboardStream() {
-    if (dashboardStream || typeof window.EventSource === 'undefined') return;
+    if (currentAuthor || dashboardStream || typeof window.EventSource === 'undefined') return;
     // The session cookie authenticates the stream (EventSource sends cookies
     // same-origin); no token ever travels in the URL.
     const url = `${API}/admin/analytics/stream`;
@@ -1561,6 +1577,183 @@
     loadMessages();
   }
 
+  let sensitiveResolve = null;
+  function confirmSensitiveAction(method, path) {
+    if (sensitiveResolve) return Promise.reject(new Error('Finish the current confirmation first.'));
+    const noun = path.startsWith('/admin/articles/') ? 'article' : path.startsWith('/admin/images/') ? 'image'
+      : path.startsWith('/admin/authors/') ? 'author profile' : 'record';
+    $('sensitiveConfirmationDescription').textContent = method === 'DELETE' ? `Permanently delete this ${noun}?`
+      : path === '/admin/settings' ? 'Save changes to site metadata?' : 'Confirm this sensitive owner action?';
+    $('sensitiveConfirmationCode').value = '';
+    $('sensitiveConfirmation').showModal();
+    return new Promise((resolve, reject) => {
+      sensitiveResolve = (code) => code ? resolve(code) : reject(new Error('Action cancelled. Nothing was changed.'));
+    });
+  }
+  $('sensitiveConfirmationForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const finish = sensitiveResolve; sensitiveResolve = null;
+    const code = $('sensitiveConfirmationCode').value;
+    $('sensitiveConfirmationCode').value = '';
+    $('sensitiveConfirmation').close();
+    finish?.(code);
+  });
+  $('cancelSensitiveConfirmation').addEventListener('click', () => $('sensitiveConfirmation').close());
+  $('sensitiveConfirmation').addEventListener('close', () => {
+    const finish = sensitiveResolve; sensitiveResolve = null;
+    $('sensitiveConfirmationCode').value = ''; finish?.(null);
+  });
+  $('recoverOwnerCode').addEventListener('click', async (event) => {
+    event.target.disabled = true;
+    try { toast((await request('/auth/owner/code/request', { method: 'POST', body: '{}' })).data.message); }
+    catch (error) { toast(error.message, true); }
+    finally { event.target.disabled = false; }
+  });
+
+  /* ----------------------- author self-service --------------------------- */
+  const socialInputs = { x: 'selfSocialX', linkedin: 'selfSocialLinkedin', github: 'selfSocialGithub', instagram: 'selfSocialInstagram', youtube: 'selfSocialYoutube' };
+  let selfProfile = null;
+  let selfAnalyticsPage = 1;
+  async function loadSelfProfile() {
+    if (!currentAuthor) return;
+    const status = $('selfProfileStatus'); status.textContent = 'Loading your profile…';
+    try {
+      selfProfile = (await request('/admin/author/profile')).data;
+      const fields = { name: 'selfName', bio: 'selfBio', image: 'selfImage', imageAlt: 'selfImageAlt', profileUrl: 'selfProfileUrl' };
+      Object.entries(fields).forEach(([key, id]) => { $(id).value = selfProfile[key] || ''; });
+      Object.entries(socialInputs).forEach(([key, id]) => { $(id).value = selfProfile.socialLinks?.[key] || ''; });
+      currentAuthor.name = selfProfile.name; currentAuthor.slug = selfProfile.slug;
+      $('author').value = selfProfile.name; $('authorSlug').value = selfProfile.slug;
+      status.textContent = 'Your public profile is ready to edit.';
+    } catch (error) { status.textContent = error.message; }
+  }
+  $('selfProfileForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    const socialLinks = { ...(selfProfile?.socialLinks || {}) };
+    Object.entries(socialInputs).forEach(([key, id]) => { socialLinks[key] = $(id).value.trim(); });
+    try {
+      const payload = { name: $('selfName').value.trim(), bio: $('selfBio').value.trim(), image: $('selfImage').value.trim(),
+        imageAlt: $('selfImageAlt').value.trim(), profileUrl: $('selfProfileUrl').value.trim(), socialLinks };
+      selfProfile = (await request('/admin/author/profile', { method: 'PATCH', body: JSON.stringify(payload) })).data;
+      currentAuthor.name = selfProfile.name;
+      $('sessionUser').textContent = selfProfile.name; $('author').value = selfProfile.name;
+      $('selfProfileStatus').textContent = 'Your profile and article bylines have been updated.';
+      await loadArticles();
+    } catch (error) { $('selfProfileStatus').textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  $('selfImageFile').addEventListener('change', async () => {
+    const file = $('selfImageFile').files[0]; if (!file) return;
+    const alt = $('selfImageAlt').value.trim() || `Photo of ${$('selfName').value.trim() || 'the author'}`;
+    const data = new FormData(); data.append('image', file); data.append('alt', alt);
+    $('selfImageFile').disabled = true;
+    try {
+      const result = await request('/admin/images', { method: 'POST', body: data });
+      $('selfImage').value = result.data.url; $('selfImageAlt').value = alt;
+      $('selfProfileStatus').textContent = 'Photo uploaded to your library. Save your profile to apply it.';
+    } catch (error) { $('selfProfileStatus').textContent = error.message; }
+    finally { $('selfImageFile').value = ''; $('selfImageFile').disabled = false; }
+  });
+  async function loadSelfAnalytics() {
+    if (!currentAuthor) return;
+    $('selfAnalyticsStatus').textContent = 'Loading your article analytics…';
+    try {
+      const data = (await request(`/admin/author/analytics?days=${$('selfAnalyticsDays').value}&page=${selfAnalyticsPage}`)).data;
+      const totals = $('selfAnalyticsTotals'); totals.replaceChildren();
+      const labels = { articles: 'Articles', published: 'Published', drafts: 'Drafts', views: 'Reads', comments: 'Comments', reactions: 'Reactions' };
+      Object.entries(labels).forEach(([key, label]) => {
+        const card = document.createElement('div'); card.className = 'author-metric';
+        const number = document.createElement('strong'); number.textContent = Number(data.totals[key] || 0).toLocaleString();
+        const caption = document.createElement('span'); caption.textContent = label; card.append(number, caption); totals.append(card);
+      });
+      const rows = $('selfAnalyticsRows'); rows.replaceChildren();
+      data.items.forEach((article) => {
+        const row = document.createElement('tr');
+        [article.title, article.status, article.views, article.comments, article.reactions].forEach((value) => {
+          const cell = document.createElement('td'); cell.textContent = String(value); row.append(cell);
+        }); rows.append(row);
+      });
+      $('selfAnalyticsStatus').textContent = data.items.length ? 'Only your articles are included.' : 'No articles on this page yet.';
+      $('selfAnalyticsPage').textContent = `Page ${selfAnalyticsPage}`;
+      $('previousSelfAnalytics').disabled = selfAnalyticsPage === 1;
+      $('nextSelfAnalytics').disabled = selfAnalyticsPage * 50 >= data.totals.articles;
+    } catch (error) { $('selfAnalyticsStatus').textContent = error.message; }
+  }
+  $('refreshSelfAnalytics').addEventListener('click', loadSelfAnalytics);
+  $('selfAnalyticsDays').addEventListener('change', () => { selfAnalyticsPage = 1; loadSelfAnalytics(); });
+  $('previousSelfAnalytics').addEventListener('click', () => { selfAnalyticsPage = Math.max(1, selfAnalyticsPage - 1); loadSelfAnalytics(); });
+  $('nextSelfAnalytics').addEventListener('click', () => { selfAnalyticsPage++; loadSelfAnalytics(); });
+
+  /* -------------------------- owner account access ----------------------- */
+  let accountPage = 1;
+  let accountAction = null;
+  let isOwner = false;
+  async function loadAccounts() {
+    if (!isOwner) return;
+    const status = $('accountAccessStatus');
+    status.textContent = 'Loading author accounts…';
+    try {
+      const response = await request(`/admin/accounts?page=${accountPage}`);
+      const items = response.data.items;
+      $('pendingAccountCount').textContent = response.data.pending ? `(${response.data.pending} pending)` : '';
+      const list = $('accountAccessList');
+      list.replaceChildren();
+      status.textContent = items.length ? 'Review applications and manage access below.' : 'No applications on this page.';
+      $('previousAccounts').disabled = accountPage === 1;
+      $('nextAccounts').disabled = items.length < 50;
+      $('accountPage').textContent = `Page ${accountPage}`;
+      items.forEach((account) => {
+        const item = document.createElement('li');
+        const summary = document.createElement('p');
+        summary.textContent = `${account.display_name || 'Author'} · ${account.email} · ${account.review_status} · ${account.account_status} · ${account.email_verified_at ? 'Email verified' : 'Email not verified'}`;
+        item.append(summary);
+        let actions = [];
+        if (account.review_status === 'pending') actions = ['approve', 'decline'];
+        if (account.review_status === 'approved' && account.account_status === 'active') actions = ['suspend'];
+        if (account.review_status === 'approved' && account.account_status === 'suspended') actions = ['restore'];
+        actions.forEach((action) => {
+          const button = document.createElement('button');
+          button.type = 'button'; button.className = 'ghost-button';
+          button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+          button.disabled = action === 'approve' && !account.email_verified_at;
+          button.addEventListener('click', () => {
+            accountAction = { userId: account.user_id, action };
+            $('accountConfirmationDescription').textContent = `${button.textContent} ${account.email}?`;
+            $('accountConfirmationCode').value = '';
+            $('accountConfirmationError').textContent = '';
+            $('accountConfirmation').showModal();
+          });
+          item.append(button);
+        });
+        list.append(item);
+      });
+    } catch (error) { status.textContent = error.message; }
+  }
+  $('refreshAccounts').addEventListener('click', () => loadAccounts());
+  $('previousAccounts').addEventListener('click', () => { accountPage = Math.max(1, accountPage - 1); loadAccounts(); });
+  $('nextAccounts').addEventListener('click', () => { accountPage++; loadAccounts(); });
+  $('cancelAccountConfirmation').addEventListener('click', () => $('accountConfirmation').close());
+  $('accountConfirmation').addEventListener('close', () => { accountAction = null; $('accountConfirmationCode').value = ''; });
+  $('accountConfirmationForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!accountAction) return;
+    const action = accountAction;
+    const button = event.target.querySelector('[type="submit"]');
+    button.disabled = true;
+    const code = $('accountConfirmationCode').value;
+    $('accountConfirmationCode').value = '';
+    try {
+      const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
+        method: 'POST', body: JSON.stringify({ action: action.action, confirmation_code: code })
+      });
+      $('accountConfirmation').close();
+      toast(result.data.email_delivered ? 'Account updated and email sent.' : 'Account updated. Email delivery needs attention.');
+      await loadAccounts();
+    } catch (error) { $('accountConfirmationError').textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+
   /* -------------------------------- boot -------------------------------- */
 
   async function bootSession() {
@@ -1571,6 +1764,27 @@
       const user = payload.data?.user;
       $('sessionUser').textContent = user?.display_name || user?.full_name || user?.email || 'Signed in';
       $('sessionState').hidden = false;
+      const capabilities = await request('/admin/accounts/capabilities');
+      currentAuthor = capabilities.data.author || null;
+      isOwner = capabilities.data.owner === true;
+      $('accountAccessTab').hidden = !isOwner;
+      if (isOwner) loadAccounts();
+      if (currentAuthor) {
+        $('workspaceLabel').textContent = 'Author workspace';
+        document.title = 'My author workspace — Sholynk Tech';
+        const allowed = new Set(['articles', 'media', 'comments', 'profile', 'author-analytics']);
+        document.querySelectorAll('.tab').forEach((tab) => {
+          tab.hidden = !allowed.has(tab.dataset.panel);
+          if (['articles', 'media', 'comments'].includes(tab.dataset.panel)) tab.textContent = `My ${tab.dataset.panel}`;
+        });
+        ['author', 'authorSlug', 'submitterEmail'].forEach((id) => { $(id).readOnly = true; });
+        ['featured', 'hero'].forEach((id) => { $(id).disabled = true; $(id).closest('label').hidden = true; });
+        $('heroOrder').disabled = true; $('heroOrder').closest('.field').hidden = true;
+        document.querySelector('.tab[data-panel="articles"]').click();
+      }
+      $('adminMain').hidden = false;
+      $('adminNavigation').hidden = false;
+      $('adminLoading').hidden = true;
       return user;
     } catch (error) {
       goToLogin();
@@ -1591,8 +1805,7 @@
     if (!user) return;
     fillForm(null);
     loadArticles().catch((error) => toast(error.message, true));
-    loadAuthors();
-    loadDashboard();
-    connectDashboardStream();
+    if (currentAuthor) { loadSelfProfile(); }
+    else { loadAuthors(); loadDashboard(); connectDashboardStream(); }
   });
 })();

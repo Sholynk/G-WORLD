@@ -125,5 +125,6 @@ export async function purgeStaleTokens(db: Db, olderThanDays = 7): Promise<numbe
     [cutoff],
   );
   const resets = await db.changes(`DELETE FROM password_reset_tokens WHERE expires_at < ?`, [cutoff]);
-  return verification + resets;
+  const owner = await db.changes('DELETE FROM owner_security_tokens WHERE expires_at < ?', [cutoff]);
+  return verification + resets + owner;
 }

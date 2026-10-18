@@ -309,7 +309,8 @@ async function main() {
     const view2 = await call(`/articles/${SEEDED_STORY}/views`, { method: 'POST', body: { voterId: voter } });
     assertEqual(view2.json?.data?.counted, false, 'a repeat read by the same viewer does not count');
     const unknownView = await call('/articles/no-such-story/views', { method: 'POST', body: { voterId: voter } });
-    assertEqual(unknownView.json?.data?.reason, 'unknown-article', 'views for unknown slugs are rejected');
+    assertEqual(unknownView.response.status, 404, 'views for unknown slugs are rejected');
+    assertEqual(unknownView.json?.error?.code, 'NOT_FOUND', 'unknown article views use the standard error envelope');
 
     // moderation deletes the smoke comment
     const list = await call('/admin/comments?limit=200', { jar: adminJar });

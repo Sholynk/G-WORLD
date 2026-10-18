@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   verify:
-    name: install, check, typecheck, test
+    name: install, check, typecheck, test, browser
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -47,8 +47,27 @@ jobs:
       - name: Install dependencies (npm ci)
         run: npm ci --progress=false
 
-      # config + lockfile + structure + typecheck + unit tests (integration tests
-      # skip themselves when no API is running, which is the case in CI).
+      - name: Seed local test database
+        run: npm run db:seed:local -- --verify
+
+      # Integration tests must exercise a running Worker, not silently skip.
+      - name: Start local website and API
+        run: |
+          npm run dev > /tmp/sholynk-dev.log 2>&1 &
+          node --input-type=module <<'JS'
+          for (const url of ['http://127.0.0.1:8787/api/v1/health/ready', 'http://127.0.0.1:5173/']) {
+            let ready = false;
+            for (let i = 0; i < 90; i++) {
+              try {
+                const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+                if (response.ok) { ready = true; break; }
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            if (!ready) throw new Error(`Local test server did not start: ${url}`);
+          }
+          JS
+
       - name: Verify
         run: npm run verify
 
@@ -56,3 +75,15 @@ jobs:
       # routing rules and page links before they reach production.
       - name: Frontend build (Cloudflare-equivalent, runs the Pages gate)
         run: npm run build:web
+
+      - name: Worker build (dry run only)
+        run: npm run build
+
+      - name: API and website smoke tests
+        run: npm run test:smoke && npm run test:web
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Desktop and mobile browser checks
+        run: npm run test:browser

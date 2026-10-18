@@ -20,6 +20,7 @@
  *     an email; the token is only stored as a hash.
  */
 import { Hono } from 'hono';
+import { ownerSecurityRoutes } from './owner-security.js';
 import type { AppEnv } from '../env.js';
 import {
   changePasswordSchema,
@@ -32,6 +33,7 @@ import {
 } from '@sholynk/shared';
 import { createDb } from '../db/client.js';
 import * as usersRepo from '../db/repositories/users.js';
+import * as authorAccess from '../db/repositories/author-access.js';
 import * as rolesRepo from '../db/repositories/roles.js';
 import * as sessionsRepo from '../db/repositories/sessions.js';
 import * as tokensRepo from '../db/repositories/tokens.js';
@@ -45,6 +47,7 @@ import { sendEmail, TEMPLATES } from '../lib/mailer/index.js';
 import { clearSessionCookies, setSessionCookies, SESSION_COOKIE, readCookie } from '../lib/cookies.js';
 import { parseJson } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rate-limit.js';
+import { assertOwnerPassword, requireSensitiveOwnerConfirmation } from '../middleware/owner-confirmation.js';
 import { requireAuth } from '../middleware/auth.js';
 import { created, ok } from './helpers.js';
 import {
@@ -53,6 +56,7 @@ import {
   conflict,
   emailNotVerified,
   featureDisabled,
+  forbidden,
   internalError,
   invalidCredentials,
   notFound,
@@ -60,6 +64,7 @@ import {
 import { toUserProfileDto } from '../schemas/mappers.js';
 
 export const authRoutes = new Hono<AppEnv>();
+authRoutes.route('/owner', ownerSecurityRoutes);
 
 const MAX_FAILED_ATTEMPTS = 8;
 const LOCK_MINUTES = 15;
@@ -89,6 +94,10 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
     ]);
   }
 
+  if (input.email === authorAccess.OWNER_EMAIL) throw forbidden('This address is reserved for secure owner setup.');
+  const owner = await authorAccess.owner(db);
+  if (!owner) throw featureDisabled('Author registration until owner setup is complete');
+
   const editorRole = await rolesRepo.requireRoleByKey(db, 'editor');
   const passwordHash = await hashPassword(input.password, config.passwordIterations);
 
@@ -99,6 +108,7 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
       passwordHash,
       roleId: editorRole.id,
       status: 'pending_verification',
+      authorApplication: true,
       termsAcceptedAt: new Date().toISOString(),
     },
     {
@@ -106,6 +116,23 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
       fullName: input.full_name ?? null,
     },
   );
+
+  try {
+    await notificationsRepo.createNotification(db, {
+      userId: owner.user_id, type: 'info', title: 'New author application',
+      body: 'An author application is awaiting review. Open Author access in your dashboard.',
+      linkUrl: '/admin/',
+    });
+    await sendEmail(db, config, logger, authorAccess.OWNER_EMAIL, {
+      userId: owner.user_id,
+      content: { template: 'author_application', subject: 'New Sholynk Tech author application',
+        text: `A new author application awaits your review. Open ${config.appBaseUrl}/admin/ to approve or decline it.`,
+        html: '<p>A new author application awaits your review. Open Author access in your Sholynk Tech dashboard.</p>',
+      },
+    });
+  } catch {
+    logger.warn('Owner application notification failed; application remains in dashboard', { user_id: userId });
+  }
 
   const token = generateToken();
   await tokensRepo.createVerificationToken(
@@ -136,7 +163,7 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
     userId,
     type: 'info',
     title: 'Welcome to Sholynk Tech',
-    body: 'Confirm your email address to activate your account, then submit your first article for review.',
+    body: 'Confirm your email address. Your application also requires approval from the website owner.',
     linkUrl: '/admin/',
   });
 
@@ -156,6 +183,7 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
     {
       user: profile ? toUserProfileDto(profile) : { id: userId, email: input.email },
       verification_required: true,
+      approval_required: true,
       verification_email_queued: delivery.queued,
       email_delivered: delivery.delivered,
       // Development convenience: exposing the token lets the local flow be
@@ -197,7 +225,11 @@ authRoutes.post('/verify-email', rateLimit('auth.resend_verification'), async (c
   if (user) {
     await sendEmail(db, config, c.get('logger'), user.email, {
       userId: user.id,
-      content: TEMPLATES.welcomeEmail({
+      content: (await authorAccess.reviewStatus(db, user.id)) ? {
+        template: 'author_email_verified', subject: 'Sholynk Tech email confirmed',
+        text: 'Your email is confirmed. Author access also requires approval from the website owner.',
+        html: '<p>Your email is confirmed. Author access also requires approval from the website owner.</p>',
+      } : TEMPLATES.welcomeEmail({
         toEmail: user.email,
         displayName: user.display_name,
         branding: branding(config),
@@ -207,7 +239,7 @@ authRoutes.post('/verify-email', rateLimit('auth.resend_verification'), async (c
       userId: user.id,
       type: 'success',
       title: 'Email confirmed',
-      body: 'Your account is active. Open the editorial dashboard to submit your first article.',
+      body: 'Your email is confirmed. Author access also requires approval from the website owner.',
       linkUrl: '/admin/',
     });
   }
@@ -348,6 +380,13 @@ authRoutes.post('/login', rateLimit('auth.login'), async (c) => {
     throw emailNotVerified();
   }
 
+  if (!(await authorAccess.accessAllowed(db, credentials.id))) {
+    const review = await authorAccess.reviewStatus(db, credentials.id);
+    throw forbidden(review === 'declined'
+      ? 'Your author application was declined. Contact the website owner.'
+      : 'Your account is awaiting approval from the website owner.');
+  }
+
   // Transparently upgrade the hash when the configured strength increased.
   if (needsRehash(credentials.password_hash, config.passwordIterations)) {
     const upgraded = await hashPassword(input.password, config.passwordIterations);
@@ -464,6 +503,7 @@ authRoutes.post('/reset-password', rateLimit('auth.reset_password'), async (c) =
   if (record.consumed_at) throw conflict('This reset link has already been used. Request a new one.');
   if (isExpired(record.expires_at)) throw conflict('This reset link has expired. Request a new one.');
 
+  await assertOwnerPassword(db, record.user_id, input.password);
   const consumed = await tokensRepo.consumeResetToken(db, tokenHash);
   if (!consumed) throw conflict('This reset link has already been used.');
 
@@ -508,7 +548,7 @@ authRoutes.get('/me', requireAuth(), async (c) => {
 });
 
 /** Authenticated password change: requires the current password. */
-authRoutes.post('/change-password', requireAuth(), async (c) => {
+authRoutes.post('/change-password', requireAuth(), requireSensitiveOwnerConfirmation, async (c) => {
   const config = c.get('config');
   const auth = c.get('auth')!;
   const db = createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
@@ -529,6 +569,7 @@ authRoutes.post('/change-password', requireAuth(), async (c) => {
     throw invalidCredentials();
   }
 
+  await assertOwnerPassword(db, auth.userId, input.new_password);
   const hash = await hashPassword(input.new_password, config.passwordIterations);
   await usersRepo.updatePasswordHash(db, auth.userId, hash);
   await sessionsRepo.revokeAllUserSessions(db, auth.userId, 'password_change', auth.sessionId);
@@ -568,7 +609,7 @@ authRoutes.get('/sessions', requireAuth(), async (c) => {
   );
 });
 
-authRoutes.delete('/sessions/:sessionId', requireAuth(), async (c) => {
+authRoutes.delete('/sessions/:sessionId', requireAuth(), requireSensitiveOwnerConfirmation, async (c) => {
   const auth = c.get('auth')!;
   const db = createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
   const sessionId = c.req.param('sessionId');

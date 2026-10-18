@@ -49,6 +49,10 @@
           Sign in with your editorial account to open the content dashboard.
         </p>
 
+        <div class="auth-links" role="group" aria-label="Account access">
+          <button type="button" class="btn-primary" id="showLogin" aria-pressed="true">Login</button>
+          <button type="button" class="btn-primary" id="showRegister" aria-pressed="false">Register as an author</button>
+        </div>
         <form id="loginForm" class="auth-form" novalidate>
           <div class="form-field">
             <label for="email">Email</label>
@@ -82,8 +86,21 @@
           <p class="form-status" id="loginStatus" role="status" aria-live="polite"></p>
         </form>
 
+        <form id="registerForm" class="auth-form" hidden>
+          <p>Apply to become an author. Verify your email, then wait for the website owner's approval before signing in.</p>
+          <div class="form-field"><label for="registerName">Public author name</label><input id="registerName" name="display_name" autocomplete="name" minlength="2" maxlength="80" required /></div>
+          <div class="form-field"><label for="registerEmail">Email</label><input id="registerEmail" name="email" type="email" autocomplete="email" required /></div>
+          <div class="form-field"><label for="registerPassword">Password</label><input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /><small>At least 8 characters, including a lowercase letter and an uppercase letter or number.</small></div>
+          <div class="form-field"><label for="registerConfirm">Confirm password</label><input id="registerConfirm" type="password" autocomplete="new-password" required /></div>
+          <label class="auth-remember"><input id="acceptedTerms" type="checkbox" required /> I accept the <a href="privacy_policy.html">privacy policy</a> and editorial account requirements.</label>
+          <button class="btn-primary auth-submit" type="submit">Submit application</button>
+          <p id="registerStatus" class="form-status" role="status" aria-live="polite"></p>
+          <button type="button" class="btn-primary" id="resendVerification">Resend verification email</button>
+        </form>
+
         <p class="auth-links">
           <a href="reset.html">Forgot your password?</a>
+          <a href="reset.html#owner-request">Owner setup</a>
           <a href="index.html">Back to the site</a>
         </p>
       </section>

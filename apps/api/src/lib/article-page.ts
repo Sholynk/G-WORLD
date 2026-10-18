@@ -76,6 +76,7 @@ export interface RenderableAuthor {
   image?: string;
   imageAlt?: string;
   profileUrl?: string;
+  socialLinks?: Record<string, string>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,10 +127,12 @@ export function renderAuthorCard(author: ResolvedAuthor, variant: 'rail' | 'inli
   const link = author.profileUrl
     ? `<a class="article-author-link" href="${escapeHtml(author.id)}" target="_blank" rel="noopener noreferrer">View full profile <i class="fas fa-arrow-right" aria-hidden="true"></i></a>`
     : '';
+  const social = Object.entries(author.socialLinks || {}).filter(([, url]) => /^https:\/\//i.test(url))
+    .map(([label, url]) => `<a class="article-author-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`).join(' ');
   const classes = ['article-author-card', `article-author-card--${variant}`].join(' ');
   return `<aside class="${classes}" aria-label="About ${escapeHtml(author.name || 'the author')}">${media}<div class="article-author-body"><p class="eyebrow">Written by</p><h3>${escapeHtml(
     author.name || 'Sholynk Editorial',
-  )}</h3>${bio}${link}</div></aside>`;
+  )}</h3>${bio}${link}${social ? `<nav aria-label="Author social links">${social}</nav>` : ''}</div></aside>`;
 }
 
 /**
@@ -258,8 +261,9 @@ export function resolveAuthor(
 ): ResolvedAuthor {
   const entity = (authors || []).find((author) => author.slug === article.authorSlug) ?? ({} as RenderableAuthor);
   const slug = entity.slug || article.authorSlug || 'oluwashola-busari';
-  const profileUrl = absoluteUrl(entity.profileUrl || 'about.html', origin);
-  const id = profileUrl.includes('#') ? profileUrl : `${profileUrl}#${encodeURIComponent(slug)}`;
+  const profileUrl = entity.profileUrl || !entity.slug ? absoluteUrl(entity.profileUrl || 'about.html', origin) : '';
+  const id = profileUrl ? (profileUrl.includes('#') ? profileUrl : `${profileUrl}#${encodeURIComponent(slug)}`)
+    : `${absoluteUrl('/', origin)}#author-${encodeURIComponent(slug)}`;
   return {
     ...entity,
     slug,
@@ -291,7 +295,7 @@ export function schemaFor(
         '@type': 'Person',
         '@id': author.id,
         name: author.name,
-        url: author.profileUrl,
+        url: author.profileUrl || undefined,
         jobTitle: author.role || undefined,
         description: author.bio || undefined,
         image: author.image ? absoluteUrl(author.image, origin) : undefined,

@@ -26,6 +26,7 @@ const LEVEL_ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, e
 /** Field names that must never reach the log stream. */
 const REDACTED_KEYS = new Set([
   'password', 'new_password', 'current_password', 'password_hash', 'token', 'token_hash',
+    'confirmation_code', 'confirmation_hash', 'bootstrap_password_hash', 'x-owner-confirmation',
   'session_secret', 'api_key', 'authorization', 'cookie', 'set-cookie', 'answer_text',
   'submission_text', 'secret', 'resend_api_key', 'signature',
 ]);

@@ -4104,3 +4104,6 @@ textarea:focus {
 .auth-view .site-footer {
   margin-top: 0;
 }
+
+/* Auth mode switching must override authored display rules. */
+.auth-view [hidden] { display: none !important; }

@@ -19,6 +19,7 @@ export interface AuthorDto {
   image: string;
   imageAlt: string;
   profileUrl: string;
+  socialLinks: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +48,7 @@ function toApi(row: AuthorRow | null): AuthorDto | null {
     image: String(row.image ?? ''),
     imageAlt: String(row.image_alt ?? ''),
     profileUrl: String(row.profile_url ?? ''),
+    socialLinks: JSON.parse(String(row.social_links_json || '{}')) as Record<string, string>,
     createdAt: String(row.created_at ?? ''),
     updatedAt: String(row.updated_at ?? ''),
   };
@@ -160,6 +162,9 @@ export async function update(
 export async function remove(db: Db, id: number): Promise<boolean> {
   const existing = await get(db, id);
   if (!existing) return false;
+  if (await db.exists('SELECT 1 AS found FROM author_applications WHERE author_id = ?', [id])) {
+    throw badRequest('Registered author profiles are retained. Suspend their account in Author access instead.');
+  }
   if (existing.slug === DEFAULT_AUTHOR.slug) {
     throw badRequest('the site owner profile cannot be deleted; every article falls back to it');
   }

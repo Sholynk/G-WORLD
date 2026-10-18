@@ -28,9 +28,17 @@ import {
 } from '@sholynk/shared';
 import { parseFormOrJson, parseJson, parseParam, parseQuery } from '../../middleware/validate.js';
 import { rateLimit } from '../../middleware/rate-limit.js';
+import { notFound } from '../../lib/errors.js';
 import { created, ok } from '../helpers.js';
 
 export const publicEngagementRoutes = new Hono<AppEnv>();
+// Public engagement is only available for published articles. A guessed draft
+// slug must not expose its comments, activity or permit fabricated engagement.
+publicEngagementRoutes.use('/articles/:slug/*', async (c, next) => {
+  const db = createDb(c.env.DB);
+  if (!(await db.exists("SELECT 1 AS found FROM articles WHERE slug = ? AND status = 'published'", [c.req.param('slug') ?? '']))) throw notFound('Article not found');
+  await next();
+});
 
 const dbFrom = (c: AppContext) => createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
 

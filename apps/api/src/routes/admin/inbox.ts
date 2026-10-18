@@ -18,6 +18,7 @@ import * as formsRepo from '../../db/repositories/forms.js';
 import { limitQuerySchema, messageStatusSchema } from '@sholynk/shared';
 import { parseJson, parseQuery } from '../../middleware/validate.js';
 import { requirePermission } from '../../middleware/auth.js';
+import { requireScopedPermission, authorScope } from '../../middleware/author-scope.js';
 import { notFound } from '../../lib/errors.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { audit } from '../../services/audit.js';
@@ -36,16 +37,16 @@ function numericId(c: AppContext, label: string): number {
 
 /* ------------------------------- moderation -------------------------------- */
 
-adminModerationRoutes.get('/comments', requirePermission('engagement.moderate'), async (c) => {
+adminModerationRoutes.get('/comments', requireScopedPermission('engagement.moderate'), async (c) => {
   const query = parseQuery(c, limitQuerySchema);
   const db = dbFrom(c);
-  return ok(c, await engagementRepo.listAllComments(db, query.limit));
+  return ok(c, await engagementRepo.listAllComments(db, query.limit, (await authorScope(c))?.userId));
 });
 
-adminModerationRoutes.delete('/comments/:id', requirePermission('engagement.moderate'), async (c) => {
+adminModerationRoutes.delete('/comments/:id', requireScopedPermission('engagement.moderate'), async (c) => {
   const id = numericId(c, 'Comment not found');
   const db = dbFrom(c);
-  if (!(await engagementRepo.removeComment(db, id))) throw notFound('Comment not found');
+  if (!(await engagementRepo.removeComment(db, id, (await authorScope(c))?.userId))) throw notFound('Comment not found');
   await audit(c, {
     action: AUDIT_ACTIONS.commentDeleted,
     entityType: 'comment',
