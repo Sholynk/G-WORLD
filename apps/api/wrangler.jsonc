@@ -41,7 +41,8 @@
     {
       "binding": "DB",
       "database_name": "sholynk_tech",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "170cbbe7-b844-44f5-a828-33b3e8692210
+",
       "migrations_dir": "../../database/migrations"
     }
   ],
@@ -105,7 +106,8 @@
         {
           "binding": "DB",
           "database_name": "sholynk_tech",
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "170cbbe7-b844-44f5-a828-33b3e8692210
+",
           "migrations_dir": "../../database/migrations"
         }
       ],
