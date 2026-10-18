@@ -1,5 +1,5 @@
 /**
- * @g-world/shared — runtime-agnostic contracts used by the API, the tests and
+ * @sholynk/shared — runtime-agnostic contracts used by the API, the tests and
  * (for reference) the frontend.
  *
  * Nothing in this package may import Cloudflare, Hono or Node built-ins, so the

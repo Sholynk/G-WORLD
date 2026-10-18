@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — local development server for the static frontend.
+ * Sholynk Tech — local development server for the static frontend.
  *
  * Serves `apps/web/public` and proxies `/api/*` to the API worker, so the
  * browser talks to **one origin** in development exactly as it does in
@@ -63,26 +63,50 @@ const MIME = {
   '.pdf': 'application/pdf',
 };
 
-/** Friendly URL → file, mirroring the `_redirects` file used by Pages. */
+/**
+ * Friendly URL → file, mirroring what Pages does for clean URLs. In
+ * production these paths are intercepted by Pages Functions (which inject
+ * origin metadata); in development the static file is served as-is and the
+ * client-side settings script covers the homepage.
+ */
 const PRETTY_ROUTES = {
   '/': 'index.html',
-  '/departments': 'departments.html',
-  '/subjects': 'subjects.html',
-  '/subject': 'subject.html',
-  '/courses': 'courses.html',
-  '/search': 'search.html',
+  '/about': 'about.html',
+  '/contact': 'contact.html',
+  '/help_&_support': 'help_&_support.html',
+  '/privacy_policy': 'privacy_policy.html',
   '/login': 'login.html',
-  '/register': 'register.html',
   '/reset': 'reset.html',
-  '/dashboard': 'dashboard.html',
-  '/my-courses': 'my-courses.html',
-  '/progress': 'progress.html',
-  '/certificates': 'certificates.html',
-  '/profile': 'profile.html',
-  '/settings': 'settings.html',
-  '/verify': 'verify.html',
   '/admin': 'admin/index.html',
 };
+
+/**
+ * Document routes that Pages Functions own in production. The dev server
+ * reproduces them by proxying to the API worker's render endpoints, so
+ * `/articles/<slug>/`, `/article.html?slug=…`, `/uploads/*`, `/robots.txt`
+ * and `/sitemap.xml` behave the same locally as they do deployed.
+ */
+function documentTarget(pathname, search, hostHeader) {
+  const origin = `http://${hostHeader}`;
+  if (pathname === '/robots.txt') {
+    return `${API_TARGET}/api/v1/seo/robots.txt?origin=${encodeURIComponent(origin)}`;
+  }
+  if (pathname === '/sitemap.xml') {
+    return `${API_TARGET}/api/v1/seo/sitemap.xml?origin=${encodeURIComponent(origin)}`;
+  }
+  if (pathname === '/article' || pathname === '/article.html') {
+    const slug = new URLSearchParams(search).get('slug') ?? '';
+    return `${API_TARGET}/api/v1/render/legacy-article?slug=${encodeURIComponent(slug)}&origin=${encodeURIComponent(origin)}`;
+  }
+  const article = /^\/articles\/([^/]+)\/?$/.exec(pathname);
+  if (article) {
+    return `${API_TARGET}/api/v1/render/articles/${article[1]}?origin=${encodeURIComponent(origin)}`;
+  }
+  if (pathname.startsWith('/uploads/')) {
+    return `${API_TARGET}/api/v1${pathname}`;
+  }
+  return null;
+}
 
 /**
  * Parses `_redirects` (Netlify/Pages syntax) into rules.
@@ -198,8 +222,8 @@ async function sendFile(file, request, response) {
   createReadStream(file).pipe(response);
 }
 
-async function proxy(request, response) {
-  const target = `${API_TARGET}${request.url}`;
+async function proxy(request, response, targetOverride) {
+  const target = targetOverride ?? `${API_TARGET}${request.url}`;
   const headers = { ...request.headers, host: new URL(API_TARGET).host };
 
   const hasBody = !['GET', 'HEAD'].includes(request.method ?? 'GET');
@@ -246,11 +270,23 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pathname = url.split('?')[0];
+    const search = url.includes('?') ? url.slice(url.indexOf('?')) : '';
+
+    // Document routes owned by Pages Functions in production.
+    const docTarget = documentTarget(pathname, search, request.headers.host ?? `localhost:${PORT}`);
+    if (docTarget) {
+      await proxy(request, response, docTarget);
+      return;
+    }
 
     // `_redirects` first, exactly as the host would evaluate it.
     for (const rule of redirects) {
       const target = applyRule(rule, pathname);
       if (!target) continue;
+
+      // Loop guard: a rule whose destination is the path being requested
+      // (modulo the trailing slash) would redirect forever.
+      if (target.split('?')[0].replace(/\/$/, '') === pathname.replace(/\/$/, '')) continue;
 
       if (rule.status === 200) {
         const rewritten = resolveFile(target);
@@ -280,7 +316,7 @@ const server = http.createServer(async (request, response) => {
 
     await sendFile(file, request, response);
   } catch (error) {
-    const isProxyError = url.startsWith('/api/');
+    const isProxyError = url.startsWith('/api/') || url.startsWith('/articles/') || url.startsWith('/uploads/');
     response.writeHead(isProxyError ? 502 : 500, { 'Content-Type': 'application/json; charset=utf-8' });
     response.end(
       JSON.stringify({
@@ -298,9 +334,9 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log('G WORLD web — static frontend + /api proxy');
+  console.log('Sholynk Tech web — static frontend + document/API proxies');
   console.log(`  local:    http://localhost:${PORT}`);
   console.log(`  network:  http://${HOST}:${PORT}`);
-  console.log(`  proxying  /api/* → ${API_TARGET}`);
+  console.log(`  proxying  /api/*, /uploads/*, /articles/*, /robots.txt, /sitemap.xml → ${API_TARGET}`);
   console.log(`  serving   ${path.relative(ROOT, PUBLIC_DIR)}`);
 });

@@ -6,7 +6,7 @@
  * suspended. Broadcasting (user_id IS NULL) is reserved for administrators.
  */
 import type { Db } from '../client.js';
-import type { NotificationType } from '@g-world/shared';
+import type { NotificationType } from '@sholynk/shared';
 import { newId, ID_PREFIXES } from '../../lib/ids.js';
 
 export interface NotificationRow {

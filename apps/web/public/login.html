@@ -1,112 +1,100 @@
 <!doctype html>
-<html lang="en" data-page="login">
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Log in · G WORLD</title>
-    <meta name="description" content="Log in to your G WORLD account to continue your courses.">
-    <link rel="canonical" href="https://g-world.pages.dev/login.html">
-    <meta name="theme-color" content="#0C7ABF">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Sora:wght@600;700&display=swap">
-    <link rel="stylesheet" href="/assets/css/tokens.css">
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/layout.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/forms.css">
-    <link rel="stylesheet" href="/assets/css/tables.css">
-    <link rel="stylesheet" href="/assets/css/animations.css">
-    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
-    <script src="/config.js"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Sign in - Sholynk Tech</title>
+    <meta content="Editorial sign-in for the Sholynk Tech CMS." name="description" />
+    <meta content="noindex, nofollow" name="robots" />
+    <meta content="#000000" name="theme-color" />
+    <link rel="canonical" href="./" />
+    <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link href="styles.css" rel="stylesheet" />
   </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <header class="site-header" data-site-header>
-      <div class="site-nav">
-        <div class="site-nav__inner container">
-          <a class="brand" href="/index.html">G WORLD</a>
-
-          <nav class="site-nav__links" aria-label="Main">
-            <a class="site-nav__link" href="/departments.html">Departments</a>
-            <a class="site-nav__link" href="/subjects.html">Subjects</a>
-            <a class="site-nav__link" href="/courses.html">Courses</a>
-          </nav>
-
-          <div class="site-nav__actions">
-            <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-            <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-            <span class="site-nav__name" data-nav-session data-nav-name hidden></span>
-            <a class="btn" data-nav-register href="/register.html">Register</a>
-          </div>
-
-          <details class="site-nav__menu">
-            <summary class="btn o">Menu</summary>
-            <div class="site-nav__panel">
-              <a class="site-nav__link" href="/departments.html">Departments</a>
-              <a class="site-nav__link" href="/subjects.html">Subjects</a>
-              <a class="site-nav__link" href="/courses.html">Courses</a>
-              <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-              <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-              <a class="btn" data-nav-register href="/register.html">Register</a>
-            </div>
-          </details>
-        </div>
+  <body class="auth-view">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" aria-label="Sholynk homepage">
+          <img
+            alt="Sholynk logo"
+            class="site-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="index.html">Home</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </nav>
       </div>
     </header>
 
-    <main id="main" class="site-main" tabindex="-1">
-      <div class="container">
-        <div class="auth">
-          <h1>Log in</h1>
-          <p class="auth__lead">Welcome back. Log in to pick up where you left off.</p>
+    <main class="auth-main" id="main-content">
+      <section class="auth-card" aria-labelledby="login-title">
+        <p class="eyebrow">Sholynk CMS</p>
+        <h1 id="login-title">Editorial sign in</h1>
+        <p class="auth-subtitle">
+          Sign in with your editorial account to open the content dashboard.
+        </p>
 
-          <form class="form" data-login-form novalidate>
-            <div class="field">
-              <label for="email">Email</label>
-              <input id="email" name="email" type="email" autocomplete="email" required>
-            </div>
-
-            <div class="field">
-              <label for="password">Password</label>
-              <input id="password" name="password" type="password" autocomplete="current-password" required minlength="8">
-            </div>
-
-            <button class="btn btn--block" type="submit">Log in</button>
-            <p class="form-status" data-form-status role="status" aria-live="polite"></p>
-          </form>
-
-          <div class="auth__links">
-            <a href="/reset.html">Forgot password?</a>
-            <a href="/register.html">Create an account</a>
+        <form id="loginForm" class="auth-form" novalidate>
+          <div class="form-field">
+            <label for="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
           </div>
-        </div>
-      </div>
-      <div data-page-error></div>
+          <div class="form-field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Your password"
+              required
+            />
+          </div>
+          <label class="auth-remember">
+            <input id="remember" name="remember" type="checkbox" />
+            Keep me signed in on this device
+          </label>
+          <button class="btn-primary auth-submit" type="submit">
+            <i class="fas fa-right-to-bracket" aria-hidden="true"></i> Sign in
+          </button>
+          <p class="form-status" id="loginStatus" role="status" aria-live="polite"></p>
+        </form>
+
+        <p class="auth-links">
+          <a href="reset.html">Forgot your password?</a>
+          <a href="index.html">Back to the site</a>
+        </p>
+      </section>
     </main>
 
-    <footer class="site-footer" data-site-footer>
-      <div class="site-footer__inner container">
-        <p class="site-footer__brand" data-footer-site>G WORLD</p>
-        <nav class="site-footer__links" aria-label="Footer">
-          <a href="/departments.html">Departments</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/subjects.html">Subjects</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/courses.html">Courses</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="mailto:support@gworld.example" data-footer-email>support@gworld.example</a>
-        </nav>
+    <footer class="site-footer">
+      <div class="footer-legal">
+        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
       </div>
     </footer>
-
-    <script type="module">
-      import { boot } from '/assets/js/core/boot.js';
-      import { init } from '/assets/js/pages/login.js';
-      boot(init);
-    </script>
+    <script src="script.js"></script>
+    <script src="login.js"></script>
   </body>
 </html>

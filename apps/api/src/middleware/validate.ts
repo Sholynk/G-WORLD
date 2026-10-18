@@ -12,10 +12,10 @@
  */
 import type { z } from 'zod';
 import type { AppContext } from '../env.js';
-import type { ApiErrorDetail } from '@g-world/shared';
+import type { ApiErrorDetail } from '@sholynk/shared';
 import { AppError } from '../lib/errors.js';
 
-export const MAX_JSON_BODY_BYTES = 256 * 1024;
+export const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
 function toDetails(error: z.ZodError): ApiErrorDetail[] {
   return error.issues.slice(0, 25).map((issue) => ({
@@ -105,6 +105,38 @@ export function parseParams<S extends z.ZodType>(c: AppContext, schema: S): z.in
   const result = schema.safeParse(c.req.param());
   if (!result.success) {
     throw new AppError('VALIDATION_ERROR', 'Invalid path parameters', {
+      details: toDetails(result.error),
+    });
+  }
+  return result.data;
+}
+
+/**
+ * Parses a body that may arrive as JSON *or* as a classic HTML form
+ * (`application/x-www-form-urlencoded` / `multipart/form-data`). The public
+ * newsletter and contact forms post urlencoded bodies exactly like the legacy
+ * site did; the same endpoints also accept JSON for programmatic callers.
+ */
+export async function parseFormOrJson<S extends z.ZodType>(
+  c: AppContext,
+  schema: S,
+): Promise<z.infer<S>> {
+  const contentType = (c.req.header('content-type') ?? '').toLowerCase();
+  if (contentType.includes('application/json')) return parseJson(c, schema);
+
+  assertBodySize(c, MAX_JSON_BODY_BYTES);
+  let raw: Record<string, unknown>;
+  try {
+    raw = (await c.req.parseBody()) as Record<string, unknown>;
+  } catch {
+    throw new AppError('VALIDATION_ERROR', 'Request body could not be parsed', {
+      details: [{ message: 'Send JSON or a urlencoded/multipart form body.' }],
+    });
+  }
+
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new AppError('VALIDATION_ERROR', 'Some fields need your attention', {
       details: toDetails(result.error),
     });
   }

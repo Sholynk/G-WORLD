@@ -1,288 +1,367 @@
 <!doctype html>
-<html lang="en" data-page="home">
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>G WORLD · Learn by department, subject and skill</title>
-    <meta name="description" content="G WORLD teaches you with short video lessons, quizzes and QR-verified certificates — organised by department, subject and course.">
-    <link rel="canonical" href="https://g-world.pages.dev/index.html">
-    <meta name="theme-color" content="#0C7ABF">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Sora:wght@600;700&display=swap">
-    <link rel="stylesheet" href="/assets/css/tokens.css">
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/layout.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/forms.css">
-    <link rel="stylesheet" href="/assets/css/tables.css">
-    <link rel="stylesheet" href="/assets/css/animations.css">
-    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
-    <script src="/config.js"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Sholynk Tech - AI, Web3 and Emerging Tech Insights</title>
+    <meta
+      content="Explore editor picks, practical guides and analysis on AI trends, Web3, software development, cybersecurity and emerging technology."
+      name="description"
+    />
+    <meta
+      content="technology, AI trends, Web3, software development, cybersecurity, articles, editor picks, news, analysis"
+      name="keywords"
+    />
+    <meta content="Sholynk" name="author" />
+    <!-- Additional theming meta tags for wider platform support -->
+    <meta name="msapplication-TileColor" content="#000000" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      property="og:title"
+      content="Sholynk Tech - AI, Web3 and Emerging Tech Insights"
+    />
+    <meta
+      property="og:description"
+      content="Stay ahead with practical articles and thoughtful analysis on AI, Web3 and the future of technology."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="./" />
+    <meta property="og:image" content="assets/brand/page_logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="./" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "./#organization",
+            "name": "Sholynk Technology",
+            "url": "./",
+            "logo": "assets/brand/page_logo.png",
+            "founder": { "@id": "about.html#oluwashola-busari" }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "./#website",
+            "url": "./",
+            "name": "Sholynk Tech",
+            "publisher": { "@id": "./#organization" }
+          }
+        ]
+      }
+    </script>
+    <link
+      rel="shortcut icon"
+      href="assets/brand/sholynk_icon.png"
+      type="image/png"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link href="styles.css" rel="stylesheet" />
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <header class="site-header" data-site-header>
-      <div class="site-nav">
-        <div class="site-nav__inner container">
-          <a class="brand" href="/index.html">G WORLD</a>
-
-          <nav class="site-nav__links" aria-label="Main">
-            <a class="site-nav__link" href="/departments.html">Departments</a>
-            <a class="site-nav__link" href="/subjects.html">Subjects</a>
-            <a class="site-nav__link" href="/courses.html">Courses</a>
-          </nav>
-
-          <div class="site-nav__actions">
-            <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-            <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-            <span class="site-nav__name" data-nav-session data-nav-name hidden></span>
-            <a class="btn" data-nav-register href="/register.html">Register</a>
-          </div>
-
-          <details class="site-nav__menu">
-            <summary class="btn o">Menu</summary>
-            <div class="site-nav__panel">
-              <a class="site-nav__link" href="/departments.html">Departments</a>
-              <a class="site-nav__link" href="/subjects.html">Subjects</a>
-              <a class="site-nav__link" href="/courses.html">Courses</a>
-              <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-              <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-              <a class="btn" data-nav-register href="/register.html">Register</a>
-            </div>
-          </details>
+    <!-- Header -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" aria-label="Sholynk homepage">
+          <img
+            alt="Sholynk logo"
+            class="site-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+        </a>
+        <div class="social-links" aria-label="Social links">
+          <a
+            aria-label="WhatsApp"
+            href="https://wa.me/qr/CV4VS7HDF2PHD1"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><i class="fab fa-whatsapp" aria-hidden="true"></i
+          ></a>
+          <a
+            aria-label="Facebook"
+            href="https://www.facebook.com/share/18xwSHcWr4/"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><i class="fab fa-facebook-f" aria-hidden="true"></i
+          ></a>
+          <a
+            aria-label="X / Twitter"
+            href="https://x.com/sholynked"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+          ></a>
         </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a class="is-active" href="index.html">Home</a>
+          <a href="index.html?category=Technology">Technology</a>
+          <a href="index.html?category=AI%20Trends">AI</a>
+          <a href="index.html?category=Cryptocurrency">Cryptocurrency</a>
+          <a href="index.html?category=Game">Game</a>
+          <a href="index.html?category=Web%203">Web 3</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </nav>
+        <button
+          class="hamburger"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-controls="sidebar"
+          aria-expanded="false"
+        >
+          <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
 
-    <main id="main" class="site-main" tabindex="-1">
-      <section class="hero" aria-roledescription="carousel" aria-label="Highlights" data-hero-slider>
-        <span class="hero__blob hero__blob--1" aria-hidden="true" style="width: 420px; height: 420px; inset-block-start: -120px; inset-inline-end: -80px;"></span>
-        <span class="hero__blob hero__blob--2" aria-hidden="true" style="width: 300px; height: 300px; inset-block-end: -140px; inset-inline-start: 30%;"></span>
+    <!-- Sidebar Navigation (mobile only) -->
+    <div class="sidebar" id="sidebar">
+      <h3>Explore Sholynk</h3>
+      <ul>
+        <li class="highlighted"><a href="index.html">Home</a></li>
+        <li><a href="index.html?category=Technology">Technology</a></li>
+        <li><a href="index.html?category=AI%20Trends">AI</a></li>
+        <li><a href="index.html?category=Cryptocurrency">Cryptocurrency</a></li>
+        <li><a href="index.html?category=Web%203">Web 3</a></li>
+        <li><a href="index.html?category=Game">Game</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+      <div class="sidebar-social">
+        <a
+          aria-label="WhatsApp"
+          href="https://wa.me/qr/CV4VS7HDF2PHD1"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><i class="fab fa-whatsapp" aria-hidden="true"></i
+        ></a>
+        <a
+          aria-label="Facebook"
+          href="https://www.facebook.com/share/18xwSHcWr4/"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><i class="fab fa-facebook-f" aria-hidden="true"></i
+        ></a>
+        <a
+          aria-label="X / Twitter"
+          href="https://x.com/sholynked"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+        ></a>
+      </div>
+    </div>
 
-        <div class="container hero__inner">
-          <div class="hero__grid">
-            <div class="hero__viewport" data-hero-viewport>
-              <article class="hero__slide is-active" data-hero-slide role="group" aria-roledescription="slide" aria-label="1 of 3">
-                <p class="tag">Open to visitors</p>
-                <h1>Learn by department, subject and skill.</h1>
-                <p class="hero__lead">
-                  Every course is built from short video lessons, quizzes that check what you understood and a
-                  certificate that anyone can verify with a QR code.
-                </p>
-                <div class="hero__actions">
-                  <a class="btn" href="/register.html">Get started</a>
-                  <a class="btn o" href="/departments.html">Explore departments</a>
-                </div>
-              </article>
+    <main id="main-content">
+      <!-- The page's single H1. It is present in the initial HTML so the
+           document always has a title for assistive technology and crawlers,
+           even before index.js injects the featured slides below. -->
+      <h1 class="visually-hidden">
+        Sholynk Tech — technology, AI, cryptocurrency and Web 3 stories
+      </h1>
 
-              <article class="hero__slide" data-hero-slide role="group" aria-roledescription="slide" aria-label="2 of 3" aria-hidden="true">
-                <p class="tag">A clear path</p>
-                <h1>Departments, subjects, courses — in that order.</h1>
-                <p class="hero__lead">
-                  Start with a field of study, narrow it to a subject, then work through a course of modules and
-                  lessons. You always know what comes next.
-                </p>
-                <div class="hero__actions">
-                  <a class="btn" href="/subjects.html">Browse subjects</a>
-                  <a class="btn o" href="/courses.html">See the courses</a>
-                </div>
-              </article>
-
-              <article class="hero__slide" data-hero-slide role="group" aria-roledescription="slide" aria-label="3 of 3" aria-hidden="true">
-                <p class="tag">Proof of work</p>
-                <h1>Finish a course and hold a certificate anyone can check.</h1>
-                <p class="hero__lead">
-                  Every certificate carries a QR code. A recruiter, a school or a friend can scan it and see the
-                  name, the course and the date — no login needed.
-                </p>
-                <div class="hero__actions">
-                  <a class="btn" href="/verify.html">Verify a certificate</a>
-                  <a class="btn o" href="/register.html">Create an account</a>
-                </div>
-              </article>
-            </div>
-
-            <div class="hero__visual" data-hero-visual aria-hidden="true">
-              <div class="hero__visual-item is-active" data-hero-visual-item>
-                <div class="mock">
-                  <div class="mock__head">
-                    <span class="tag">In progress</span>
-                    <span class="mock__badge">Module 2 of 3</span>
-                  </div>
-                  <p class="mock__title">JavaScript Fundamentals</p>
-                  <p class="mock__meta">The DOM and events · Lesson 2 of 6</p>
-                  <span class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Course progress">
-                    <span class="progress__bar" style="--progress-value: 50%"></span>
-                  </span>
-                  <p class="mock__meta">3 of 6 lessons complete</p>
-                </div>
-              </div>
-
-              <div class="hero__visual-item" data-hero-visual-item aria-hidden="true">
-                <div class="mock">
-                  <div class="mock__head">
-                    <span class="tag">Technology</span>
-                    <span class="mock__badge">3 subjects</span>
-                  </div>
-                  <p class="mock__title">Web Development</p>
-                  <ul class="mock__list">
-                    <li><span class="mock__bullet">01</span> HTML &amp; CSS Foundations</li>
-                    <li><span class="mock__bullet">02</span> JavaScript Fundamentals</li>
-                    <li><span class="mock__bullet">03</span> Accessible Interfaces</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div class="hero__visual-item" data-hero-visual-item aria-hidden="true">
-                <div class="mock">
-                  <div class="mock__row">
-                    <span class="mock__qr"></span>
-                    <div>
-                      <p class="mock__title">Certificate of completion</p>
-                      <p class="mock__meta">GW-CERT-2026-A1B2C3</p>
-                      <span class="mock__badge">QR verified</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <p class="hero__typewriter" data-typewriter>
-            <span class="hero__typewriter-label">Every course includes</span>
-            <span class="typewriter">
-              <span class="typewriter__text" data-typewriter-text aria-hidden="true">short video lessons</span>
-              <span class="typewriter__caret" data-typewriter-caret aria-hidden="true"></span>
-            </span>
-            <span class="visually-hidden">short video lessons, quizzes with feedback and QR-verified certificates.</span>
-          </p>
-        </div>
-
-        <div class="container hero__controls">
-          <button class="hero__arrow" type="button" data-hero-prev aria-label="Previous slide">
-            <span aria-hidden="true">←</span>
-          </button>
-          <div class="hero__dots" data-hero-dots>
-            <button class="hero__dot is-active" type="button" data-hero-dot="0" aria-label="Slide 1" aria-current="true"></button>
-            <button class="hero__dot" type="button" data-hero-dot="1" aria-label="Slide 2" aria-current="false"></button>
-            <button class="hero__dot" type="button" data-hero-dot="2" aria-label="Slide 3" aria-current="false"></button>
-          </div>
-          <button class="hero__arrow" type="button" data-hero-next aria-label="Next slide">
-            <span aria-hidden="true">→</span>
-          </button>
-          <button class="hero__toggle" type="button" data-hero-toggle aria-pressed="false">Pause</button>
-        </div>
-
-        <div class="hero__progress" aria-hidden="true">
-          <span class="hero__progress-bar" data-hero-progress-bar></span>
-        </div>
+      <!-- Hero Slider Section -->
+      <section
+        class="hero-section"
+        role="region"
+        aria-label="Featured articles slider"
+      >
+        <!-- Slides are injected by index.js -->
       </section>
 
-      <section class="container" aria-label="Platform numbers">
-        <div class="stats-strip" data-home-stats>
-          <div class="stats-strip__item">
-            <span class="stats-strip__value" data-count="0">0</span>
-            <span class="stats-strip__label">Departments</span>
-          </div>
-          <div class="stats-strip__item">
-            <span class="stats-strip__value" data-count="0">0</span>
-            <span class="stats-strip__label">Courses</span>
-          </div>
-          <div class="stats-strip__item">
-            <span class="stats-strip__value" data-count="0">0</span>
-            <span class="stats-strip__label">Lessons</span>
-          </div>
-          <div class="stats-strip__item">
-            <span class="stats-strip__value" data-count="0">0</span>
-            <span class="stats-strip__label">Learners</span>
-          </div>
-          <div class="stats-strip__item">
-            <span class="stats-strip__value" data-count="0">0</span>
-            <span class="stats-strip__label">Certificates issued</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="container section" aria-labelledby="departments-heading">
-        <div class="section__head">
+      <!-- Search and Filters -->
+      <section class="home-toolbar" aria-labelledby="discover-title">
+        <div class="home-toolbar-panel">
           <div>
-            <h2 id="departments-heading">Explore departments</h2>
-            <p class="muted mb-0">Pick a field of study, then drill into its subjects and courses.</p>
-          </div>
-          <a class="btn o" href="/departments.html">All departments</a>
-        </div>
-        <div class="grid grid--3" data-home-departments aria-busy="true"></div>
-      </section>
-
-      <section class="container section" aria-labelledby="flow-heading">
-        <div class="section__head">
-          <div>
-            <h2 id="flow-heading">How learning flows</h2>
-            <p class="muted mb-0">Four steps from your first visit to a certificate you can share.</p>
-          </div>
-        </div>
-        <div class="grid grid--4">
-          <article class="card" data-reveal>
-            <h3 class="card__title">Departments</h3>
-            <p class="card__summary">Fields of study such as computer science, design or business.</p>
-          </article>
-          <article class="card" data-reveal style="--reveal-delay: 80ms">
-            <h3 class="card__title">Subjects</h3>
-            <p class="card__summary">The topics inside a department, each with its own set of courses.</p>
-          </article>
-          <article class="card" data-reveal style="--reveal-delay: 160ms">
-            <h3 class="card__title">Courses</h3>
-            <p class="card__summary">Skills, modules and lessons you can work through at your own pace.</p>
-          </article>
-          <article class="card" data-reveal style="--reveal-delay: 240ms">
-            <h3 class="card__title">Certificates</h3>
-            <p class="card__summary">Finish a course and earn a QR-verified certificate of completion.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="container section" aria-labelledby="cta-heading">
-        <div class="cta-band" data-reveal>
-          <div>
-            <h2 id="cta-heading">Start with one lesson.</h2>
+            <p class="eyebrow">Sholynk Tech</p>
+            <h2 id="discover-title">
+              Insightful tech stories for builders, creators and curious minds.
+            </h2>
             <p>
-              Create an account, pick a course and work through it at your own pace. Your progress is saved, and
-              the certificate is yours to share.
+              Browse crisp explainers, practical guides and trend analysis
+              across AI, Web3, software development and digital innovation.
             </p>
+            <div
+              class="category-filters"
+              id="categoryFilters"
+              aria-label="Filter articles by category"
+            ></div>
           </div>
-          <div class="btn-row">
-            <a class="btn" href="/register.html">Create an account</a>
-            <a class="btn o" href="/courses.html">Browse courses</a>
-          </div>
+          <form class="search-card" role="search" aria-label="Search articles">
+            <label class="eyebrow" for="searchInput">Search the archive</label>
+            <div class="search-field-wrap">
+              <i class="fas fa-search" aria-hidden="true"></i>
+              <input
+                aria-label="Search articles"
+                id="searchInput"
+                placeholder="Try AI, cybersecurity, Web3..."
+                type="search"
+                autocomplete="off"
+              />
+            </div>
+            <div class="search-actions">
+              <button type="submit">Search articles</button>
+              <button id="clearSearch" type="button" hidden>Clear</button>
+            </div>
+          </form>
         </div>
       </section>
 
-      <div data-page-error></div>
+      <!-- Editor Picks -->
+      <section class="editor-section" aria-labelledby="editor-picks-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Fresh perspectives</p>
+            <h2 class="section-heading" id="editor-picks-title">
+              Editor Picks
+            </h2>
+          </div>
+          <p class="results-count" id="resultsCount" aria-live="polite"></p>
+        </div>
+        <div
+          id="cardsContainer"
+          class="bento-feed"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-relevant="additions removals"
+        >
+          <!-- Cards injected by JS -->
+        </div>
+        <!-- Pagination -->
+        <nav aria-label="Pagination" class="pagination">
+          <button
+            aria-label="Previous page"
+            id="prevPage"
+            type="button"
+            disabled
+          >
+            Prev
+          </button>
+          <div id="paginationNumbers" class="pagination-numbers"></div>
+          <button aria-label="Next page" id="nextPage" type="button">
+            Next
+          </button>
+        </nav>
+      </section>
     </main>
 
-    <footer class="site-footer" data-site-footer>
-      <div class="site-footer__inner container">
-        <p class="site-footer__brand" data-footer-site>G WORLD</p>
-        <nav class="site-footer__links" aria-label="Footer">
-          <a href="/departments.html">Departments</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/subjects.html">Subjects</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/courses.html">Courses</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="mailto:support@gworld.example" data-footer-email>support@gworld.example</a>
-        </nav>
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="site-footer-grid">
+        <div>
+          <img
+            alt="Sholynk logo"
+            class="site-logo footer-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+          <p class="footer-tagline">
+            A digital publication dedicated to insightful analysis, news, and
+            trends shaping the future of AI and decentralized technologies.
+          </p>
+        </div>
+        <div>
+          <h4>Stay Ahead in AI and Web3 Trends</h4>
+          <p class="footer-blurb">
+            Get the latest insights, tools, and trend reports in AI, Web3, and
+            emerging tech straight to your inbox every week.
+          </p>
+          <form
+            class="footer-form"
+            method="POST"
+            action="/api/v1/subscriptions"
+            name="subscribe"
+          >
+            <input type="hidden" name="bot-field" />
+            <input
+              class="footer-input"
+              name="name"
+              placeholder="Enter your name..."
+              required
+              type="text"
+              aria-label="Your name"
+            />
+            <input
+              class="footer-input"
+              name="email"
+              placeholder="Enter email..."
+              required
+              type="email"
+              aria-label="Your email address"
+            />
+            <button class="footer-submit" type="submit">Subscribe</button>
+          </form>
+        </div>
+        <div>
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="help_&_support.html">Help &amp; Support</a></li>
+            <li><a href="privacy_policy.html">Privacy Policy</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li>
+              <button
+                class="footer-link-button"
+                id="cookieSettingsBtn"
+                type="button"
+              >
+                Cookie Settings
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4>Join My Innovative Channel</h4>
+          <div class="footer-social">
+            <a
+              aria-label="WhatsApp"
+              href="https://wa.me/qr/CV4VS7HDF2PHD1"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><i class="fab fa-whatsapp" aria-hidden="true"></i
+            ></a>
+            <a
+              aria-label="Facebook"
+              href="https://www.facebook.com/share/18xwSHcWr4/"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><i class="fab fa-facebook-f" aria-hidden="true"></i
+            ></a>
+            <a
+              aria-label="X / Twitter"
+              href="https://x.com/sholynked"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+            ></a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-legal">
+        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights
+        Reserved.
       </div>
     </footer>
-
-    <script type="module">
-      import { boot } from '/assets/js/core/boot.js';
-      import { init } from '/assets/js/pages/home.js';
-      boot(init);
-    </script>
+    <script src="config.js"></script>
+    <script src="cms-client.js"></script>
+    <script src="script.js"></script>
+    <script src="cookie-consent.js"></script>
+    <script src="index.js"></script>
   </body>
 </html>

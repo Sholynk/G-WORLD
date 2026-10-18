@@ -1,85 +1,567 @@
 <!doctype html>
-<html lang="en" data-page="admin-analytics">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Analytics · G WORLD</title>
-    <meta name="description" content="Users, enrolments, active courses, certificates issued and enrolment trends.">
-    <link rel="canonical" href="https://g-world.pages.dev/admin/index.html">
-    <meta name="theme-color" content="#0C7ABF">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Sora:wght@600;700&display=swap">
-    <link rel="stylesheet" href="/assets/css/tokens.css">
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/layout.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/forms.css">
-    <link rel="stylesheet" href="/assets/css/tables.css">
-    <link rel="stylesheet" href="/assets/css/animations.css">
-    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
-    <script src="/config.js"></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta name="robots" content="noindex, nofollow"/>
+  <title>Sholynk CMS - Admin</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
+  <link href="admin.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <header class="admin-header">
+   <div class="brand">
+    <i class="fas fa-pen-nib" aria-hidden="true"></i>
+    <div>
+     <strong>Sholynk CMS</strong>
+     <span>Content dashboard</span>
+    </div>
+   </div>
+   <div class="header-actions">
+    <div class="session-state" id="sessionState" hidden>
+     <span class="session-user" id="sessionUser"></span>
+     <button class="ghost-button" id="signOutBtn" type="button">
+      <i class="fas fa-right-from-bracket" aria-hidden="true"></i> Sign out
+     </button>
+    </div>
+    <a class="ghost-button" href="/" target="_blank" rel="noopener noreferrer">
+     <i class="fas fa-external-link-alt" aria-hidden="true"></i> View site
+    </a>
+   </div>
+  </header>
 
-    <div class="app-shell">
-      <header class="app-topbar">
-        <a class="brand" href="/index.html">G WORLD</a>
-        <div class="cluster">
-          <span class="app-topbar__name" data-session-name>[Admin name]</span>
-          <button class="btn o" type="button" data-sign-out>Sign out</button>
-        </div>
-      </header>
+  <nav class="admin-tabs" aria-label="Sections">
+   <button class="tab active" type="button" data-panel="dashboard">Dashboard</button>
+   <button class="tab" type="button" data-panel="articles">Articles</button>
+   <button class="tab" type="button" data-panel="authors">Authors</button>
+   <button class="tab" type="button" data-panel="media">Media library</button>
+   <button class="tab" type="button" data-panel="comments">Comments</button>
+   <button class="tab" type="button" data-panel="inbox">Inbox</button>
+   <button class="tab" type="button" data-panel="settings">Site metadata</button>
+  </nav>
 
-      <aside class="app-sidebar">
-        <nav aria-label="Administration sections">
-        <a class="app-sidebar__link" href="/admin/index.html" aria-current="page">Analytics</a>
-        <a class="app-sidebar__link" href="/admin/students.html">Users</a>
-        <a class="app-sidebar__link" href="/admin/courses.html">Courses</a>
-        <a class="app-sidebar__link" href="/admin/content.html">Content</a>
-        <a class="app-sidebar__link" href="/admin/scan.html">QR scanner</a>
-        </nav>
-      </aside>
-
-      <main id="main" class="app-main app-page" tabindex="-1">
-        <h2>Analytics</h2>
-
-        <div class="stat-grid" data-admin-stats aria-busy="true"></div>
-
-        <section class="section" aria-labelledby="trend-heading">
-          <div class="section__head">
-            <div>
-              <h2 id="trend-heading">Enrollments over time</h2>
-              <p class="muted mb-0">New enrollments in each of the last seven months.</p>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card__section" data-admin-trend aria-busy="true"></div>
-          </div>
-        </section>
-
-        <section class="section" aria-labelledby="recent-heading">
-          <div class="section__head">
-            <div>
-              <h2 id="recent-heading">Recent enrollments</h2>
-              <p class="muted mb-0">The latest learners to join a course.</p>
-            </div>
-          </div>
-
-          <div class="table-wrap" data-admin-enrollments aria-busy="true"></div>
-        </section>
-        <div data-page-error></div>
-      </main>
+  <main>
+   <!-- Dashboard -->
+   <section class="panel active" id="panel-dashboard" aria-label="Analytics dashboard">
+    <div class="dash-toolbar">
+     <div>
+      <h2>Editorial analytics</h2>
+      <p class="dash-subtitle" id="dashUpdated" role="status" aria-live="polite">Loading analytics...</p>
+     </div>
+     <div class="dash-toolbar-actions">
+      <span class="live-badge" id="dashLive" data-state="connecting" role="status" aria-live="polite">
+       <span class="live-dot" aria-hidden="true"></span><span id="dashLiveLabel">Connecting</span>
+      </span>
+      <label class="dash-range">
+       <span>Period</span>
+       <select id="dashRange" aria-label="Reporting period">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+       </select>
+      </label>
+      <button class="ghost-button" id="refreshDashboard" type="button">
+       <i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh
+      </button>
+     </div>
     </div>
 
-    <script type="module">
-      import { boot } from '/assets/js/core/boot.js';
-      import { init } from '/assets/js/pages/admin/analytics.js';
-      boot(init);
-    </script>
-  </body>
+    <div class="metric-grid" id="dashMetrics"></div>
+
+    <div class="dash-grid">
+     <section class="chart-card chart-card--wide" aria-labelledby="chartActivityTitle">
+      <div class="chart-head">
+       <h3 id="chartActivityTitle">Reads and engagement over time</h3>
+       <p class="chart-note" id="chartActivityNote"></p>
+      </div>
+      <div class="chart-canvas-wrap chart-canvas-wrap--tall">
+       <canvas id="chartActivity" role="img" aria-label="Line chart of reads, unique readers, reactions and comments per day."></canvas>
+       <p class="chart-summary visually-hidden" id="chartActivitySummary"></p>
+      </div>
+     </section>
+
+     <section class="chart-card" aria-labelledby="chartStatusTitle">
+      <div class="chart-head">
+       <h3 id="chartStatusTitle">Publication status</h3>
+       <p class="chart-note">Published vs everything still in the pipeline.</p>
+      </div>
+      <div class="chart-canvas-wrap">
+       <canvas id="chartStatus" role="img" aria-label="Doughnut chart breaking articles down by publication status."></canvas>
+       <p class="chart-summary visually-hidden" id="chartStatusSummary"></p>
+      </div>
+     </section>
+
+     <section class="chart-card" aria-labelledby="chartReactionsTitle">
+      <div class="chart-head">
+       <h3 id="chartReactionsTitle">Reaction record</h3>
+       <p class="chart-note">Every like and dislike readers have left.</p>
+      </div>
+      <div class="chart-canvas-wrap">
+       <canvas id="chartReactions" role="img" aria-label="Doughnut chart comparing likes with dislikes."></canvas>
+       <p class="chart-summary visually-hidden" id="chartReactionsSummary"></p>
+      </div>
+     </section>
+
+     <section class="chart-card" aria-labelledby="chartAuthorsTitle">
+      <div class="chart-head">
+       <h3 id="chartAuthorsTitle">Articles published per author</h3>
+       <p class="chart-note">Registered authors and the work they have live.</p>
+      </div>
+      <div class="chart-canvas-wrap">
+       <canvas id="chartAuthors" role="img" aria-label="Bar chart of published, pending and draft articles per author."></canvas>
+       <p class="chart-summary visually-hidden" id="chartAuthorsSummary"></p>
+      </div>
+     </section>
+
+     <section class="chart-card" aria-labelledby="chartCategoriesTitle">
+      <div class="chart-head">
+       <h3 id="chartCategoriesTitle">Reads by category</h3>
+       <p class="chart-note">Which subjects readers actually open.</p>
+      </div>
+      <div class="chart-canvas-wrap">
+       <canvas id="chartCategories" role="img" aria-label="Bar chart of reads per category."></canvas>
+       <p class="chart-summary visually-hidden" id="chartCategoriesSummary"></p>
+      </div>
+     </section>
+    </div>
+
+    <div class="dash-grid dash-grid--tables">
+     <section class="table-card" aria-labelledby="authorTableTitle">
+      <div class="chart-head">
+       <h3 id="authorTableTitle">Registered authors</h3>
+       <p class="chart-note">Everyone registered to publish, and what their work has earned.</p>
+      </div>
+      <div class="table-scroll">
+       <table class="data-table">
+        <thead>
+         <tr>
+          <th scope="col">Author</th>
+          <th scope="col" class="num">Published</th>
+          <th scope="col" class="num">Pending</th>
+          <th scope="col" class="num">Drafts</th>
+          <th scope="col" class="num">Reads</th>
+          <th scope="col" class="num">Reactions</th>
+          <th scope="col" class="num">Comments</th>
+         </tr>
+        </thead>
+        <tbody id="authorTableBody"></tbody>
+       </table>
+      </div>
+     </section>
+
+     <section class="table-card" aria-labelledby="topArticleTitle">
+      <div class="chart-head">
+       <h3 id="topArticleTitle">Most read articles</h3>
+       <p class="chart-note">Ranked by counted reads.</p>
+      </div>
+      <div class="table-scroll">
+       <table class="data-table">
+        <thead>
+         <tr>
+          <th scope="col">Article</th>
+          <th scope="col" class="num">Reads</th>
+          <th scope="col" class="num">Readers</th>
+          <th scope="col" class="num">Likes</th>
+          <th scope="col" class="num">Comments</th>
+         </tr>
+        </thead>
+        <tbody id="topArticleBody"></tbody>
+       </table>
+      </div>
+     </section>
+
+     <section class="table-card" aria-labelledby="activityTitle">
+      <div class="chart-head">
+       <h3 id="activityTitle">Recent activity</h3>
+       <p class="chart-note">Live feed of reader and editorial events.</p>
+      </div>
+      <ul class="activity-feed" id="activityFeed"></ul>
+     </section>
+    </div>
+   </section>
+
+   <!-- Articles -->
+   <section class="panel" id="panel-articles" aria-label="Articles" hidden>
+    <div class="panel-grid">
+     <div class="list-column">
+      <div class="list-toolbar">
+       <input id="articleSearch" type="search" placeholder="Search articles..." aria-label="Search articles"/>
+       <select id="statusFilter" aria-label="Filter by status">
+        <option value="all">All statuses</option>
+        <option value="published">Published</option>
+        <option value="draft">Drafts</option>
+        <option value="scheduled">Scheduled</option>
+       </select>
+       <button class="primary-button" id="newArticle" type="button">
+        <i class="fas fa-plus" aria-hidden="true"></i> New
+       </button>
+      </div>
+      <p class="list-count" id="articleCount" aria-live="polite"></p>
+      <ul class="article-list" id="articleList"></ul>
+     </div>
+
+     <div class="form-column">
+      <form id="articleForm" novalidate>
+       <div class="form-head">
+        <h2 id="formTitle">New article</h2>
+        <div class="form-head-actions">
+         <button class="danger-button" id="deleteArticle" type="button" hidden>
+          <i class="fas fa-trash" aria-hidden="true"></i> Delete
+         </button>
+         <button class="ghost-button" id="previewArticle" type="button" hidden>
+          <i class="fas fa-eye" aria-hidden="true"></i> Preview
+         </button>
+         <button class="ghost-button" id="saveDraftBtn" type="button">
+          <i class="fas fa-file" aria-hidden="true"></i> Save draft
+         </button>
+         <button class="primary-button" type="submit" id="submitBtn">
+          <i class="fas fa-paper-plane" aria-hidden="true"></i> Submit for review
+         </button>
+        </div>
+       </div>
+
+       <div class="validation-panel" id="validationPanel" hidden>
+        <p class="validation-title"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Please fix the following before submitting:</p>
+        <ul id="validationList"></ul>
+       </div>
+
+       <div class="review-banner" id="reviewBanner" hidden></div>
+
+       <input type="hidden" id="articleId"/>
+
+       <div class="field">
+        <label for="title">Title <span class="req">*</span></label>
+        <input id="title" name="title" required placeholder="e.g. How AI Is Changing Everyday Software"/>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="category">Category <span class="req">*</span></label>
+         <input id="category" name="category" list="categoryOptions" required placeholder="e.g. Technology, AI Trends, Web 3"/>
+         <datalist id="categoryOptions"></datalist>
+        </div>
+        <div class="field">
+         <label for="slug">Slug</label>
+         <input id="slug" name="slug" placeholder="auto-generated from title"/>
+        </div>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="subcategory">Subcategory</label>
+         <input id="subcategory" name="subcategory" placeholder="e.g. Software Development"/>
+        </div>
+        <div class="field">
+         <label for="contentType">Content type</label>
+         <select id="contentType" name="contentType">
+          <option value="article">Article</option>
+          <option value="news">News</option>
+          <option value="guide">Guide</option>
+          <option value="analysis">Analysis</option>
+          <option value="opinion">Opinion</option>
+          <option value="review">Review</option>
+         </select>
+        </div>
+       </div>
+
+       <div class="field">
+        <label for="description">Teaser / description</label>
+        <textarea id="description" name="description" rows="3" placeholder="One or two sentences summarising the story for the homepage card."></textarea>
+        <p class="hint">Shown on the homepage card and used as the meta description fallback.</p>
+       </div>
+
+       <div class="field">
+        <label for="hook">Article hook / standfirst</label>
+        <textarea id="hook" name="hook" rows="2" placeholder="The opening line under the headline that pulls the reader in."></textarea>
+       </div>
+
+       <div class="field">
+        <label for="directAnswer">Quick answer</label>
+        <textarea id="directAnswer" name="directAnswer" rows="3" placeholder="Answer the article's core question in 1-2 plain sentences."></textarea>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="img">Hero image URL</label>
+         <input id="img" name="img" placeholder="/uploads/... or https://..."/>
+        </div>
+        <div class="field">
+         <label for="alt">Image alt text</label>
+         <input id="alt" name="alt" placeholder="Describe the image for screen readers"/>
+        </div>
+       </div>
+       <div class="image-preview" id="imagePreview" hidden>
+        <img id="imagePreviewTag" alt=""/>
+       </div>
+
+       <div class="field pdf-import-card">
+        <label for="pdfImportFile"><i class="fas fa-file-pdf" aria-hidden="true"></i> Import from PDF (autofill draft)</label>
+        <input id="pdfImportFile" type="file" accept="application/pdf"/>
+        <p class="hint" id="pdfImportStatus">Select a manuscript PDF. The CMS will extract the title, teaser, body (converted to Markdown), and suggested tags, then fill the form below for you to review and edit before saving.</p>
+       </div>
+
+       <div class="field">
+         <label for="body">Body (Markdown or safe HTML)</label>
+        <textarea id="body" name="body" rows="18" spellcheck="true" placeholder="Write the full story here. Start sections with ## Heading, and leave a blank line between paragraphs."></textarea>
+        <p class="hint">
+         Markdown is preferred for version-controlled stories. In HTML, use &lt;h2&gt; for sections, &lt;figure&gt; + &lt;img alt="..."&gt; for images and &lt;blockquote&gt; for pull quotes.
+         Headings become the article's table of contents automatically.
+        </p>
+        <div class="body-tools">
+         <button type="button" data-snippet="h2">Insert heading</button>
+         <button type="button" data-snippet="figure">Insert figure</button>
+         <button type="button" data-snippet="quote">Insert quote</button>
+         <button type="button" data-snippet="list">Insert list</button>
+        </div>
+       </div>
+
+       <details class="seo-block">
+        <summary>Structured editorial fields</summary>
+        <div class="field">
+         <label for="tags">Tags (one per line or JSON array)</label>
+         <textarea id="tags" rows="3" placeholder="artificial intelligence&#10;software development"></textarea>
+        </div>
+        <div class="field">
+         <label for="keyTakeaways">Key takeaways (one per line or JSON array)</label>
+         <textarea id="keyTakeaways" rows="4" placeholder="Quantum computers use qubits, not bits&#10;Useful machines are still years away"></textarea>
+        </div>
+        <div class="field">
+         <label for="relatedSlugs">Related article slugs (one per line or JSON array)</label>
+         <textarea id="relatedSlugs" rows="3" placeholder="the-rise-of-quantum-computing&#10;mastering-the-art-of-coding"></textarea>
+        </div>
+        <div class="field">
+         <label for="faqs">FAQs (JSON array of question/answer objects)</label>
+         <textarea id="faqs" rows="6" placeholder='[{"question":"...","answer":"..."}]'></textarea>
+        </div>
+        <div class="field">
+         <label for="sources">Sources (JSON array)</label>
+         <textarea id="sources" rows="8" placeholder='[{"title":"...","publisher":"...","url":"https://...","type":"official","supports":"..."}]'></textarea>
+         <p class="hint">Record only sources you verified. Supported types: primary, official, research, journalism, reference and other.</p>
+        </div>
+       </details>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="author">Author display name</label>
+         <input id="author" name="author" required placeholder="Name as it should appear on the article"/>
+        </div>
+        <div class="field">
+         <label for="authorSlug">Author entity slug</label>
+         <input id="authorSlug" name="authorSlug" list="authorOptions" placeholder="e.g. oluwashola-busari"/>
+         <datalist id="authorOptions"></datalist>
+        </div>
+        <div class="field">
+         <label for="submitterEmail">Submitter email</label>
+         <input id="submitterEmail" name="submitterEmail" type="email" placeholder="you@example.com (required for review)"/>
+        </div>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="date">Publish date</label>
+         <input id="date" name="date" type="date"/>
+        </div>
+        <div class="field">
+         <label for="readingTime">Reading time</label>
+         <input id="readingTime" name="readingTime" placeholder="auto, or override e.g. 8 min read"/>
+        </div>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="status">Status</label>
+         <select id="status" name="status">
+          <option value="pending">Pending review</option>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="scheduled">Scheduled</option>
+         </select>
+         <p class="hint" id="statusHelp">Choose "Pending review" to send the article to Sholynk Tech for approval.</p>
+        </div>
+        <div class="field">
+         <label for="heroOrder">Hero slide order</label>
+         <input id="heroOrder" name="heroOrder" type="number" min="0" placeholder="empty = not in hero"/>
+        </div>
+        <div class="field">
+         <label for="externalLink">External link override</label>
+         <input id="externalLink" name="externalLink" placeholder="leave empty to use the article page"/>
+        </div>
+       </div>
+
+       <div class="field-row">
+        <div class="field">
+         <label for="scheduledAt">Scheduled publishing time</label>
+         <input id="scheduledAt" name="scheduledAt" type="datetime-local"/>
+        </div>
+        <div class="field">
+         <label for="canonicalUrl">Canonical URL override</label>
+         <input id="canonicalUrl" name="canonicalUrl" placeholder="normally generated automatically"/>
+        </div>
+       </div>
+       <div class="field">
+        <label for="reviewNotes">Editorial review notes</label>
+        <textarea id="reviewNotes" name="reviewNotes" rows="3" placeholder="Anything the reviewer should know, e.g. sources still to confirm."></textarea>
+       </div>
+
+       <div class="checkbox-row">
+        <label><input id="featured" type="checkbox"/> Featured card</label>
+        <label><input id="hero" type="checkbox"/> Show in hero slider</label>
+       </div>
+
+       <details class="seo-block">
+        <summary>SEO overrides</summary>
+        <div class="field">
+         <label for="seoTitle">SEO title</label>
+         <input id="seoTitle" name="seoTitle" placeholder="Search-result headline, ideally under 60 characters"/>
+        </div>
+        <div class="field">
+         <label for="seoDescription">SEO description</label>
+         <textarea id="seoDescription" name="seoDescription" rows="2" placeholder="Search-result summary, ideally 150-160 characters."></textarea>
+        </div>
+       </details>
+      </form>
+     </div>
+    </div>
+   </section>
+
+   <!-- Authors -->
+   <section class="panel" id="panel-authors" aria-label="Authors" hidden>
+    <div class="panel-grid">
+     <div class="list-column">
+      <div class="list-toolbar">
+       <h2>Author entities</h2>
+      </div>
+      <button class="primary-button new-author-button" id="newAuthor" type="button"><i class="fas fa-plus" aria-hidden="true"></i> New author profile</button>
+      <ul class="article-list author-list" id="authorList"></ul>
+     </div>
+     <div class="form-column">
+      <form id="authorForm">
+       <div class="form-head"><h2 id="authorFormTitle">New author</h2><div class="form-head-actions"><button class="danger-button" id="deleteAuthor" type="button" hidden>Delete</button><button class="primary-button" type="submit">Save</button></div></div>
+       <input id="authorId" type="hidden"/>
+       <div class="field"><label for="authorName">Name <span class="req">*</span></label><input id="authorName" required placeholder="Full name, e.g. Oluwashola Busari"/></div>
+       <div class="field-row"><div class="field"><label for="authorEntitySlug">Slug</label><input id="authorEntitySlug" placeholder="auto-generated from the name"/></div><div class="field"><label for="authorRole">Role</label><input id="authorRole" placeholder="e.g. Founder and Tech Journalist"/></div></div>
+       <div class="field">
+        <label for="authorBio">Biography / brief intro</label>
+        <textarea id="authorBio" rows="6" placeholder="2-4 sentences: who the author is, their background, and what they write about."></textarea>
+        <p class="hint">Appears with the author photo under the in-article navigation (desktop) and after the comment section on mobile.</p>
+       </div>
+       <div class="field-row">
+        <div class="field">
+         <label for="authorImageFile">Upload profile photo</label>
+         <input id="authorImageFile" type="file" accept="image/*"/>
+         <p class="hint">JPEG, PNG, WebP, GIF or AVIF, up to 8 MB. Uploading replaces the URL field below.</p>
+        </div>
+        <div class="field"><label for="authorImageAlt">Photo alt text</label><input id="authorImageAlt" placeholder="e.g. Photo of Oluwashola Busari"/></div>
+       </div>
+       <div class="image-preview" id="authorImagePreview" hidden>
+        <img id="authorImagePreviewTag" alt=""/>
+       </div>
+       <div class="field"><label for="authorImage">Profile image URL</label><input id="authorImage" placeholder="/uploads/... or https://..."/></div>
+       <div class="field"><label for="authorProfileUrl">Profile URL</label><input id="authorProfileUrl" placeholder="https://... or leave empty"/></div>
+      </form>
+     </div>
+    </div>
+   </section>
+
+   <!-- Media -->
+   <section class="panel" id="panel-media" aria-label="Media library" hidden>
+    <form class="upload-card" id="uploadForm">
+     <h2>Upload an image</h2>
+     <div class="field">
+      <label for="imageFile">Image file <span class="req">*</span></label>
+      <input id="imageFile" type="file" accept="image/*" required/>
+     </div>
+     <div class="field">
+      <label for="imageAlt">Alt text <span class="req">*</span></label>
+      <input id="imageAlt" placeholder="Describe the image for screen readers" required/>
+     </div>
+     <button class="primary-button" type="submit"><i class="fas fa-upload" aria-hidden="true"></i> Upload</button>
+    </form>
+    <div class="media-grid" id="mediaGrid"></div>
+   </section>
+
+   <!-- Comments -->
+   <section class="panel" id="panel-comments" aria-label="Comment history" hidden>
+    <div class="settings-card">
+     <div class="form-head">
+      <h2>Comment history</h2>
+      <button class="ghost-button" id="refreshComments" type="button">
+       <i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh
+      </button>
+     </div>
+     <p class="list-count" id="commentCount" aria-live="polite"></p>
+     <ul class="comment-admin-list" id="commentList"></ul>
+    </div>
+   </section>
+
+   <!-- Inbox -->
+   <section class="panel" id="panel-inbox" aria-label="Inbox" hidden>
+    <div class="dash-grid dash-grid--tables">
+     <section class="table-card" aria-labelledby="subscribersTitle">
+      <div class="chart-head">
+       <h3 id="subscribersTitle">Newsletter subscribers</h3>
+       <p class="chart-note">Everyone who signed up through the site forms.</p>
+      </div>
+      <p class="list-count" id="subscriberCount" aria-live="polite"></p>
+      <div class="table-scroll">
+       <table class="data-table">
+        <thead>
+         <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Email</th>
+          <th scope="col">Status</th>
+          <th scope="col">Subscribed</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+         </tr>
+        </thead>
+        <tbody id="subscriberTableBody"></tbody>
+       </table>
+      </div>
+     </section>
+
+     <section class="table-card" aria-labelledby="messagesTitle">
+      <div class="chart-head">
+       <h3 id="messagesTitle">Contact messages</h3>
+       <p class="chart-note">Messages sent through the public contact form.</p>
+      </div>
+      <p class="list-count" id="messageCount" aria-live="polite"></p>
+      <ul class="comment-admin-list" id="messageList"></ul>
+     </section>
+    </div>
+   </section>
+
+   <!-- Settings -->
+   <section class="panel" id="panel-settings" aria-label="Site metadata" hidden>
+    <form class="settings-card" id="settingsForm">
+     <h2>Site metadata</h2>
+     <div class="field">
+      <label for="siteTitle">Site title</label>
+      <input id="siteTitle"/>
+     </div>
+     <div class="field">
+      <label for="siteDescription">Site description</label>
+      <textarea id="siteDescription" rows="3"></textarea>
+     </div>
+     <div class="field">
+      <label for="siteKeywords">Keywords</label>
+      <input id="siteKeywords"/>
+     </div>
+     <div class="field">
+      <label for="homeTagline">Homepage tagline</label>
+      <input id="homeTagline"/>
+     </div>
+     <button class="primary-button" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Save metadata</button>
+    </form>
+   </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Chart.js powers the dashboard graphs. Loaded before admin.js; the
+       dashboard degrades to its metric cards and tables if the CDN is
+       unreachable (for example on an offline machine). -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
+  <script src="pdf-extract.js"></script>
+  <script src="admin.js"></script>
+ </body>
 </html>

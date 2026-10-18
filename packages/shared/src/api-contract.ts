@@ -1,5 +1,5 @@
 /**
- * G WORLD — one response envelope for the whole API.
+ * Sholynk Tech — one response envelope for the whole API.
  *
  * Success:
  *   { "success": true, "data": …, "meta": { "request_id": "req_…" } }

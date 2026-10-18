@@ -12,7 +12,7 @@
  * verification and reset flows fully testable without any email provider.
  */
 import type { Db } from '../client.js';
-import type { EmailStatus } from '@g-world/shared';
+import type { EmailStatus } from '@sholynk/shared';
 import { newId, ID_PREFIXES } from '../../lib/ids.js';
 
 export interface EmailMessageRow {

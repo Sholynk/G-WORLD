@@ -7,8 +7,9 @@
  *   - **Enumeration.** Sign-in and password-reset responses never reveal whether
  *     an email exists (same message, and sign-in performs a dummy hash so the
  *     timing matches). Registration necessarily reveals existence; that is
- *     documented as an accepted trade-off in docs/05-security.md and mitigated by
- *     rate limiting.
+ *     documented as an accepted trade-off and mitigated by rate limiting.
+ *     Registration is disabled by default (ENABLE_REGISTRATION): editorial
+ *     accounts are created by an administrator.
  *   - **Lockout.** Repeated failures lock the account for a window
  *     (`users.locked_until`) *and* hit the IP rate limit, so neither a single IP
  *     nor a single account can be brute forced.
@@ -28,7 +29,7 @@ import {
   resendVerificationSchema,
   resetPasswordSchema,
   verifyEmailSchema,
-} from '@g-world/shared';
+} from '@sholynk/shared';
 import { createDb } from '../db/client.js';
 import * as usersRepo from '../db/repositories/users.js';
 import * as rolesRepo from '../db/repositories/roles.js';
@@ -40,7 +41,6 @@ import { audit } from '../services/audit.js';
 import { AUDIT_ACTIONS } from '../lib/audit.js';
 import { dummyVerify, hashPassword, needsRehash, verifyPassword } from '../lib/password.js';
 import { expiresAtFromNow, generateToken, hashToken, isExpired, TOKEN_TTL } from '../lib/tokens.js';
-import { studentNumber as generateStudentNumber } from '../lib/ids.js';
 import { sendEmail, TEMPLATES } from '../lib/mailer/index.js';
 import { clearSessionCookies, setSessionCookies, SESSION_COOKIE, readCookie } from '../lib/cookies.js';
 import { parseJson } from '../middleware/validate.js';
@@ -66,7 +66,7 @@ const LOCK_MINUTES = 15;
 
 function branding(config: AppEnv['Variables']['config']) {
   return {
-    siteName: 'G WORLD',
+    siteName: 'Sholynk Tech',
     appBaseUrl: config.appBaseUrl,
   };
 }
@@ -89,28 +89,22 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
     ]);
   }
 
-  const studentRole = await rolesRepo.requireRoleByKey(db, 'student');
+  const editorRole = await rolesRepo.requireRoleByKey(db, 'editor');
   const passwordHash = await hashPassword(input.password, config.passwordIterations);
-  const number = generateStudentNumber();
 
   const { userId } = await usersRepo.createUser(
     db,
     {
       email: input.email,
       passwordHash,
-      roleId: studentRole.id,
+      roleId: editorRole.id,
       status: 'pending_verification',
       termsAcceptedAt: new Date().toISOString(),
     },
     {
-      studentNumber: number,
       displayName: input.display_name ?? null,
       fullName: input.full_name ?? null,
-      educationLevel: input.education_level ?? null,
-      country: input.country ?? null,
-      interests: input.interests ?? [],
     },
-    number,
   );
 
   const token = generateToken();
@@ -141,9 +135,9 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
   await notificationsRepo.createNotification(db, {
     userId,
     type: 'info',
-    title: 'Welcome to G WORLD',
-    body: 'Confirm your email address to activate your account, then explore departments and enrol in a course.',
-    linkUrl: '/dashboard.html',
+    title: 'Welcome to Sholynk Tech',
+    body: 'Confirm your email address to activate your account, then submit your first article for review.',
+    linkUrl: '/admin/',
   });
 
   await audit(c, {
@@ -151,7 +145,7 @@ authRoutes.post('/register', rateLimit('auth.register'), async (c) => {
     actorUserId: userId,
     entityType: 'user',
     entityId: userId,
-    description: 'Student account registered',
+    description: 'Editor account registered',
     metadata: { email_verified: false, email_delivered: delivery.delivered },
   });
 
@@ -206,7 +200,6 @@ authRoutes.post('/verify-email', rateLimit('auth.resend_verification'), async (c
       content: TEMPLATES.welcomeEmail({
         toEmail: user.email,
         displayName: user.display_name,
-        studentNumber: user.student_number,
         branding: branding(config),
       }),
     });
@@ -214,8 +207,8 @@ authRoutes.post('/verify-email', rateLimit('auth.resend_verification'), async (c
       userId: user.id,
       type: 'success',
       title: 'Email confirmed',
-      body: 'Your account is active. Browse the catalog and enrol in your first course.',
-      linkUrl: '/courses.html',
+      body: 'Your account is active. Open the editorial dashboard to submit your first article.',
+      linkUrl: '/admin/',
     });
   }
 
@@ -487,7 +480,7 @@ authRoutes.post('/reset-password', rateLimit('auth.reset_password'), async (c) =
     type: 'warning',
     title: 'Password changed',
     body: 'Your password was reset and all other sessions were signed out.',
-    linkUrl: '/settings.html',
+    linkUrl: '/admin/',
   });
 
   await audit(c, {
@@ -499,6 +492,19 @@ authRoutes.post('/reset-password', rateLimit('auth.reset_password'), async (c) =
   });
 
   return ok(c, { reset: true, email: user?.email ?? null });
+});
+
+/** The signed-in account: profile, role and permissions. */
+authRoutes.get('/me', requireAuth(), async (c) => {
+  const auth = c.get('auth')!;
+  const db = createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
+  const profile = await usersRepo.findById(db, auth.userId);
+  if (!profile) throw notFound('Account not found');
+  return ok(c, {
+    user: toUserProfileDto(profile),
+    permissions: auth.permissions,
+    session: { id: auth.sessionId },
+  });
 });
 
 /** Authenticated password change: requires the current password. */
@@ -603,7 +609,7 @@ authRoutes.post('/dev/reset-limits', async (c) => {
 
 /**
  * Development-only helper: restore the demo accounts to the passwords printed in
- * `database/seeds/004_demo_users.sql`.
+ * `database/seeds/001_demo_users.sql`.
  *
  * Needed because anything (a person, a test) that changes a demo password leaves
  * the seeded hash stale — the seed files use `INSERT OR IGNORE`, so re-running
@@ -614,9 +620,8 @@ authRoutes.post('/dev/reset-demo-accounts', async (c) => {
   if (!config.features.devRoutes) throw featureDisabled('Development routes');
   const db = createDb(c.env.DB);
   const demoAccounts = [
-    { email: 'admin@gworld.test', password: 'AdminPassword123!' },
-    { email: 'staff@gworld.test', password: 'StaffPassword123!' },
-    { email: 'student@gworld.test', password: 'StudentPassword123!' },
+    { email: 'admin@sholynk.test', password: 'AdminPassword123!' },
+    { email: 'editor@sholynk.test', password: 'EditorPassword123!' },
   ];
 
   const updated: string[] = [];

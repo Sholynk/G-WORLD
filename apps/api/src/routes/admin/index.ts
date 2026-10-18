@@ -1,36 +1,37 @@
 /**
- * Admin router — mounted at `/api/v1/admin`.
+ * Admin router — everything under `/api/v1/admin`.
  *
- * The gate is applied once, here: **every** request under this prefix requires a
- * signed-in user whose role is at least `admin`. Individual handlers then require
- * the precise permission they need, so:
+ * The subtree gate is a *session* (requireAuth): every route here is behind
+ * sign-in. The scope of each route is then enforced per endpoint with the
+ * permission catalogue (packages/shared/src/roles.ts):
  *
- *   role check (this file)  →  "is this person staff at all?"
- *   permission check (route) → "may this staff member touch this resource?"
+ *   - editors  → submit/edit articles, upload media        (article.submit, media.write)
+ *   - admins   → everything editorial + moderation + inbox + analytics
+ *   - super    → admins' powers + account/role management
  *
- * Both checks run on the server against the database-backed role and permission
- * set. The frontend hides admin navigation for learners, but that is cosmetic —
- * an unauthenticated or student request to any of these paths returns 401/403
- * before a handler body executes.
+ * Publishing, scheduling and deleting articles additionally require
+ * `article.write`, which editors do not hold: their "Publish" is redirected
+ * into the submit-for-review queue (see admin/articles.ts).
  */
 import { Hono } from 'hono';
 import type { AppEnv } from '../../env.js';
-import { requireRole } from '../../middleware/auth.js';
-import { adminCatalogRoutes } from './catalog.js';
-import { adminCurriculumRoutes } from './curriculum.js';
-import { adminStudentRoutes } from './students.js';
-import { adminLearningRoutes } from './learning.js';
+import { requireAuth } from '../../middleware/auth.js';
+import { adminArticleRoutes } from './articles.js';
+import { adminAuthorRoutes, adminSettingsRoutes } from './authors.js';
+import { adminMediaRoutes } from './media.js';
+import { adminInboxRoutes, adminModerationRoutes } from './inbox.js';
+import { adminAnalyticsRoutes } from './analytics.js';
 import { adminSystemRoutes } from './system.js';
 
 export const adminRoutes = new Hono<AppEnv>();
 
-// Gate the whole subtree. `requireRole('admin')` compares role ranks from the
-// database, so it also admits `super_admin` and would reject a `student` even if
-// they somehow held a content permission.
-adminRoutes.use('*', requireRole('admin'));
+adminRoutes.use('*', requireAuth());
 
-adminRoutes.route('/', adminCatalogRoutes);
-adminRoutes.route('/', adminCurriculumRoutes);
-adminRoutes.route('/', adminStudentRoutes);
-adminRoutes.route('/', adminLearningRoutes);
+adminRoutes.route('/', adminArticleRoutes);
+adminRoutes.route('/', adminAuthorRoutes);
+adminRoutes.route('/', adminSettingsRoutes);
+adminRoutes.route('/', adminMediaRoutes);
+adminRoutes.route('/', adminModerationRoutes);
+adminRoutes.route('/', adminInboxRoutes);
+adminRoutes.route('/', adminAnalyticsRoutes);
 adminRoutes.route('/', adminSystemRoutes);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — deploy the frontend to Cloudflare Pages.
+ * Sholynk Tech — deploy the frontend to Cloudflare Pages.
  *
  *   npm run deploy:web                     # production (branch: main)
  *   npm run deploy:web -- --branch staging # preview deployment
@@ -35,7 +35,7 @@ function readFlag(name, fallback = null) {
 }
 
 const BRANCH = readFlag('branch', 'main');
-const PROJECT = readFlag('project', 'g-world');
+const PROJECT = readFlag('project', 'sholynk-tech');
 
 /** Streams a script's output through, returning its exit code. */
 function step(label, script, args = []) {
@@ -89,7 +89,7 @@ try {
 if (!uploaded) {
   console.error('\n\u001b[31m✘\u001b[0m the upload failed. Common causes:');
   console.error('  · not signed in            → npx wrangler login');
-  console.error('  · project does not exist   → npx wrangler pages project create g-world');
+  console.error('  · project does not exist   → npx wrangler pages project create sholynk-tech');
   console.error('  · wrong account            → CLOUDFLARE_ACCOUNT_ID=… npx wrangler whoami');
   process.exit(1);
 }

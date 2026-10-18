@@ -21,8 +21,8 @@
 import { createMiddleware } from 'hono/factory';
 import type { MiddlewareHandler } from 'hono';
 import type { AppContext, AppEnv, AuthContext, Bindings } from '../env.js';
-import type { PermissionKey, RoleKey } from '@g-world/shared';
-import { ROLE_RANK, isPermissionKey, isRoleKey } from '@g-world/shared';
+import type { PermissionKey, RoleKey } from '@sholynk/shared';
+import { ROLE_RANK, isPermissionKey, isRoleKey } from '@sholynk/shared';
 import { createDb } from '../db/client.js';
 import * as sessions from '../db/repositories/sessions.js';
 import * as roles from '../db/repositories/roles.js';
@@ -85,7 +85,6 @@ export const resolveAuth = createMiddleware<AppEnv>(async (c, next) => {
     emailVerified: session.email_verified_at !== null,
     sessionId: session.id,
     displayName: session.display_name,
-    studentNumber: session.student_number,
   };
 
   c.set('auth', auth);

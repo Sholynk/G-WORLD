@@ -137,8 +137,6 @@ describe('tokens', () => {
   it('keeps the documented TTLs', () => {
     expect(TOKEN_TTL.EMAIL_VERIFICATION_MS).toBe(48 * 60 * 60 * 1000);
     expect(TOKEN_TTL.PASSWORD_RESET_MS).toBe(60 * 60 * 1000);
-    // A student's QR identity card is valid for two years.
-    expect(TOKEN_TTL.QR_STUDENT_MS).toBe(1000 * 60 * 60 * 24 * 365 * 2);
   });
 
   it('treats a past timestamp as expired and a future one as live', () => {

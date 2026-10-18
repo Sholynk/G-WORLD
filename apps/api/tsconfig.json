@@ -6,8 +6,8 @@
     "composite": true,
     "tsBuildInfoFile": "dist/.tsbuildinfo",
     "paths": {
-      "@g-world/shared": ["../../packages/shared/src/index.ts"],
-      "@g-world/shared/*": ["../../packages/shared/src/*"]
+      "@sholynk/shared": ["../../packages/shared/src/index.ts"],
+      "@sholynk/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "../../packages/shared/src/**/*.ts"],

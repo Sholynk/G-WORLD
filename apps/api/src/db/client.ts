@@ -1,5 +1,5 @@
 /**
- * G WORLD — D1 access layer.
+ * Sholynk Tech — D1 access layer.
  *
  * Every query in the application goes through `Db`, which:
  *   - always uses prepared statements with bound parameters (no string

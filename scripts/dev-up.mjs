@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — one-command local development.
+ * Sholynk Tech — one-command local development.
  *
  *   npm run dev                       # API on :8787, site on :5173
  *   npm run dev -- --port 32951       # pick the static-server port
@@ -156,7 +156,7 @@ if (webAlreadyUp) {
 }
 
 console.log(`
-${COLOURS.reset}G WORLD is up.
+${COLOURS.reset}Sholynk Tech is up.
   site  http://localhost:${WEB_PORT}
   api   ${API_TARGET}/api/v1/health
   ${COLOURS.dim}smoke tests: npm run test:smoke (API) · npm run test:web (pages)${COLOURS.reset}

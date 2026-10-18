@@ -1,5 +1,5 @@
 /**
- * G WORLD — identifier generation.
+ * Sholynk Tech — identifier generation.
  *
  * Two kinds of identifiers exist:
  *
@@ -8,10 +8,8 @@
  *    randomness. They sort chronologically (so `ORDER BY id` is a stable
  *    creation order) and are generated without a database round trip.
  *
- * 2. Human-facing codes — student numbers, certificate numbers and short
- *    verification codes. These are displayed in the UI and encoded into QR
- *    images, so they use an unambiguous alphabet (no 0/O/1/I/L) and are unique
- *    by database constraint.
+ * Editorial content (articles, authors, comments…) keeps the legacy CMS's
+ * INTEGER AUTOINCREMENT ids; only platform entities use prefixed ULIDs.
  */
 import { randomBytes, randomString } from './crypto.js';
 
@@ -45,31 +43,12 @@ export const ID_PREFIXES = {
   role: 'role',
   permission: 'perm',
   profile: 'prf',
-  qr: 'qr',
   notification: 'ntf',
   emailMessage: 'eml',
   verificationToken: 'evt',
   resetToken: 'prt',
   audit: 'aud',
-  department: 'dep',
-  subject: 'sub',
-  course: 'crs',
-  module: 'mod',
-  lesson: 'lsn',
-  video: 'vid',
-  resource: 'res',
-  skill: 'skl',
-  enrollment: 'enr',
-  lessonProgress: 'lpr',
-  quiz: 'qz',
-  question: 'qq',
-  option: 'qo',
-  attempt: 'qa',
-  answer: 'qan',
-  assignment: 'asg',
-  submission: 'asb',
-  certificate: 'cert',
-  review: 'rev',
+  image: 'img',
   request: 'req',
 } as const;
 
@@ -80,37 +59,6 @@ export function prefixed(prefix: keyof typeof ID_PREFIXES, now?: number): string
 /** Request ids appear in logs and in the `meta.request_id` of every response. */
 export function requestId(): string {
   return `req_${ulid()}`;
-}
-
-/**
- * Student number, e.g. `GW-2026-K7P2QX`.
- * The year makes the cohort obvious to administrators; the 6-char suffix gives
- * 32^6 ≈ 1.07 billion combinations, and a UNIQUE constraint closes the loop.
- */
-export function formatStudentNumber(year: number, suffix: string): string {
-  return `GW-${year}-${suffix}`;
-}
-
-export function studentNumber(year: number = new Date().getUTCFullYear()): string {
-  return formatStudentNumber(year, randomString(6, CODE_ALPHABET));
-}
-
-/** Certificate number, e.g. `GW-CERT-2026-7YQ4M2`. */
-export function certificateNumber(year: number = new Date().getUTCFullYear()): string {
-  return `GW-CERT-${year}-${randomString(6, CODE_ALPHABET)}`;
-}
-
-/**
- * Short public verification code, e.g. `XK4T-9QW2-M7PL`.
- * Readable over the phone and typo-resistant; ambiguous characters are excluded.
- */
-export function verificationCode(groups = 3, groupSize = 4): string {
-  return Array.from({ length: groups }, () => randomString(groupSize, CODE_ALPHABET)).join('-');
-}
-
-/** QR payload code embedded in student identity / certificate QR images. */
-export function qrCode(kind: 'student' | 'cert' = 'student'): string {
-  return `GW-${kind.toUpperCase()}-${randomString(10, CODE_ALPHABET)}`;
 }
 
 /** Length-independent check used by integration tests and admin search. */

@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta content="#000000" name="theme-color" />
+    <meta content="Sholynk" name="author" />
+    <title>Contact - Sholynk Tech</title>
+    <meta
+      content="Get in touch with the Sholynk Tech team for questions, story tips, collaborations or advertising enquiries."
+      name="description"
+    />
+    <meta property="og:title" content="Contact Sholynk Tech" />
+    <meta
+      property="og:description"
+      content="Questions, feedback or a story tip? Reach the Sholynk team directly."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sholynk Tech" />
+    <meta property="og:url" content="contact.html" />
+    <meta property="og:image" content="assets/brand/page_logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="contact.html" />
+    <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link href="styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" aria-label="Sholynk homepage">
+          <img
+            alt="Sholynk logo"
+            class="site-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+        </a>
+        <div class="social-links" aria-label="Social links">
+          <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1"
+             target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i
+          ></a>
+          <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/"
+             target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i
+          ></a>
+          <a aria-label="X / Twitter" href="https://x.com/sholynked"
+             target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+          ></a>
+        </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="index.html">Home</a>
+          <a href="index.html?category=Technology">Technology</a>
+          <a href="index.html?category=AI%20Trends">AI</a>
+          <a href="index.html?category=Cryptocurrency">Cryptocurrency</a>
+          <a href="index.html?category=Game">Game</a>
+          <a href="index.html?category=Web%203">Web 3</a>
+          <a href="about.html">About</a>
+          <a class="is-active" href="contact.html">Contact</a>
+        </nav>
+        <button
+          class="hamburger"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-controls="sidebar"
+          aria-expanded="false"
+        >
+          <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sidebar Navigation (mobile only) -->
+    <div class="sidebar" id="sidebar">
+      <h3>Explore Sholynk</h3>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html?category=Technology">Technology</a></li>
+        <li><a href="index.html?category=AI%20Trends">AI</a></li>
+        <li><a href="index.html?category=Cryptocurrency">Cryptocurrency</a></li>
+        <li><a href="index.html?category=Web%203">Web 3</a></li>
+        <li><a href="index.html?category=Game">Game</a></li>
+        <li><a href="about.html">About</a></li>
+        <li class="highlighted"><a href="contact.html">Contact</a></li>
+      </ul>
+      <div class="sidebar-social">
+        <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1"
+           target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i
+        ></a>
+        <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/"
+           target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i
+        ></a>
+        <a aria-label="X / Twitter" href="https://x.com/sholynked"
+           target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+        ></a>
+      </div>
+    </div>
+
+    <!-- Page Title -->
+    <main id="main-content">
+      <section class="page-section contact-layout">
+        <div>
+          <p class="eyebrow">Get in touch</p>
+          <h1 class="page-title">Contact Us</h1>
+          <p class="page-intro">
+            Questions about an article, a story tip, an advertising enquiry, or
+            just feedback on the site — we read everything that comes in. Fill
+            out the form below or reach us directly through the details
+            alongside it, and we'll get back to you as soon as we can.
+          </p>
+          <div class="contact-card">
+            <form
+              name="contact"
+              method="POST"
+              action="/api/v1/contact"
+              class="contact-form"
+              id="contactForm"
+            >
+              <p class="honeypot">
+                <label
+                  >Don’t fill this out if you're human: <input name="bot-field"
+                /></label>
+              </p>
+              <div class="form-field">
+                <label for="name">Name</label>
+                <input
+                  id="name"
+                  name="name"
+                  placeholder="Your full name"
+                  required
+                  type="text"
+                />
+              </div>
+              <div class="form-field">
+                <label for="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  placeholder="you@example.com"
+                  required
+                  type="email"
+                />
+              </div>
+              <div class="form-field">
+                <label for="subject">Subject</label>
+                <input
+                  id="subject"
+                  name="subject"
+                  placeholder="Subject of your message"
+                  required
+                  type="text"
+                />
+              </div>
+              <div class="form-field">
+                <label for="message">Message</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  placeholder="Write your message here..."
+                  required
+                  rows="5"
+                ></textarea>
+              </div>
+              <div>
+                <button class="btn-primary" type="submit">
+                  <i class="fas fa-paper-plane" aria-hidden="true"></i> Send
+                  Message
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <aside class="contact-side">
+          <div class="contact-details">
+            <h2>Contact Details</h2>
+            <p>
+              <i class="fas fa-envelope" aria-hidden="true"></i>
+              <a href="mailto:sholynktech@gmail.com">sholynktech@gmail.com</a>
+            </p>
+            <p>
+              <i class="fas fa-phone" aria-hidden="true"></i>
+              <a href="tel:+2349027004273">+234-9027-00-4273</a>
+            </p>
+            <p>
+              <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+              Ago-Iwoye, Ogun State, Nigeria
+            </p>
+            <p class="contact-response-time">
+              <i class="fas fa-clock" aria-hidden="true"></i> We typically
+              respond within 1–2 business days.
+            </p>
+          </div>
+
+          <div class="contact-details contact-social-card">
+            <h2>Follow along</h2>
+            <p class="page-intro contact-social-intro">
+              Prefer social? We're active here too.
+            </p>
+            <div class="footer-social contact-social-links">
+              <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1"
+                 target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i
+              ></a>
+              <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/"
+                 target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i
+              ></a>
+              <a aria-label="X / Twitter" href="https://x.com/sholynked"
+                 target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+              ></a>
+            </div>
+          </div>
+
+          <div class="contact-details contact-faq-nudge">
+            <h2>Have a quick question instead?</h2>
+            <p>
+              Check our
+              <a href="help_&_support.html">Help &amp; Support</a> page — it
+              covers newsletter signup, story submissions and advertising in a
+              few short answers.
+            </p>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <!-- Success Popup -->
+    <div
+      aria-hidden="true"
+      class="modal hidden"
+      id="successPopup"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="successTitle"
+      aria-describedby="successDesc"
+    >
+      <div class="modal-card">
+        <h2 id="successTitle">Message Sent Successfully!</h2>
+        <p id="successDesc">
+          Thank you for contacting us. We will get back to you shortly.
+        </p>
+        <button
+          aria-label="Close success message"
+          class="btn-primary"
+          id="closePopupBtn"
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="site-footer-grid">
+        <div>
+          <img
+            alt="Sholynk logo"
+            class="site-logo footer-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+          <p class="footer-tagline">
+            A digital publication dedicated to insightful analysis, news, and
+            trends shaping the future of AI and decentralized technologies.
+          </p>
+        </div>
+        <div>
+          <h4>Stay Ahead in AI and Web3 Trends</h4>
+          <p class="footer-blurb">
+            Get the latest insights, tools, and trend reports in AI, Web3, and
+            emerging tech straight to your inbox every week.
+          </p>
+          <form
+            class="footer-form"
+            method="POST"
+            action="/api/v1/subscriptions"
+            name="subscribe"
+          >
+            <input type="hidden" name="bot-field" />
+            <input
+              class="footer-input"
+              name="name"
+              placeholder="Enter your name..."
+              required
+              type="text"
+              aria-label="Your name"
+            />
+            <input
+              class="footer-input"
+              name="email"
+              placeholder="Enter email..."
+              required
+              type="email"
+              aria-label="Your email address"
+            />
+            <button class="footer-submit" type="submit">Subscribe</button>
+          </form>
+        </div>
+        <div>
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="help_&_support.html">Help &amp; Support</a></li>
+            <li><a href="privacy_policy.html">Privacy Policy</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li>
+              <button
+                class="footer-link-button"
+                id="cookieSettingsBtn"
+                type="button"
+              >
+                Cookie Settings
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4>Join My Innovative Channel</h4>
+          <div class="footer-social">
+            <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1"
+               target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i
+            ></a>
+            <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/"
+               target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i
+            ></a>
+            <a aria-label="X / Twitter" href="https://x.com/sholynked"
+               target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i
+            ></a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-legal">
+        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights
+        Reserved.
+      </div>
+    </footer>
+    <script src="script.js"></script>
+    <script src="cookie-consent.js"></script>
+    <script src="contact-form.js"></script>
+  </body>
+</html>

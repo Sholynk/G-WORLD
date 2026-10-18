@@ -1,14 +1,14 @@
 /**
- * G WORLD — cookie handling.
+ * Sholynk Tech — cookie handling.
  *
- * Two cookies, both scoped to the API path:
+ * Two cookies, both scoped to the whole origin:
  *
- *   gw_session — the session token. HttpOnly (JavaScript cannot read it, so XSS
+ *   sk_session — the session token. HttpOnly (JavaScript cannot read it, so XSS
  *                cannot steal a session), Secure in production, SameSite=Lax
  *                (works with same-origin navigation and blocks cross-site POSTs),
  *                Path=/ so both the API and the pages that call it are covered.
  *
- *   gw_csrf    — a double-submit token derived from the session token with HMAC.
+ *   sk_csrf    — a double-submit token derived from the session token with HMAC.
  *                Readable by JavaScript on purpose: the frontend echoes it in the
  *                `X-CSRF-Token` header, which a cross-site attacker cannot do
  *                because they cannot read our cookie.
@@ -19,8 +19,8 @@
 import type { AppContext } from '../env.js';
 import { csrfTokenFor } from './tokens.js';
 
-export const SESSION_COOKIE = 'gw_session';
-export const CSRF_COOKIE = 'gw_csrf';
+export const SESSION_COOKIE = 'sk_session';
+export const CSRF_COOKIE = 'sk_csrf';
 export const CSRF_HEADER = 'x-csrf-token';
 
 export interface CookieOptions {

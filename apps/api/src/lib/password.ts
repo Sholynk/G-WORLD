@@ -1,5 +1,5 @@
 /**
- * G WORLD — password hashing (PBKDF2-HMAC-SHA256 via Web Crypto).
+ * Sholynk Tech — password hashing (PBKDF2-HMAC-SHA256 via Web Crypto).
  *
  * Stored format (self-describing, so the algorithm can be rotated later):
  *

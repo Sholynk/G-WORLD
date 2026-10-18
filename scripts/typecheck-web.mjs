@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 /**
- * G WORLD — frontend typecheck.
+ * Sholynk Tech — frontend typecheck.
  *
  *   npm run typecheck:js
  *
  * `tsc -b` only covers the TypeScript projects (`apps/api`, `packages/shared`).
- * The frontend is plain JavaScript plus one Pages Function, so it needs its own
- * gate:
+ * The frontend is classic browser JavaScript plus a set of Pages Functions, so
+ * it needs its own gate:
  *
- *   1. the Pages Function (`apps/web/functions/api/[[path]].ts`) is real
- *      TypeScript and runs on Cloudflare's runtime — it is type-checked strictly
- *      with the DOM libs, since it is compiled by Pages, not by tsc;
- *   2. every ES module under `apps/web/public/assets/js/**` is parsed with
- *      `node --check`, which catches the class of mistake a browser would only
- *      report at runtime on the page a user happened to open (a stray bracket, a
- *      missing brace after an edit).
+ *   1. every Pages Function (`apps/web/functions/**\/*.ts`) is real TypeScript
+ *      compiled by Cloudflare at deploy time — it is type-checked strictly with
+ *      the DOM libs here, so a deploy cannot be the first place a type error
+ *      surfaces;
+ *   2. every browser script under `apps/web/public` (root-level page scripts
+ *      and the admin dashboard) is parsed with `node --check`, which catches
+ *      the class of mistake a browser would only report at runtime on the page
+ *      a user happened to open (a stray bracket, a missing brace after an edit).
  *
  * Exit code 0 = clean, 1 = something failed.
  */
@@ -24,8 +25,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const MODULES_DIR = path.join(ROOT, 'apps/web/public/assets/js');
-const PAGES_FUNCTION = 'apps/web/functions/api/[[path]].ts';
+const PUBLIC_DIR = path.join(ROOT, 'apps/web/public');
+const FUNCTIONS_DIR = path.join(ROOT, 'apps/web/functions');
 
 /** Runs a command, streaming nothing, and returns { ok, output }. */
 function run(command, args, options = {}) {
@@ -37,22 +38,28 @@ function run(command, args, options = {}) {
   }
 }
 
-/** Every `.js` file under `directory`, recursively, sorted. */
-function collectModules(directory) {
+/** Every file with one of `extensions` under `directory`, recursively, sorted. */
+function collect(directory, extensions, { skipDirs = [] } = {}) {
   const found = [];
+  if (!statSync(directory, { throwIfNoEntry: false })?.isDirectory()) return found;
   for (const entry of readdirSync(directory)) {
     const absolute = path.join(directory, entry);
-    if (statSync(absolute).isDirectory()) found.push(...collectModules(absolute));
-    else if (entry.endsWith('.js')) found.push(absolute);
+    if (statSync(absolute).isDirectory()) {
+      if (skipDirs.includes(entry)) continue;
+      found.push(...collect(absolute, extensions, { skipDirs }));
+    } else if (extensions.some((extension) => entry.endsWith(extension))) {
+      found.push(absolute);
+    }
   }
   return found.sort();
 }
 
 let failures = 0;
 
-/* ------------------------------------------------------ 1. the Pages Function */
+/* ------------------------------------------------------- 1. the Pages Functions */
 
-console.log('· type-checking the Pages Function (tsc --noEmit)');
+const functions = collect(FUNCTIONS_DIR, ['.ts']);
+console.log(`· type-checking ${functions.length} Pages Function file(s) (tsc --noEmit)`);
 const tsc = run('npx', [
   'tsc',
   '--noEmit',
@@ -66,20 +73,21 @@ const tsc = run('npx', [
   '--lib',
   'es2022,dom,dom.iterable',
   '--skipLibCheck',
-  PAGES_FUNCTION,
+  ...functions.map((file) => path.relative(ROOT, file)),
 ]);
 if (tsc.ok) {
-  console.log('\u001b[32m✓\u001b[0m Pages Function type-checks');
+  console.log('\u001b[32m✓\u001b[0m Pages Functions type-check');
 } else {
   failures += 1;
-  console.log('\u001b[31m✘\u001b[0m Pages Function failed to type-check');
+  console.log('\u001b[31m✘\u001b[0m Pages Functions failed to type-check');
   console.log(tsc.output);
 }
 
-/* --------------------------------------------------- 2. frontend ES modules */
+/* ------------------------------------------------------ 2. browser-side scripts */
 
-const modules = collectModules(MODULES_DIR);
-console.log(`· parsing ${modules.length} frontend module(s) (node --check)`);
+// Root-level page scripts + the admin dashboard. `assets/` holds images only.
+const modules = collect(PUBLIC_DIR, ['.js'], { skipDirs: ['assets'] });
+console.log(`· parsing ${modules.length} browser script(s) (node --check)`);
 
 const broken = [];
 for (const file of modules) {
@@ -94,7 +102,7 @@ if (broken.length) {
     console.log(`\u001b[90m  ${output.split('\n')[0]}\u001b[0m`);
   }
 } else {
-  console.log(`\u001b[32m✓\u001b[0m all ${modules.length} module(s) parse`);
+  console.log(`\u001b[32m✓\u001b[0m all ${modules.length} script(s) parse`);
 }
 
 console.log(`\nfrontend typecheck: ${failures ? `${failures} failure(s)` : 'ok'}`);
