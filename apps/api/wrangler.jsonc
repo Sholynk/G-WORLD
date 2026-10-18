@@ -86,9 +86,9 @@
         "SITE_URL": "",
         "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
         "EMAIL_PROVIDER": "console",
-        "EMAIL_FROM": "Sholynk Tech <no-reply@sholynktech.example>",
+        "EMAIL_FROM": "Sholynk Tech <onboarding@resend.dev>",
         "EDITOR_EMAIL": "sholynktech@gmail.com",
-        "ENABLE_REGISTRATION": "false",
+        "ENABLE_REGISTRATION": "true",
         "ENABLE_DEV_ROUTES": "true",
         "PASSWORD_ITERATIONS": "10000",
         // Development-only relaxation so a full smoke-test run is not blocked
@@ -132,9 +132,9 @@
         // you deliberately host the frontend elsewhere.
         "ALLOWED_ORIGINS": "",
         "EMAIL_PROVIDER": "resend",
-        "EMAIL_FROM": "Sholynk Tech <no-reply@sholynktech.example>",
+        "EMAIL_FROM": "Sholynk Tech <onboarding@resend.dev>",
         "EDITOR_EMAIL": "sholynktech@gmail.com",
-        "ENABLE_REGISTRATION": "false",
+        "ENABLE_REGISTRATION": "true",
         "ENABLE_DEV_ROUTES": "false",
         "PASSWORD_ITERATIONS": "100000",
         "SESSION_TTL_HOURS": "336"
