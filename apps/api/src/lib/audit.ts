@@ -1,9 +1,9 @@
 /**
- * G WORLD — audit trail helpers (pure part).
+ * Sholynk Tech — audit trail helpers (pure part).
  *
  * `audit_logs` is append-only and is written for every privileged or
- * security-relevant action: staff content changes, role changes, certificate
- * issue/revoke, sign-in failures, QR lookups and account status changes.
+ * security-relevant action: editorial content changes, role changes,
+ * moderation actions, sign-in failures and account status changes.
  *
  * Persistence lives in db/repositories/audit.ts; the naming, sanitisation and
  * diffing rules live here so they can be unit-tested without a database.
@@ -25,50 +25,25 @@ export const AUDIT_ACTIONS = {
   userStatusChanged: 'user.status.changed',
   userRoleChanged: 'user.role.changed',
   adminCreated: 'admin.created',
-  // content
-  departmentCreated: 'department.created',
-  departmentUpdated: 'department.updated',
-  departmentDeleted: 'department.deleted',
-  subjectCreated: 'subject.created',
-  subjectUpdated: 'subject.updated',
-  subjectDeleted: 'subject.deleted',
-  courseCreated: 'course.created',
-  courseUpdated: 'course.updated',
-  coursePublished: 'course.published',
-  courseArchived: 'course.archived',
-  courseDeleted: 'course.deleted',
-  moduleCreated: 'module.created',
-  moduleUpdated: 'module.updated',
-  moduleDeleted: 'module.deleted',
-  lessonCreated: 'lesson.created',
-  lessonUpdated: 'lesson.updated',
-  lessonDeleted: 'lesson.deleted',
-  videoAdded: 'video.created',
-  videoDeleted: 'video.deleted',
-  resourceAdded: 'resource.created',
-  resourceDeleted: 'resource.deleted',
-  skillCreated: 'skill.created',
-  skillUpdated: 'skill.updated',
-  contentReordered: 'content.reordered',
-  // learning
-  enrollmentCreated: 'enrollment.created',
-  enrollmentCancelled: 'enrollment.cancelled',
-  enrollmentCompleted: 'enrollment.completed',
-  lessonCompleted: 'lesson.completed',
-  // assessments
-  quizCreated: 'quiz.created',
-  quizUpdated: 'quiz.updated',
-  quizDeleted: 'quiz.deleted',
-  quizAttemptStarted: 'quiz.attempt.started',
-  quizAttemptSubmitted: 'quiz.attempt.submitted',
-  assignmentCreated: 'assignment.created',
-  assignmentSubmitted: 'assignment.submitted',
-  assignmentGraded: 'assignment.graded',
-  // certificates & identity
-  certificateIssued: 'certificate.issued',
-  certificateRevoked: 'certificate.revoked',
-  qrIssued: 'qr.issued',
-  qrLookedUp: 'qr.looked_up',
+  // editorial content
+  articleCreated: 'article.created',
+  articleUpdated: 'article.updated',
+  articlePublished: 'article.published',
+  articleSubmitted: 'article.submitted',
+  articleDeleted: 'article.deleted',
+  authorCreated: 'author.created',
+  authorUpdated: 'author.updated',
+  authorDeleted: 'author.deleted',
+  settingsUpdated: 'settings.updated',
+  // media
+  imageUploaded: 'image.uploaded',
+  imageUpdated: 'image.updated',
+  imageDeleted: 'image.deleted',
+  // engagement & inbox
+  commentDeleted: 'comment.deleted',
+  subscriberDeleted: 'subscriber.deleted',
+  contactMessageUpdated: 'contact_message.updated',
+  contactMessageDeleted: 'contact_message.deleted',
   // platform
   systemMigration: 'system.migration.applied',
 } as const;

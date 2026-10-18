@@ -1,5 +1,5 @@
 /**
- * G WORLD — cryptographic primitives.
+ * Sholynk Tech — cryptographic primitives.
  *
  * Every function here relies exclusively on the Web Crypto API available in the
  * Workers runtime, so there are no native dependencies and the behaviour is
@@ -107,7 +107,7 @@ export async function hmacSha256Hex(secret: string, message: string): Promise<st
  */
 export async function hashIp(ip: string | null | undefined, secret: string): Promise<string> {
   const normalized = (ip ?? 'unknown').trim();
-  return hmacSha256Hex(secret, `g-world:ip:${normalized}`);
+  return hmacSha256Hex(secret, `sholynk:ip:${normalized}`);
 }
 
 /** Constant-time string comparison. Length differences are still detectable. */

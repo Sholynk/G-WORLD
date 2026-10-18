@@ -1,13 +1,13 @@
 {
-  "name": "@g-world/web",
-  "version": "0.1.0",
+  "name": "@sholynk/web",
+  "version": "1.0.0",
   "private": true,
-  "description": "G WORLD frontend \u2014 static HTML/CSS/vanilla-ES-modules client for Cloudflare Pages",
+  "description": "Sholynk Tech frontend — static HTML/CSS/vanilla JS + Pages Functions (SSR articles, SEO, /api proxy) for Cloudflare Pages",
   "scripts": {
     "dev": "node ../../scripts/dev-server.mjs",
     "build": "node ../../scripts/build-web.mjs",
-    "deploy": "wrangler pages deploy public --project-name g-world --commit-dirty=true",
-    "deploy:preview": "wrangler pages deploy public --project-name g-world --branch preview --commit-dirty=true"
+    "deploy": "wrangler pages deploy public --project-name sholynk-tech --commit-dirty=true",
+    "deploy:preview": "wrangler pages deploy public --project-name sholynk-tech --branch preview --commit-dirty=true"
   },
   "devDependencies": {
     "wrangler": "^4.40.0"

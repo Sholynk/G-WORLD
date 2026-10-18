@@ -1,160 +1,240 @@
 /**
- * Shared contracts: roles, permissions, validation and response envelopes.
+ * Shared contracts — the catalogue and the SQL must not drift.
  *
- * `packages/shared` is imported by both the worker and the browser, so a change
- * here affects authorisation, form validation and the JSON shape every client
- * parses. These tests are the contract's contract.
+ * packages/shared/src/roles.ts is the TypeScript mirror of
+ * database/migrations/0006_reference_data.sql. These tests parse the migration
+ * and assert both sides list the same roles, ranks, permissions and grants, so
+ * a future permission added in only one place fails CI instead of silently
+ * granting (or denying) the wrong thing at runtime.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  API_ERROR_CODES,
+  ERROR_STATUS,
+  PERMISSIONS,
   PERMISSION_KEYS,
   ROLE_KEYS,
-  ROLE_RANK,
+  ROLE_LABELS,
   ROLE_PERMISSION_DEFAULTS,
+  ROLE_RANK,
+  buildPaginationMeta,
   isPermissionKey,
   isRoleKey,
+  loginSchema,
   permissionSetForRole,
+  refineArticlePayload,
   roleAtLeast,
   roleHasPermission,
-} from '@g-world/shared';
-import {
-  courseListQuerySchema,
-  loginSchema,
-  paginationQuerySchema,
-  passwordSchema,
-  registerSchema,
-  searchQuerySchema,
-} from '@g-world/shared';
-import { API_ERROR_CODES, ERROR_STATUS, buildPaginationMeta } from '@g-world/shared';
+  subscribeSchema,
+  commentSchema,
+  settingsSchema,
+  articleInputSchema,
+} from '@sholynk/shared';
 
-describe('roles', () => {
-  it('knows its four roles and their ranks', () => {
-    expect(ROLE_KEYS).toEqual(['public', 'student', 'admin', 'super_admin']);
-    expect(ROLE_RANK.public).toBeLessThan(ROLE_RANK.student);
-    expect(ROLE_RANK.student).toBeLessThan(ROLE_RANK.admin);
-    expect(ROLE_RANK.admin).toBeLessThan(ROLE_RANK.super_admin);
-  });
+const ROOT = path.resolve(process.cwd());
+const MIGRATION = readFileSync(path.join(ROOT, 'database/migrations/0006_reference_data.sql'), 'utf8');
 
-  it('compares roles by rank rather than by string', () => {
-    expect(roleAtLeast('admin', 'student')).toBe(true);
-    expect(roleAtLeast('student', 'admin')).toBe(false);
-    expect(roleAtLeast('super_admin', 'super_admin')).toBe(true);
-  });
+function sqlRoleRows(): { key: string; rank: number }[] {
+  return [...MIGRATION.matchAll(/\('role_[a-z_]+',\s*'([a-z_]+)',\s*'[^']*',\s*'[^']*',\s*(\d+),\s*1\)/g)].map(
+    (match) => ({ key: match[1]!, rank: Number(match[2]) }),
+  );
+}
 
-  it('only accepts role and permission keys that exist', () => {
-    expect(isRoleKey('admin')).toBe(true);
-    expect(isRoleKey('owner')).toBe(false);
-    expect(isPermissionKey(PERMISSION_KEYS[0])).toBe(true);
-    expect(isPermissionKey('course.destroy')).toBe(false);
-  });
+function sqlPermissionKeys(): string[] {
+  return [...MIGRATION.matchAll(/\('perm_[a-z_]+',\s*'([a-z.]+)'/g)].map((match) => match[1]!);
+}
 
-  it('grants nothing to a visitor and never grants more than a super administrator', () => {
-    expect(ROLE_PERMISSION_DEFAULTS.public).toEqual([]);
+function sqlGrants(roleId: string): string[] {
+  const block = MIGRATION.split(`SELECT '${roleId}', id FROM permissions WHERE key IN (`)[1];
+  if (!block) return [];
+  return block
+    .split(');')[0]!
+    .split(',')
+    .map((part) => part.trim().replace(/'/g, '').replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .flatMap((part) => part.split(' ').map((key) => key.trim()).filter(Boolean));
+}
 
-    const student = permissionSetForRole('student');
-    const admin = permissionSetForRole('admin');
-    const superAdmin = permissionSetForRole('super_admin');
-
-    expect(superAdmin.size).toBeGreaterThanOrEqual(admin.size);
-    expect(admin.size).toBeGreaterThan(student.size);
-    for (const permission of student) expect(superAdmin.has(permission)).toBe(true);
-    for (const permission of admin) expect(superAdmin.has(permission)).toBe(true);
-  });
-
-  it('keeps privileged actions away from students', () => {
-    expect(roleHasPermission('student', 'course.read')).toBe(true);
-    expect(roleHasPermission('student', 'user.role.write')).toBe(false);
-    expect(roleHasPermission('admin', 'user.role.write')).toBe(false); // super-admin only
-  });
-
-  it('declares every permission once, with a domain and a description', () => {
-    const seen = new Set<string>();
-    for (const permission of PERMISSION_KEYS) {
-      expect(seen.has(permission)).toBe(false);
-      seen.add(permission);
-      // e.g. `course.read`, `user.read.any` — a dotted, lowercase namespace.
-      expect(permission).toMatch(/^[a-z_]+(?:\.[a-z_]+)+$/);
+describe('role catalogue parity', () => {
+  it('lists the same roles as the migration', () => {
+    const sql = sqlRoleRows();
+    expect(sql.map((row) => row.key).sort()).toEqual([...ROLE_KEYS].sort());
+    for (const row of sql) {
+      expect(ROLE_RANK[row.key as keyof typeof ROLE_RANK]).toBe(row.rank);
     }
   });
+
+  it('keeps the rank hierarchy (public < editor < admin < super_admin)', () => {
+    expect(ROLE_RANK.public).toBeLessThan(ROLE_RANK.editor);
+    expect(ROLE_RANK.editor).toBeLessThan(ROLE_RANK.admin);
+    expect(ROLE_RANK.admin).toBeLessThan(ROLE_RANK.super_admin);
+    expect(roleAtLeast('admin', 'editor')).toBe(true);
+    expect(roleAtLeast('editor', 'admin')).toBe(false);
+  });
+
+  it('labels every role', () => {
+    for (const key of ROLE_KEYS) expect(ROLE_LABELS[key].length).toBeGreaterThan(0);
+  });
+
+  it('lists the same permissions as the migration', () => {
+    expect(sqlPermissionKeys().sort()).toEqual([...PERMISSION_KEYS].sort());
+  });
+
+  it('grants exactly the documented permissions per role', () => {
+    for (const [roleId, roleKey] of [
+      ['role_editor', 'editor'],
+      ['role_admin', 'admin'],
+      ['role_super_admin', 'super_admin'],
+    ] as const) {
+      expect(sqlGrants(roleId).sort()).toEqual([...ROLE_PERMISSION_DEFAULTS[roleKey]].sort());
+    }
+    expect(sqlGrants('role_public')).toEqual([]);
+  });
+
+  it('keeps privileged actions away from editors', () => {
+    expect(roleHasPermission('editor', 'article.submit')).toBe(true);
+    expect(roleHasPermission('editor', 'article.write')).toBe(false);
+    expect(roleHasPermission('editor', 'analytics.read')).toBe(false);
+    expect(roleHasPermission('admin', 'article.write')).toBe(true);
+    expect(roleHasPermission('admin', 'admin.manage')).toBe(false);
+    expect(roleHasPermission('super_admin', 'admin.manage')).toBe(true);
+  });
+
+  it('supersets cleanly: every admin power is also a super-admin power', () => {
+    const admin = permissionSetForRole('admin');
+    const superAdmin = permissionSetForRole('super_admin');
+    for (const permission of admin) expect(superAdmin.has(permission)).toBe(true);
+    expect(superAdmin.size).toBeGreaterThan(admin.size);
+  });
+
+  it('guards against unknown keys', () => {
+    expect(isRoleKey('admin')).toBe(true);
+    expect(isRoleKey('student')).toBe(false);
+    expect(isPermissionKey('article.write')).toBe(true);
+    expect(isPermissionKey('course.write')).toBe(false);
+    expect(PERMISSIONS.every((permission) => permission.key.includes('.'))).toBe(true);
+  });
 });
 
-describe('validation', () => {
-  it('normalises an email address', () => {
-    const parsed = loginSchema.parse({ email: '  Student@GWorld.TEST ', password: 'x' });
-    expect(parsed.email).toBe('student@gworld.test');
-  });
-
-  it('rejects a malformed email with a readable message', () => {
-    const result = loginSchema.safeParse({ email: 'not-an-email', password: 'x' });
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.issues[0]?.message).toMatch(/valid email/i);
-  });
-
-  it('requires an accepted-terms flag to register', () => {
-    const base = {
-      email: 'new@gworld.test',
-      password: 'StudentPassword123',
-      accepted_terms: true as const,
-    };
-    expect(registerSchema.safeParse(base).success).toBe(true);
-    expect(registerSchema.safeParse({ ...base, accepted_terms: false }).success).toBe(false);
-    expect(registerSchema.safeParse({ ...base, accepted_terms: undefined }).success).toBe(false);
-  });
-
-  it('enforces password composition rules', () => {
-    expect(passwordSchema.safeParse('alllowercase').success).toBe(false); // needs upper or digit
-    expect(passwordSchema.safeParse('ALLUPPERCASE123').success).toBe(false); // needs a lowercase letter
-    expect(passwordSchema.safeParse('Short1').success).toBe(false); // too short
-    expect(passwordSchema.safeParse('StudentPassword123').success).toBe(true);
-  });
-
-  it('coerces pagination from query strings and clamps it', () => {
-    expect(paginationQuerySchema.parse({})).toEqual({ page: 1, per_page: 12 });
-    expect(paginationQuerySchema.parse({ page: '3', per_page: '25' })).toEqual({ page: 3, per_page: 25 });
-    expect(paginationQuerySchema.safeParse({ page: '0' }).success).toBe(false);
-    expect(paginationQuerySchema.safeParse({ per_page: '100000' }).success).toBe(false);
-  });
-
-  it('accepts the documented course filters and rejects unknown ones', () => {
-    expect(courseListQuerySchema.safeParse({ difficulty: 'beginner', sort: 'popular' }).success).toBe(true);
-    expect(courseListQuerySchema.safeParse({ difficulty: 'impossible' }).success).toBe(false);
-    expect(courseListQuerySchema.safeParse({ sort: 'random' }).success).toBe(false);
-  });
-
-  it('requires a search term long enough to be worth searching', () => {
-    expect(searchQuerySchema.safeParse({ q: 'x' }).success).toBe(false);
-    const parsed = searchQuerySchema.parse({ q: 'html' });
-    expect(parsed.q).toBe('html');
-    expect(parsed.type).toBe('all');
-  });
-});
-
-describe('response envelopes', () => {
-  it('maps every error code to an HTTP status', () => {
+describe('API contract', () => {
+  it('maps every error code to a sensible HTTP status', () => {
     for (const code of API_ERROR_CODES) {
       const status = ERROR_STATUS[code];
-      expect(Number.isInteger(status)).toBe(true);
       expect(status).toBeGreaterThanOrEqual(400);
       expect(status).toBeLessThanOrEqual(599);
     }
-  });
-
-  it('pins the statuses clients rely on', () => {
     expect(ERROR_STATUS.VALIDATION_ERROR).toBe(422);
     expect(ERROR_STATUS.UNAUTHENTICATED).toBe(401);
     expect(ERROR_STATUS.FORBIDDEN).toBe(403);
-    expect(ERROR_STATUS.NOT_FOUND).toBe(404);
-    expect(ERROR_STATUS.CONFLICT).toBe(409);
     expect(ERROR_STATUS.RATE_LIMITED).toBe(429);
-    expect(ERROR_STATUS.ACCOUNT_LOCKED).toBe(423);
-    expect(ERROR_STATUS.INTERNAL_ERROR).toBe(500);
   });
 
-  it('builds pagination metadata that agrees with itself', () => {
-    const middle = buildPaginationMeta(2, 10, 25);
-    expect(middle).toMatchObject({ page: 2, per_page: 10, total: 25, total_pages: 3, has_next: true, has_prev: true });
+  it('derives pagination metadata consistently', () => {
+    const meta = buildPaginationMeta(2, 10, 35);
+    expect(meta).toEqual({
+      page: 2,
+      per_page: 10,
+      total: 35,
+      total_pages: 4,
+      has_next: true,
+      has_prev: true,
+    });
+    expect(buildPaginationMeta(1, 12, 0).total_pages).toBe(1); // never fewer than one page
+  });
+});
 
-    expect(buildPaginationMeta(1, 10, 0)).toMatchObject({ total_pages: 1, has_next: false, has_prev: false });
-    expect(buildPaginationMeta(3, 10, 25)).toMatchObject({ has_next: false, has_prev: true });
+describe('validation schemas', () => {
+  it('normalises and validates the login payload', () => {
+    const parsed = loginSchema.parse({ email: ' Admin@Sholynk.test ', password: 'x', remember: true });
+    expect(parsed.email).toBe('admin@sholynk.test');
+    expect(parsed.remember).toBe(true);
+    expect(loginSchema.safeParse({ email: 'nope', password: 'x' }).success).toBe(false);
+  });
+
+  it('carries the honeypot fields the public forms post', () => {
+    const parsed = subscribeSchema.parse({
+      name: 'Ada',
+      email: 'ada@example.com',
+      'bot-field': 'i-am-a-bot',
+    });
+    expect(parsed['bot-field']).toBe('i-am-a-bot');
+  });
+
+  it('enforces the legacy comment limits', () => {
+    expect(commentSchema.safeParse({ author: 'x'.repeat(61), body: 'hello' }).success).toBe(false);
+    expect(commentSchema.safeParse({ author: 'Ada', body: 'y'.repeat(2001) }).success).toBe(false);
+    const parsed = commentSchema.parse({ author: '  Ada   Lovelace ', body: 'Great piece' });
+    expect(parsed.author).toBe('Ada Lovelace');
+  });
+
+  it('accepts only the four site-metadata keys', () => {
+    const parsed = settingsSchema.parse({ siteTitle: 'Sholynk Tech', unknownKey: 'nope' });
+    expect(parsed.siteTitle).toBe('Sholynk Tech');
+    expect('unknownKey' in parsed).toBe(false);
+  });
+
+  it('mirrors the legacy article field rules', () => {
+    const base = { title: 'A story', category: 'Technology' };
+    expect(articleInputSchema.parse(base).contentType).toBe('article');
+    // canonicalUrl must be absolute HTTPS
+    expect(articleInputSchema.safeParse({ ...base, canonicalUrl: 'http://x.dev/a' }).success).toBe(false);
+    expect(articleInputSchema.safeParse({ ...base, canonicalUrl: 'https://x.dev/a' }).success).toBe(true);
+    // externalLink accepts http(s) or a safe local path, never javascript:
+    expect(articleInputSchema.safeParse({ ...base, externalLink: 'index.html?category=AI%20Trends' }).success).toBe(true);
+    expect(articleInputSchema.safeParse({ ...base, externalLink: 'javascript:alert(1)' }).success).toBe(false);
+    // relatedSlugs are normalised to lowercase hyphenated slugs (case folds,
+    // garbage like "not a slug" is still rejected)
+    const folded = articleInputSchema.parse({ ...base, relatedSlugs: ['Good-Slug'] });
+    expect(folded.relatedSlugs).toEqual(['good-slug']);
+    expect(articleInputSchema.safeParse({ ...base, relatedSlugs: ['not a slug'] }).success).toBe(false);
+  });
+});
+
+describe('the editorial rules engine (refineArticlePayload)', () => {
+  it('requires alt text whenever an image is set', () => {
+    expect(refineArticlePayload({ img: 'assets/x.jpg', alt: '' })).toContain(
+      'alt text is required whenever an image is set (accessibility)',
+    );
+    expect(refineArticlePayload({ img: 'assets/x.jpg', alt: 'A description' })).toEqual([]);
+  });
+
+  it('requires a time when scheduling', () => {
+    expect(refineArticlePayload({ status: 'scheduled' })).toContain(
+      'scheduledAt is required when status is scheduled',
+    );
+    expect(refineArticlePayload({ status: 'scheduled', scheduledAt: '2026-11-01T09:00' })).toEqual([]);
+  });
+
+  it('holds submissions to the review bar', () => {
+    const errors = refineArticlePayload({ status: 'pending', title: 'Hi', description: 'short', body: 'tiny', tags: [] });
+    expect(errors).toContain('Title is required (min 6 characters)');
+    expect(errors).toContain('Article body must be at least 200 characters for review');
+    expect(errors).toContain('Description/teaser is required (min 40 characters)');
+    expect(errors).toContain('Add at least 2 tags');
+    expect(errors.some((message) => message.includes('section heading'))).toBe(true);
+
+    const ready = refineArticlePayload({
+      status: 'pending',
+      title: 'A long enough title',
+      category: 'Technology',
+      description: 'A'.padEnd(60, 'a'),
+      body: `## Heading\n\n${'word '.repeat(60)}`,
+      tags: ['ai', 'web3'],
+    });
+    expect(ready).toEqual([]);
+  });
+
+  it('accepts Markdown ## headings as the navigability signal', () => {
+    const ready = refineArticlePayload({
+      status: 'pending',
+      title: 'A long enough title',
+      category: 'Technology',
+      description: 'D'.padEnd(60, 'd'),
+      body: `## Section\n\n${'word '.repeat(60)}`,
+      tags: ['a', 'b'],
+    });
+    expect(ready).toEqual([]);
   });
 });

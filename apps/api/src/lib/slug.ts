@@ -1,57 +1,52 @@
 /**
- * G WORLD — URL slug generation.
+ * Sholynk Tech — URL slug generation.
  *
- * Slugs are the public identifiers used in URLs (`/courses/javascript-basics`),
- * so they must be stable, lowercase, ASCII and unique. Uniqueness is resolved
- * deterministically (`-2`, `-3`, …) and finally guaranteed by a UNIQUE index in
- * the database — the helper only avoids a pointless failed insert.
+ * Slugs are the public identifiers of articles (`/articles/<slug>/`), so they
+ * must be stable, lowercase, ASCII and unique. The rules here are byte-for-byte
+ * compatible with the legacy Sholynk CMS slugify(), because every seeded slug,
+ * every redirect and every reader's bookmark was produced by them.
+ *
+ * Uniqueness is resolved deterministically (`-2`, `-3`, …) and finally
+ * guaranteed by the UNIQUE index on `articles.slug` — the helper only avoids a
+ * pointless failed insert.
  */
 
-const DIACRITICS = /[\u0300-\u036f]/g;
-
-export function slugify(input: string, maxLength = 80): string {
-  const base = input
-    .normalize('NFKD')
-    .replace(DIACRITICS, '')
-    .replace(/['’"]/g, '')
+/** The legacy CMS slugify: NFKD, strip everything but [a-z0-9 -], dash-join. */
+export function slugify(value: string = '', maxLength = 80): string {
+  return String(value)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
-
-  if (!base) return 'item';
-  if (base.length <= maxLength) return base;
-
-  // Trim on a word boundary where possible so slugs stay readable.
-  const truncated = base.slice(0, maxLength);
-  const lastDash = truncated.lastIndexOf('-');
-  return (lastDash > maxLength * 0.6 ? truncated.slice(0, lastDash) : truncated).replace(/-+$/, '');
+    .normalize('NFKD')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, maxLength);
 }
 
-/** Pure candidate generator — the caller decides when to stop asking. */
-export function slugCandidates(input: string, maxAttempts = 25): string[] {
-  const base = slugify(input);
-  const candidates = [base];
-  for (let i = 2; i <= maxAttempts; i += 1) candidates.push(slugify(`${base}-${i}`));
-  return candidates;
+/** Validates a slug supplied by an editor (lowercase, hyphenated). */
+export function isValidSlug(value: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length >= 1 && value.length <= 120;
 }
 
 /**
- * Resolves a unique slug using the provided existence check.
- * `exists` performs one indexed lookup (SELECT 1 … WHERE slug = ?).
+ * Resolves a unique slug using the provided existence check, mirroring the
+ * legacy `uniqueSlug(base, ignoreId)`: try the base, then `-2`, `-3`, …
+ * `exists` performs one indexed lookup (SELECT 1 … WHERE slug = ? [AND id != ?]).
  */
 export async function uniqueSlug(
-  input: string,
+  base: string,
   exists: (candidate: string) => Promise<boolean>,
-  fallbackSuffix?: string,
+  fallback?: string,
 ): Promise<string> {
-  for (const candidate of slugCandidates(input)) {
+  const root = base || fallback || `article-${Date.now()}`;
+  let candidate = root;
+  let suffix = 2;
+  // Bounded instead of `while (true)`: 100 collisions on an 80-char slug space
+  // is already pathological, and a Worker must not spin forever.
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     if (!(await exists(candidate))) return candidate;
+    candidate = `${root}-${suffix}`;
+    suffix += 1;
   }
-  return slugify(`${input}-${fallbackSuffix ?? Date.now().toString(36)}`);
-}
-
-/** Validates a slug supplied by an administrator. */
-export function isValidSlug(value: string): boolean {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length >= 2 && value.length <= 120;
+  return `${root}-${Date.now().toString(36)}`;
 }

@@ -31,7 +31,7 @@ function startedAtIso(): string {
 healthRoutes.get('/health', (c) =>
   ok(c, {
     status: 'ok',
-    service: 'g-world-api',
+    service: 'sholynk-tech-api',
     environment: c.get('config').environment,
     started_at: startedAtIso(),
     time: new Date().toISOString(),
@@ -42,11 +42,18 @@ healthRoutes.get('/health/ready', async (c) => {
   const config = c.get('config');
   const problems = findConfigProblems(config, c.env);
 
-  let database: { reachable: boolean; migrations_applied: boolean; error?: string };
+  let database: { reachable: boolean; migrations_applied: boolean; articles?: number; error?: string };
   try {
     const db = createDb(c.env.DB);
-    const row = await db.first<{ total: number }>(`SELECT COUNT(*) AS total FROM roles`);
-    database = { reachable: true, migrations_applied: Number(row?.total ?? 0) >= 4 };
+    const [roles, articles] = await Promise.all([
+      db.first<{ total: number }>(`SELECT COUNT(*) AS total FROM roles`),
+      db.first<{ total: number }>(`SELECT COUNT(*) AS total FROM articles`),
+    ]);
+    database = {
+      reachable: true,
+      migrations_applied: Number(roles?.total ?? 0) >= 4,
+      articles: Number(articles?.total ?? 0),
+    };
   } catch (error) {
     database = {
       reachable: false,
@@ -78,7 +85,7 @@ healthRoutes.get('/health/ready', async (c) => {
 healthRoutes.get('/meta', (c) => {
   const config = c.get('config');
   return ok(c, {
-    name: 'G WORLD',
+    name: 'Sholynk Tech',
     api_version: 'v1',
     environment: config.environment,
     features: {

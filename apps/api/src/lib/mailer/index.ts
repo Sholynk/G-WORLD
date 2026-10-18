@@ -1,5 +1,5 @@
 /**
- * G WORLD — email delivery.
+ * Sholynk Tech — email delivery.
  *
  * Two providers, selected by the `EMAIL_PROVIDER` variable:
  *

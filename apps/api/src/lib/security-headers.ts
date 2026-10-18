@@ -1,5 +1,5 @@
 /**
- * G WORLD — security response headers for the API.
+ * Sholynk Tech — security response headers for the API.
  *
  * The Worker only ever returns JSON and SVG, never HTML, so the policy can be as
  * strict as it gets: `default-src 'none'` blocks every fetch/script/frame

@@ -16,15 +16,15 @@ import { applyMigrations, executeFile, query, seedFiles } from './lib/local-d1.m
 
 /** One statement so the read-back is a single D1 round trip. */
 const kRows = `SELECT
-  (SELECT COUNT(*) FROM departments) AS departments,
-  (SELECT COUNT(*) FROM subjects) AS subjects,
-  (SELECT COUNT(*) FROM courses) AS courses,
-  (SELECT COUNT(*) FROM modules) AS modules,
-  (SELECT COUNT(*) FROM lessons) AS lessons,
+  (SELECT COUNT(*) FROM roles) AS roles,
+  (SELECT COUNT(*) FROM permissions) AS permissions,
   (SELECT COUNT(*) FROM users) AS users,
-  (SELECT COUNT(*) FROM enrollments) AS enrollments,
-  (SELECT COUNT(*) FROM quiz_attempts) AS quiz_attempts,
-  (SELECT COUNT(*) FROM certificates) AS certificates,
+  (SELECT COUNT(*) FROM authors) AS authors,
+  (SELECT COUNT(*) FROM articles) AS articles,
+  (SELECT COUNT(*) FROM article_sources) AS article_sources,
+  (SELECT COUNT(*) FROM settings) AS settings,
+  (SELECT COUNT(*) FROM comments) AS comments,
+  (SELECT COUNT(*) FROM reactions) AS reactions,
   (SELECT COUNT(*) FROM audit_logs) AS audit_logs`;
 
 const args = process.argv.slice(2);
@@ -88,5 +88,5 @@ if (failed) {
 
 console.log(
   `\n${selected.length} seed file(s) applied. Sign in with the demo accounts from ` +
-    'database/seeds/004_demo_users.sql (they are development-only credentials).',
+    'database/seeds/001_demo_users.sql (they are development-only credentials).',
 );

@@ -1,106 +1,107 @@
 <!doctype html>
-<html lang="en" data-page="reset">
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Reset password · G WORLD</title>
-    <meta name="description" content="Send yourself a link to choose a new G WORLD password.">
-    <link rel="canonical" href="https://g-world.pages.dev/reset.html">
-    <meta name="theme-color" content="#0C7ABF">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Sora:wght@600;700&display=swap">
-    <link rel="stylesheet" href="/assets/css/tokens.css">
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/layout.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/forms.css">
-    <link rel="stylesheet" href="/assets/css/tables.css">
-    <link rel="stylesheet" href="/assets/css/animations.css">
-    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
-    <script src="/config.js"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Account recovery - Sholynk Tech</title>
+    <meta content="Reset your Sholynk Tech editorial password or confirm your email address." name="description" />
+    <meta content="noindex, nofollow" name="robots" />
+    <meta content="#000000" name="theme-color" />
+    <link rel="canonical" href="./" />
+    <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link href="styles.css" rel="stylesheet" />
   </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <header class="site-header" data-site-header>
-      <div class="site-nav">
-        <div class="site-nav__inner container">
-          <a class="brand" href="/index.html">G WORLD</a>
-
-          <nav class="site-nav__links" aria-label="Main">
-            <a class="site-nav__link" href="/departments.html">Departments</a>
-            <a class="site-nav__link" href="/subjects.html">Subjects</a>
-            <a class="site-nav__link" href="/courses.html">Courses</a>
-          </nav>
-
-          <div class="site-nav__actions">
-            <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-            <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-            <span class="site-nav__name" data-nav-session data-nav-name hidden></span>
-            <a class="btn" data-nav-register href="/register.html">Register</a>
-          </div>
-
-          <details class="site-nav__menu">
-            <summary class="btn o">Menu</summary>
-            <div class="site-nav__panel">
-              <a class="site-nav__link" href="/departments.html">Departments</a>
-              <a class="site-nav__link" href="/subjects.html">Subjects</a>
-              <a class="site-nav__link" href="/courses.html">Courses</a>
-              <a class="site-nav__link" data-nav-login href="/login.html">Log in</a>
-              <a class="site-nav__link" data-nav-session data-nav-learning href="/dashboard.html" hidden>My learning</a>
-              <a class="btn" data-nav-register href="/register.html">Register</a>
-            </div>
-          </details>
-        </div>
+  <body class="auth-view">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" aria-label="Sholynk homepage">
+          <img
+            alt="Sholynk logo"
+            class="site-logo"
+            height="24"
+            src="assets/brand/page_logo.png"
+            width="120"
+          />
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="index.html">Home</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </nav>
       </div>
     </header>
 
-    <main id="main" class="site-main" tabindex="-1">
-      <div class="container">
-        <div class="auth">
-          <h1>Reset password</h1>
-          <p class="auth__lead">Enter the e-mail address on your account and we will send you a reset link.</p>
-
-          <form class="form" data-reset-form novalidate>
-            <div class="field">
-              <label for="email">Email</label>
-              <input id="email" name="email" type="email" autocomplete="email" required>
-            </div>
-
-            <button class="btn btn--block" type="submit">Send reset link</button>
-            <p class="form-status" data-form-status role="status" aria-live="polite"></p>
-          </form>
-
-          <div class="auth__links">
-            <a href="/login.html">Back to log in</a>
+    <main class="auth-main" id="main-content">
+      <!-- Mode 1: request a reset link -->
+      <section class="auth-card" id="forgotCard" aria-labelledby="forgot-title" hidden>
+        <p class="eyebrow">Sholynk CMS</p>
+        <h1 id="forgot-title">Reset your password</h1>
+        <p class="auth-subtitle">
+          Enter your editorial account email and we will send a reset link that
+          expires in one hour.
+        </p>
+        <form id="forgotForm" class="auth-form" novalidate>
+          <div class="form-field">
+            <label for="forgotEmail">Email</label>
+            <input id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
           </div>
-        </div>
-      </div>
-      <div data-page-error></div>
+          <button class="btn-primary auth-submit" type="submit">
+            <i class="fas fa-paper-plane" aria-hidden="true"></i> Email me a reset link
+          </button>
+          <p class="form-status" id="forgotStatus" role="status" aria-live="polite"></p>
+        </form>
+        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
+      </section>
+
+      <!-- Mode 2: choose a new password (?token=…) -->
+      <section class="auth-card" id="resetCard" aria-labelledby="reset-title" hidden>
+        <p class="eyebrow">Sholynk CMS</p>
+        <h1 id="reset-title">Choose a new password</h1>
+        <p class="auth-subtitle">
+          Reset links are single-use and expire after an hour.
+        </p>
+        <form id="resetForm" class="auth-form" novalidate>
+          <div class="form-field">
+            <label for="newPassword">New password</label>
+            <input id="newPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required />
+          </div>
+          <div class="form-field">
+            <label for="confirmPassword">Confirm password</label>
+            <input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repeat the new password" required />
+          </div>
+          <button class="btn-primary auth-submit" type="submit">
+            <i class="fas fa-key" aria-hidden="true"></i> Update password
+          </button>
+          <p class="form-status" id="resetStatus" role="status" aria-live="polite"></p>
+        </form>
+        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
+      </section>
+
+      <!-- Mode 3: email verification (?verify=…) -->
+      <section class="auth-card" id="verifyCard" aria-labelledby="verify-title" hidden>
+        <p class="eyebrow">Sholynk CMS</p>
+        <h1 id="verify-title">Confirming your email...</h1>
+        <p class="form-status" id="verifyStatus" role="status" aria-live="polite"></p>
+        <p class="auth-links"><a href="login.html">Go to sign in</a></p>
+      </section>
     </main>
 
-    <footer class="site-footer" data-site-footer>
-      <div class="site-footer__inner container">
-        <p class="site-footer__brand" data-footer-site>G WORLD</p>
-        <nav class="site-footer__links" aria-label="Footer">
-          <a href="/departments.html">Departments</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/subjects.html">Subjects</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="/courses.html">Courses</a>
-          <span class="site-footer__sep" aria-hidden="true">·</span>
-          <a href="mailto:support@gworld.example" data-footer-email>support@gworld.example</a>
-        </nav>
+    <footer class="site-footer">
+      <div class="footer-legal">
+        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
       </div>
     </footer>
-
-    <script type="module">
-      import { boot } from '/assets/js/core/boot.js';
-      import { init } from '/assets/js/pages/reset.js';
-      boot(init);
-    </script>
+    <script src="script.js"></script>
+    <script src="reset.js"></script>
   </body>
 </html>

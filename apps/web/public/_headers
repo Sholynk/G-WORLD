@@ -1,40 +1,51 @@
 # =============================================================================
-# G WORLD — static hosting headers (Cloudflare Pages reads this file verbatim)
+# Sholynk Tech — static hosting headers (Cloudflare Pages reads this file)
 # -----------------------------------------------------------------------------
-# The API sets its own security headers on JSON responses
-# (apps/api/src/lib/security-headers.ts). These are the equivalents for the
-# static documents, which Pages serves directly from the edge.
+# The API worker sets its own security headers on JSON responses
+# (apps/api/src/lib/security-headers.ts), and the SSR document routes apply the
+# same page policy as below (apps/api/src/routes/public/seo.ts → PAGE_CSP; a
+# unit test asserts the two policies stay in sync).
+#
+# The policy allows exactly the third parties the site has always used:
+#   * cdnjs.cloudflare.com  — Font Awesome (CSS + webfonts)
+#   * fonts.googleapis.com / fonts.gstatic.com — Montserrat
+#   * cdn.jsdelivr.net      — Chart.js and pdf.js for the admin dashboard
+# There are no inline scripts anywhere: the legacy contact-form script was
+# extracted to contact-form.js so `script-src 'self' + jsdelivr` suffices.
 # =============================================================================
 
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
-  Permissions-Policy: geolocation=(), microphone=(), camera=(self), payment=()
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
   Cross-Origin-Opener-Policy: same-origin
-  # `frame-ancestors 'none'` would also block our own iframes (the lesson player
-  # embeds youtube-nocookie), so framing is limited to the same origin and to
-  # YouTube's embed host instead.
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-src https://www.youtube-nocookie.com https://www.youtube.com; media-src 'self'
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; img-src 'self' data: https:; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' https://cdn.jsdelivr.net blob:; media-src 'self'
 
 # HTML is authored content; caching is short so a deploy is visible immediately.
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 
-# Assets are content-addressed by filename convention (`core/api.js`), so they
-# can cache for a long time. A change to a file is a change to the site.
-/assets/*
-  Cache-Control: public, max-age=604800, immutable
+# The admin dashboard must never be cached or indexed.
+/admin/*
+  Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
 
-# The runtime config file holds no secrets but must never be cached: it is how a
-# deployment points at its API.
+# Site assets are content-addressed by filename convention, so they can cache
+# for a long time. A change to a file is a change to the site.
+/assets/*
+  Cache-Control: public, max-age=604800
+
+# The runtime config file holds no secrets but must never be cached: it is how
+# a deployment points at its API.
 /config.js
   Cache-Control: no-store
 
-# Machine-readable files.
+# Machine-readable files (generated live by Pages Functions; these rules apply
+# when the static fallbacks are served).
 /robots.txt
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=300
 /sitemap.xml
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=300
 /manifest.webmanifest
   Cache-Control: public, max-age=86400

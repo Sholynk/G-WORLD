@@ -26,7 +26,7 @@ const args = process.argv.slice(2);
 const assumeYes = args.includes('--yes') || args.includes('-y') || args.includes('--force');
 const skipSeed = args.includes('--no-seed');
 
-console.log('G WORLD — reset local database');
+console.log('Sholynk Tech — reset local database');
 console.log(`state directory: ${path.relative(process.cwd(), LOCAL_STATE_DIR)}`);
 console.log('target: local Miniflare D1 only (no remote database is touched)');
 

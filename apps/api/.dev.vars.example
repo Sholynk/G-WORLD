@@ -1,5 +1,5 @@
 # =============================================================================
-# G WORLD — API worker, local development variables (EXAMPLE)
+# Sholynk Tech — API worker, local development variables (EXAMPLE)
 # -----------------------------------------------------------------------------
 # Copy this file to `apps/api/.dev.vars` and fill in real values:
 #
@@ -33,19 +33,27 @@ ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 EMAIL_PROVIDER=console
 
 # From: header on outgoing mail.
-EMAIL_FROM=G WORLD <no-reply@gworld.example>
+EMAIL_FROM=Sholynk Tech <no-reply@sholynktech.example>
 
 # Only needed when EMAIL_PROVIDER=resend. Get one at https://resend.com/api-keys
 # (free tier: 3,000 emails/month, 100/day — see docs/06-deployment.md).
 # Never commit a real key.
 RESEND_API_KEY=
 
+# Where "article submitted for review" notifications are emailed.
+EDITOR_EMAIL=sholynktech@gmail.com
+
 # Absolute URLs used in emails and links.
 APP_BASE_URL=http://localhost:5173
 API_BASE_URL=http://localhost:8787/api/v1
 
-# Allow public sign-up. Turn off for a closed pilot.
-ENABLE_REGISTRATION=true
+# Canonical public origin for canonical URLs, robots.txt and sitemap.xml.
+# Empty in development: the render endpoints derive the origin from the request.
+SITE_URL=
+
+# Public sign-up. Off by default: editorial accounts are created by an admin
+# (the seeded ones live in database/seeds/001_demo_users.sql).
+ENABLE_REGISTRATION=false
 
 # Exposes /api/v1/auth/dev/* — reset rate limits, reset demo accounts, read the
 # email outbox. Must be false in production.

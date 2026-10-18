@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — configuration gate.
+ * Sholynk Tech — configuration gate.
  *
  *   npm run check:config              # local run: placeholders are warnings
  *   npm run check:config -- --strict  # deploy run: placeholders are failures
@@ -146,7 +146,7 @@ if (apiConfig) {
     if (binding.binding !== 'DB') warn(`D1 binding is named "${binding.binding}", expected "DB"`);
     if (binding.database_id === ZERO_ID) {
       const message = 'D1 `database_id` is still the all-zero placeholder';
-      const hint = 'Run `wrangler d1 create g_world` and paste the returned id into both the top-level and production blocks.';
+      const hint = 'Run `wrangler d1 create sholynk_tech` and paste the returned id into both the top-level and production blocks.';
       if (STRICT) fail(message, hint);
       else warn(message, `${hint} Local development uses a local SQLite file, so this is fine until you deploy.`);
     }

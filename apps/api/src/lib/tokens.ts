@@ -1,5 +1,5 @@
 /**
- * G WORLD — opaque token generation and storage rules.
+ * Sholynk Tech — opaque token generation and storage rules.
  *
  * Tokens (session cookies, email verification, password reset) are random
  * 32-byte values encoded as base64url. Only their SHA-256 hash is stored, so:
@@ -21,16 +21,16 @@ export function generateToken(bytes: number = TOKEN_BYTES): string {
 
 /** Storage form. Tokens are high-entropy, so a plain SHA-256 is sufficient. */
 export async function hashToken(token: string): Promise<string> {
-  return sha256Hex(`g-world:token:${token}`);
+  return sha256Hex(`sholynk:token:${token}`);
 }
 
 export async function tokenDigest(token: string, secret: string): Promise<string> {
-  return hmacSha256Hex(secret, `g-world:token:${token}`);
+  return hmacSha256Hex(secret, `sholynk:token:${token}`);
 }
 
-/** Double-submit CSRF token bound to the session token (see ADR-0003). */
+/** Double-submit CSRF token bound to the session token. */
 export async function csrfTokenFor(sessionToken: string, secret: string): Promise<string> {
-  const digest = await hmacSha256Hex(secret, `g-world:csrf:${sessionToken}`);
+  const digest = await hmacSha256Hex(secret, `sholynk:csrf:${sessionToken}`);
   return digest.slice(0, 32);
 }
 
@@ -39,8 +39,6 @@ export const TOKEN_TTL = {
   EMAIL_VERIFICATION_MS: 1000 * 60 * 60 * 48,
   /** Password reset links are short-lived on purpose. */
   PASSWORD_RESET_MS: 1000 * 60 * 60,
-  /** Student QR identity codes. */
-  QR_STUDENT_MS: 1000 * 60 * 60 * 24 * 365 * 2,
 } as const;
 
 export function expiresAtFromNow(ttlMs: number, now: number = Date.now()): string {

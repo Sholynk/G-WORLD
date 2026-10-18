@@ -7,7 +7,7 @@
  * frontend cannot widen its own access.
  */
 import type { Db } from '../client.js';
-import type { PermissionKey, RoleKey } from '@g-world/shared';
+import type { PermissionKey, RoleKey } from '@sholynk/shared';
 
 export interface RoleRow {
   id: string;
@@ -73,7 +73,7 @@ export interface RolePermissionMatrixRow {
   permission_key: string;
 }
 
-/** Full role→permission matrix, used by the parity test against @g-world/shared. */
+/** Full role→permission matrix, used by the parity test against @sholynk/shared. */
 export async function rolePermissionMatrix(db: Db): Promise<RolePermissionMatrixRow[]> {
   return db.all<RolePermissionMatrixRow>(
     `SELECT r.key AS role_key, p.key AS permission_key

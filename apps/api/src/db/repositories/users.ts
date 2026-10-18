@@ -1,12 +1,12 @@
 /**
- * Repository — users and student profiles.
+ * Repository — users and profiles.
  *
  * Note which columns are selected: `SELECT *` is never used, so a hash or token
  * cannot be accidentally serialised into a response. Anything that needs the
  * password hash asks for it explicitly via `findCredentialsByEmail()`.
  */
 import type { Db, SqlParams } from '../client.js';
-import type { AccountStatus, RoleKey } from '@g-world/shared';
+import type { AccountStatus, RoleKey } from '@sholynk/shared';
 import { newId, ID_PREFIXES } from '../../lib/ids.js';
 
 export interface UserRow {
@@ -22,16 +22,13 @@ export interface UserRow {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
-  student_number: string | null;
   display_name: string | null;
   full_name: string | null;
-  education_level: string | null;
-  country: string | null;
-  timezone: string | null;
-  interests_json: string | null;
-  goals: string | null;
   bio: string | null;
   avatar_url: string | null;
+  website: string | null;
+  country: string | null;
+  timezone: string | null;
 }
 
 export interface CredentialsRow {
@@ -51,11 +48,10 @@ export const USER_SELECT = `
   SELECT u.id, u.email, u.role_id, u.status, u.email_verified_at, u.failed_login_attempts,
          u.locked_until, u.last_login_at, u.created_at, u.updated_at,
          r.key AS role_key, r.rank AS role_rank,
-         sp.student_number, sp.display_name, sp.full_name, sp.education_level, sp.country,
-         sp.timezone, sp.interests_json, sp.goals, sp.bio, sp.avatar_url
+         p.display_name, p.full_name, p.bio, p.avatar_url, p.website, p.country, p.timezone
     FROM users u
     JOIN roles r ON r.id = u.role_id
-    LEFT JOIN student_profiles sp ON sp.user_id = u.id`;
+    LEFT JOIN user_profiles p ON p.user_id = u.id`;
 
 export interface CreateUserInput {
   email: string;
@@ -66,14 +62,13 @@ export interface CreateUserInput {
 }
 
 export interface CreateProfileInput {
-  studentNumber?: string | null;
   displayName?: string | null;
   fullName?: string | null;
-  educationLevel?: string | null;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  website?: string | null;
   country?: string | null;
   timezone?: string | null;
-  interests?: string[];
-  goals?: string | null;
 }
 
 export async function findById(db: Db, id: string): Promise<UserRow | null> {
@@ -113,25 +108,22 @@ export interface CreateUserResult {
 }
 
 /**
- * Creates the account and its (optional) student profile in one D1 batch, so a
- * failure cannot leave a user without a profile row.
+ * Creates the account and its profile in one D1 batch, so a failure cannot
+ * leave a user without a profile row.
  *
- * Registration is open to students only — the role id is resolved by the caller
- * from the `student` role, never from request input, which is what keeps public
- * registration from ever minting an administrator.
+ * Public registration (when enabled) always mints the `editor` role — the role
+ * id is resolved by the caller from that key, never from request input, which
+ * is what keeps registration from ever minting an administrator.
  */
 export async function createUser(
   db: Db,
   input: CreateUserInput,
-  profile: CreateProfileInput,
-  studentNumber: string | null,
+  profile: CreateProfileInput = {},
 ): Promise<CreateUserResult> {
   const userId = newId(ID_PREFIXES.user);
-  // `student_profiles.user_id` is the primary key and a foreign key onto
-  // `users.id`, so the profile row is keyed by the user id — there is no
-  // separate profile identifier to generate.
+  // `user_profiles.user_id` is the primary key and a foreign key onto
+  // `users.id`, so the profile row is keyed by the user id.
   const now = new Date().toISOString();
-  const interests = JSON.stringify(profile.interests ?? []);
 
   await db.batch([
     db.prepare(
@@ -151,19 +143,18 @@ export async function createUser(
       ],
     ),
     db.prepare(
-      `INSERT INTO student_profiles (user_id, student_number, display_name, full_name, education_level,
-                                     country, timezone, interests_json, goals, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO user_profiles (user_id, display_name, full_name, bio, avatar_url, website,
+                                  country, timezone, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
-        studentNumber,
         profile.displayName ?? null,
         profile.fullName ?? null,
-        profile.educationLevel ?? null,
+        profile.bio ?? null,
+        profile.avatarUrl ?? null,
+        profile.website ?? null,
         profile.country ?? null,
         profile.timezone ?? null,
-        interests,
-        profile.goals ?? null,
         now,
         now,
       ],
@@ -256,13 +247,11 @@ export async function setRole(db: Db, userId: string, roleId: string): Promise<n
 export interface UpdateProfileInput {
   display_name?: string | null;
   full_name?: string | null;
-  education_level?: string | null;
-  country?: string | null;
-  timezone?: string | null;
-  interests?: string[];
-  goals?: string | null;
   bio?: string | null;
   avatar_url?: string | null;
+  website?: string | null;
+  country?: string | null;
+  timezone?: string | null;
 }
 
 /** Partial profile update — only provided keys are written. */
@@ -277,38 +266,23 @@ export async function updateProfile(db: Db, userId: string, input: UpdateProfile
 
   if (input.display_name !== undefined) push('display_name', input.display_name);
   if (input.full_name !== undefined) push('full_name', input.full_name);
-  if (input.education_level !== undefined) push('education_level', input.education_level);
-  if (input.country !== undefined) push('country', input.country);
-  if (input.timezone !== undefined) push('timezone', input.timezone);
-  if (input.interests !== undefined) push('interests_json', JSON.stringify(input.interests));
-  if (input.goals !== undefined) push('goals', input.goals);
   if (input.bio !== undefined) push('bio', input.bio);
   if (input.avatar_url !== undefined) push('avatar_url', input.avatar_url);
+  if (input.website !== undefined) push('website', input.website);
+  if (input.country !== undefined) push('country', input.country);
+  if (input.timezone !== undefined) push('timezone', input.timezone);
 
   if (assignments.length === 0) return 0;
   push('updated_at', new Date().toISOString());
 
   // Ensure a profile row exists for accounts created before profiles were split.
-  await db.run(
-    `INSERT OR IGNORE INTO student_profiles (user_id, interests_json) VALUES (?, '[]')`,
-    [userId],
-  );
+  await db.run(`INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)`, [userId]);
 
   params.push(userId);
   return db.changes(
-    `UPDATE student_profiles SET ${assignments.join(', ')} WHERE user_id = ?`,
+    `UPDATE user_profiles SET ${assignments.join(', ')} WHERE user_id = ?`,
     params,
   );
-}
-
-export async function assignStudentNumber(db: Db, userId: string, studentNumber: string): Promise<number> {
-  await db.run(`INSERT OR IGNORE INTO student_profiles (user_id, interests_json) VALUES (?, '[]')`, [
-    userId,
-  ]);
-  return db.changes(`UPDATE student_profiles SET student_number = ? WHERE user_id = ?`, [
-    studentNumber,
-    userId,
-  ]);
 }
 
 export interface ListUsersFilters {
@@ -325,18 +299,18 @@ export interface ListUsersResult {
   total: number;
 }
 
-/** Administrator student directory with search, filters and pagination. */
+/** Administrator account directory with search, filters and pagination. */
 export async function listUsers(db: Db, filters: ListUsersFilters): Promise<ListUsersResult> {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (filters.q) {
     conditions.push(
-      `(u.email LIKE ? COLLATE NOCASE OR sp.display_name LIKE ? COLLATE NOCASE
-        OR sp.full_name LIKE ? COLLATE NOCASE OR sp.student_number LIKE ? COLLATE NOCASE)`,
+      `(u.email LIKE ? COLLATE NOCASE OR p.display_name LIKE ? COLLATE NOCASE
+        OR p.full_name LIKE ? COLLATE NOCASE)`,
     );
     const term = `%${filters.q}%`;
-    params.push(term, term, term, term);
+    params.push(term, term, term);
   }
   if (filters.status) {
     conditions.push(`u.status = ?`);
@@ -355,7 +329,7 @@ export async function listUsers(db: Db, filters: ListUsersFilters): Promise<List
     `SELECT COUNT(*) AS total
        FROM users u
        JOIN roles r ON r.id = u.role_id
-       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
        ${where}`,
     params,
   );
@@ -372,7 +346,7 @@ export async function listUsers(db: Db, filters: ListUsersFilters): Promise<List
 
 export interface UserStats {
   total: number;
-  students: number;
+  editors: number;
   admins: number;
   pending: number;
   suspended: number;
@@ -384,7 +358,7 @@ export async function userStats(db: Db): Promise<UserStats> {
   const row = await db.first<Record<string, number>>(
     `SELECT
        COUNT(*) AS total,
-       SUM(CASE WHEN r.key = 'student' THEN 1 ELSE 0 END) AS students,
+       SUM(CASE WHEN r.key = 'editor' THEN 1 ELSE 0 END) AS editors,
        SUM(CASE WHEN r.key IN ('admin', 'super_admin') THEN 1 ELSE 0 END) AS admins,
        SUM(CASE WHEN u.status = 'pending_verification' THEN 1 ELSE 0 END) AS pending,
        SUM(CASE WHEN u.status = 'suspended' THEN 1 ELSE 0 END) AS suspended,
@@ -397,7 +371,7 @@ export async function userStats(db: Db): Promise<UserStats> {
   const num = (value: unknown) => Number(value ?? 0);
   return {
     total: num(row?.total),
-    students: num(row?.students),
+    editors: num(row?.editors),
     admins: num(row?.admins),
     pending: num(row?.pending),
     suspended: num(row?.suspended),
@@ -406,13 +380,12 @@ export async function userStats(db: Db): Promise<UserStats> {
   };
 }
 
-/** Minimal user projection for admin pickers and QR lookups. */
+/** Minimal user projection for admin pickers. */
 export interface UserSummary {
   id: string;
   email: string;
   status: AccountStatus;
   role_key: RoleKey;
-  student_number: string | null;
   display_name: string | null;
   created_at: string;
   email_verified_at: string | null;
@@ -421,26 +394,13 @@ export interface UserSummary {
 export async function findSummaryById(db: Db, id: string): Promise<UserSummary | null> {
   return db.first<UserSummary>(
     `SELECT u.id, u.email, u.status, u.created_at, u.email_verified_at,
-            r.key AS role_key, sp.student_number, sp.display_name
+            r.key AS role_key, p.display_name
        FROM users u
        JOIN roles r ON r.id = u.role_id
-       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
       WHERE u.id = ?
       LIMIT 1`,
     [id],
-  );
-}
-
-export async function findSummaryByStudentNumber(db: Db, studentNumber: string): Promise<UserSummary | null> {
-  return db.first<UserSummary>(
-    `SELECT u.id, u.email, u.status, u.created_at, u.email_verified_at,
-            r.key AS role_key, sp.student_number, sp.display_name
-       FROM users u
-       JOIN roles r ON r.id = u.role_id
-       JOIN student_profiles sp ON sp.user_id = u.id
-      WHERE sp.student_number = ? COLLATE NOCASE
-      LIMIT 1`,
-    [studentNumber],
   );
 }
 

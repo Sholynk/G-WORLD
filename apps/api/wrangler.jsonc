@@ -1,25 +1,27 @@
 /**
- * Wrangler configuration — G WORLD API (Cloudflare Worker).
+ * Wrangler configuration — Sholynk Tech API (Cloudflare Worker).
  *
  * Local development:  npm run dev:api         (wrangler dev, port 8787)
  * Migrations (local): npm run db:migrate:local
- * Deploy production:  npm run deploy:production -w @g-world/api
+ * Deploy production:  npm run deploy:production -w @sholynk/api
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * BEFORE THE FIRST DEPLOY
  *   1. wrangler login
- *   2. wrangler d1 create g_world
+ *   2. wrangler d1 create sholynk_tech
  *        → copy the returned `database_id` into `d1_databases[0].database_id`
- *          below (replace the all-zero sentinel)
- *   3. wrangler r2 bucket create g-world-uploads      (only if uploads are used)
+ *          below (replace the all-zero sentinel) AND into the production env
+ *   3. wrangler r2 bucket create sholynk-uploads      (article/media uploads)
  *   4. wrangler secret put SESSION_SECRET   --config apps/api/wrangler.jsonc --env production
  *   5. wrangler secret put RESEND_API_KEY   --config apps/api/wrangler.jsonc --env production  (if using Resend)
- *   6. npm run check:config     ← fails loudly while placeholders remain
+ *   6. npm run db:migrate:remote && npm run db:seed:local is LOCAL only —
+ *      for production content see docs/06-deployment.md
+ *   7. npm run check:config     ← fails loudly while placeholders remain
  * ─────────────────────────────────────────────────────────────────────────────
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "g-world-api",
+  "name": "sholynk-tech-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -29,11 +31,17 @@
     "head_sampling_rate": 1
   },
 
+  // Article shell served by the SSR renderer (GET /api/v1/render/…). Imported
+  // as text so the worker renders the exact document the static site ships.
+  "rules": [
+    { "type": "Text", "globs": ["**/*.html"], "fallthrough": false }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "g_world",
-      "database_id": "e65dab59-c29a-4c35-9c91-f786fba614ab",
+      "database_name": "sholynk_tech",
+      "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "../../database/migrations"
     }
   ],
@@ -41,13 +49,13 @@
   "r2_buckets": [
     {
       "binding": "BUCKET",
-      "bucket_name": "g-world-uploads",
-      "preview_bucket_name": "g-world-uploads-preview"
+      "bucket_name": "sholynk-uploads",
+      "preview_bucket_name": "sholynk-uploads-preview"
     }
   ],
 
   // Cron: housekeeping every night at 03:17 UTC (expired sessions, tokens,
-  // rate-limit windows, audit retention).
+  // rate-limit windows, audit retention) plus scheduled-article publishing.
   "triggers": {
     "crons": ["17 3 * * *"]
   },
@@ -57,10 +65,12 @@
     "ENVIRONMENT": "development",
     "APP_BASE_URL": "http://localhost:5173",
     "API_BASE_URL": "http://localhost:8787/api/v1",
+    "SITE_URL": "",
     "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
     "EMAIL_PROVIDER": "console",
-    "EMAIL_FROM": "G WORLD <no-reply@gworld.example>",
-    "ENABLE_REGISTRATION": "true",
+    "EMAIL_FROM": "Sholynk Tech <no-reply@sholynktech.example>",
+    "EDITOR_EMAIL": "sholynktech@gmail.com",
+    "ENABLE_REGISTRATION": "false",
     "ENABLE_DEV_ROUTES": "true",
     "SESSION_TTL_HOURS": "336"
   },
@@ -68,15 +78,17 @@
   "env": {
     // `wrangler dev` with no --env flag uses the top-level configuration above.
     "development": {
-      "name": "g-world-api-dev",
+      "name": "sholynk-tech-api-dev",
       "vars": {
         "ENVIRONMENT": "development",
         "APP_BASE_URL": "http://localhost:5173",
         "API_BASE_URL": "http://localhost:8787/api/v1",
+        "SITE_URL": "",
         "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
         "EMAIL_PROVIDER": "console",
-        "EMAIL_FROM": "G WORLD <no-reply@gworld.example>",
-        "ENABLE_REGISTRATION": "true",
+        "EMAIL_FROM": "Sholynk Tech <no-reply@sholynktech.example>",
+        "EDITOR_EMAIL": "sholynktech@gmail.com",
+        "ENABLE_REGISTRATION": "false",
         "ENABLE_DEV_ROUTES": "true",
         "PASSWORD_ITERATIONS": "10000",
         // Development-only relaxation so a full smoke-test run is not blocked
@@ -86,21 +98,21 @@
     },
 
     "production": {
-      "name": "g-world-api",
+      "name": "sholynk-tech-api",
       "workers_dev": true,
       "observability": { "enabled": true },
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "g_world",
-          "database_id": "e65dab59-c29a-4c35-9c91-f786fba614ab",
+          "database_name": "sholynk_tech",
+          "database_id": "00000000-0000-0000-0000-000000000000",
           "migrations_dir": "../../database/migrations"
         }
       ],
       "r2_buckets": [
         {
           "binding": "BUCKET",
-          "bucket_name": "g-world-uploads"
+          "bucket_name": "sholynk-uploads"
         }
       ],
       "triggers": {
@@ -108,15 +120,21 @@
       },
       "vars": {
         "ENVIRONMENT": "production",
-        "APP_BASE_URL": "https://g-world.pages.dev",
+        "APP_BASE_URL": "https://sholynk-tech.pages.dev",
         "API_BASE_URL": "/api/v1",
+        // Canonical public origin of the website, used for canonical URLs,
+        // Open Graph metadata, robots.txt and sitemap.xml. Set this to the
+        // production domain (e.g. https://sholynktech.com) once known; empty
+        // means "derive from the incoming request host".
+        "SITE_URL": "",
         // Empty: the Pages proxy makes the frontend same-origin, so no
         // cross-origin request is ever allowed. Add exact origins here only if
         // you deliberately host the frontend elsewhere.
         "ALLOWED_ORIGINS": "",
         "EMAIL_PROVIDER": "resend",
-        "EMAIL_FROM": "G WORLD <no-reply@your-domain.example>",
-        "ENABLE_REGISTRATION": "true",
+        "EMAIL_FROM": "Sholynk Tech <no-reply@sholynktech.example>",
+        "EDITOR_EMAIL": "sholynktech@gmail.com",
+        "ENABLE_REGISTRATION": "false",
         "ENABLE_DEV_ROUTES": "false",
         "PASSWORD_ITERATIONS": "100000",
         "SESSION_TTL_HOURS": "336"

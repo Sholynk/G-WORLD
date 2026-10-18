@@ -1,9 +1,15 @@
 # =============================================================================
-# G WORLD — frontend (Cloudflare Pages)
+# Sholynk Tech — frontend (Cloudflare Pages)
 # -----------------------------------------------------------------------------
-# `public/` is uploaded verbatim; `functions/` is compiled by Pages into a
-# Worker that serves `/api/*` by calling the API worker (see
-# functions/api/[[path]].ts). Everything else is static.
+# `public/` is uploaded verbatim; `functions/` is compiled by Pages into
+# Workers that:
+#   * proxy `/api/*` to the API worker (functions/api/[[path]].ts),
+#   * proxy `/uploads/*` to the API worker's R2 file route,
+#   * server-render `/articles/:slug` (clean article URLs, full SEO),
+#   * redirect the legacy `/article.html?slug=…` links,
+#   * generate `/robots.txt` and `/sitemap.xml` from live data,
+#   * inject live site settings + origin metadata into the HTML pages.
+# Everything else is static.
 #
 # Deploy:
 #   npm run deploy:web            (production)
@@ -12,44 +18,50 @@
 # Free-tier notes and the Cloudflare Pages settings (see docs/06-deployment.md):
 #   * Pages: unlimited static requests, unlimited bandwidth on the free plan,
 #     500 builds per month, 20,000 files per deployment.
-#   * Functions: 100,000 requests per day on the free plan. Because the static
-#     assets are served by Pages and never hit the Function, only real API calls
-#     count toward that number.
+#   * Functions: 100,000 requests per day on the free plan. Static assets are
+#     served by Pages and never hit a Function; only API calls and the
+#     server-rendered document routes count toward that number.
 # =============================================================================
 
-name = "g-world"
+name = "sholynk-tech"
 compatibility_date = "2026-04-01"
 pages_build_output_dir = "public"
 
 [vars]
-# Absolute origin of the API worker. The Pages Function uses this when the
+# Absolute origin of the API worker. The Pages Functions use this when the
 # service binding below is not configured (for example in local `wrangler pages
 # dev`, which does not resolve bindings across projects).
-API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+API_ORIGIN = "https://sholynk-tech-api.sholabusari66.workers.dev"
+
+# Canonical public origin used for canonical/OG URLs, robots.txt and
+# sitemap.xml. Empty means "derive from the request host" (correct for
+# *.pages.dev and preview deployments). Set it on a custom domain deployment.
+SITE_URL = ""
 
 # A service binding avoids the public internet (and an extra TLS handshake) when
-# the API worker is in the same Cloudflare account. Enabled now that the worker
-# is deployed; API_ORIGIN above stays as a fallback for `wrangler pages dev`.
+# the API worker is in the same Cloudflare account. API_ORIGIN above stays as a
+# fallback for `wrangler pages dev`.
 [[services]]
 binding = "API"
-service = "g-world-api"
+service = "sholynk-tech-api"
 
 # Production environment (used when Cloudflare Pages deploys from the main branch)
 [env.production]
 [env.production.vars]
-API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+API_ORIGIN = "https://sholynk-tech-api.sholabusari66.workers.dev"
+SITE_URL = ""
 
 [[env.production.services]]
 binding = "API"
-service = "g-world-api"
+service = "sholynk-tech-api"
 
 # Preview deployments inherit the same bindings; nothing secret is stored here —
 # session secrets and email keys live only in the API worker's environment.
-# There is no separate staging worker yet, so previews use the production API.
 [env.preview]
 [env.preview.vars]
-API_ORIGIN = "https://g-world-api.sholabusari66.workers.dev"
+API_ORIGIN = "https://sholynk-tech-api.sholabusari66.workers.dev"
+SITE_URL = ""
 
 [[env.preview.services]]
 binding = "API"
-service = "g-world-api"
+service = "sholynk-tech-api"

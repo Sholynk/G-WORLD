@@ -1,121 +1,126 @@
-# G WORLD — Architecture
+# 01 — Architecture
 
-## 1. System shape
-
-```
-                     ┌────────────────────────────────────────────┐
-   Student / Admin   │  Browser                                   │
-   Public visitor    │  HTML5 + CSS3 + vanilla ES modules         │
-                     │  fetch() only, same-origin /api/v1         │
-                     └───────────────┬────────────────────────────┘
-                                     │ HTTPS
-                     ┌───────────────▼────────────────────────────┐
-   GitHub repo  ────►│  Cloudflare Pages  (static frontend)       │
-   CI (Actions)      │  + functions/api/[[path]].ts proxy         │
-                     └───────────────┬────────────────────────────┘
-                                     │ Service binding (no public CORS needed)
-                     ┌───────────────▼────────────────────────────┐
-                     │  Cloudflare Worker  (Hono, TypeScript)     │
-                     │  /api/v1/*  auth · RBAC · validation       │
-                     │  Rate limiting · Audit logging             │
-                     └───┬──────────────┬───────────────┬─────────┘
-                         │ D1 binding   │ R2 binding    │ fetch()
-                 ┌───────▼──────┐ ┌─────▼──────┐ ┌──────▼─────────┐
-                 │ D1 (SQLite)  │ │ R2 bucket  │ │ Email provider │
-                 │ g_world      │ │ uploads    │ │ (Resend/…)     │
-                 └──────────────┘ └────────────┘ └────────────────┘
-                                                  YouTube (client-side embeds)
-```
-
-## 2. Request lifecycle (write path, e.g. `POST /api/v1/courses/:id/enroll`)
-
-1. **Edge / Pages proxy** — the browser calls `/api/v1/...` on the Pages origin; `functions/api/[[path]].ts`
-   forwards the request to the Worker through a **service binding** (`env.API.fetch`). Same origin ⇒
-   no CORS preflight, cookies work with `SameSite=Lax`, and the API never has to be publicly routable.
-2. **Worker entry** (`src/index.ts`) → `buildApp()` creates the Hono app once per isolate.
-3. **request-context** middleware assigns `requestId`, start time, structured logger.
-4. **security** middleware applies CORS policy (for the direct-Worker mode), security headers and the
-   **CSRF origin guard**: unsafe methods (`POST/PUT/PATCH/DELETE`) must come from an allowed origin or
-   carry a session that matches, otherwise `403`.
-5. **rate-limit** middleware for sensitive paths (`/auth/*`, enrollment, quiz submit) using a D1
-   fixed-window counter keyed by `route:identifier`.
-6. **auth** middleware resolves the session cookie / bearer token into `c.set('auth', { user, role, permissions })`.
-   `requireAuth`, `requireRole('admin')`, `requirePermission('course.write')` enforce access **server-side**.
-7. **validate** middleware parses body/query/params with Zod → `422` with field-level errors.
-8. **Handler** calls a repository, which runs parameterised D1 statements.
-9. **audit** helper records privileged actions into `audit_logs` (actor, action, entity, metadata).
-10. Response is returned through the single **error-handler** which emits one JSON envelope shape.
-
-## 3. Layering rules (enforced by review, checked by `check:structure`)
-
-| Layer | May import | Must never |
-| --- | --- | --- |
-| `routes/*` | middleware, schemas, `db/repositories/*`, `lib/*` | contain raw SQL, touch `env.DB` directly |
-| `db/repositories/*` | `db/client`, `lib/*` | know about Hono `Context` or HTTP status codes |
-| `lib/*` | nothing app-specific | import Hono, D1 or a repository (stays unit-testable in Node) |
-| `middleware/*` | `lib/*`, repositories | hold business logic beyond access/validation |
-| `packages/shared` | nothing | import Cloudflare types |
-
-`lib/*` being runtime-agnostic is deliberate: those modules are unit-tested in plain Node
-(`npm run test:unit`) with no Miniflare, so the pure logic is fast to verify.
-
-## 4. Frontend architecture
-
-- **No framework, no bundler.** Pages are static HTML; behaviour is ES modules loaded with
-  `<script type="module" src="/assets/js/pages/…">`. The browser resolves imports natively.
-- **`core/api.js`** is the single fetch wrapper: base URL, credentials, JSON handling, CSRF header,
-  error normalisation (`ApiError`), 401 → session refresh prompt, 429 → retry-after messaging.
-- **`core/session.js`** caches the current user in memory + `sessionStorage` (never `localStorage`
-  for tokens — there are no tokens in JS; the session is an httpOnly cookie).
-- **Progressive enhancement**: navigation, filters and forms work as real `<a>`/`<form>` elements;
-  JS upgrades them (client-side filtering, async submit, live validation).
-- **Accessibility**: skip link, landmarks, focus-visible styles, `aria-live` for async results,
-  keyboard-operable dialogs, `prefers-reduced-motion` support, 4.5:1 minimum contrast in tokens.
-- **Security posture**: no secrets, no `eval`, no inline scripts (CSP disallows them), all
-  server-provided strings escaped through `core/dom.js` helpers before insertion.
-
-## 5. Data flow for learning
+Sholynk Tech runs entirely on Cloudflare: a **Worker** (API + document rendering), **D1**
+(SQLite), **R2** (media bytes) and **Pages** (static site + edge Functions). There is no
+origin server, no build-time content export and no static JSON fallback — every article,
+setting and engagement figure is a live database row.
 
 ```
-admin publishes              student action                 server-derived state
-─────────────────            ──────────────                 ────────────────────
-department ─► subject        enroll(course)      ─►  enrollments row (status=active)
-   └─► course                open lesson         ─►  lesson_progress (in_progress)
-        └─► module           mark complete       ─►  lesson_progress (completed)
-             └─► lesson      quiz attempt        ─►  quiz_attempts + quiz_answers
-                  ├─ videos  submit assignment   ─►  assignment_submissions
-                  └─ resources                    progress.recalculate()
-                                                  ├─ progress_percent < 100 → keep learning
-                                                  └─ == 100 → enrollment.completed +
-                                                               certificate issued +
-                                                               notification + audit log
+                       ┌────────────────────────────────────────────────────┐
+                       │ Cloudflare Pages project "sholynk-tech"            │
+ Browser ─────────────▶│  static assets (apps/web/public)                   │
+                       │  Pages Functions (apps/web/functions)              │
+                       │    /api/*            → proxy  ┐                    │
+                       │    /uploads/*        → proxy  │  service binding   │
+                       │    /articles/<slug>  → render ├──────────┐         │
+                       │    /article?slug=…   → 301    │          ▼         │
+                       │    /robots.txt       → SEO    │   Worker "sholynk-tech-api"
+                       │    /sitemap.xml      → SEO    │     Hono app (/api/v1)
+                       │    /, /about, …      → inject │     D1 "sholynk_tech"
+                       └───────────────────────────────┘     R2 "sholynk-uploads"
+                                                             Cron 03:17 UTC
 ```
 
-Progress, pass/fail and certificate eligibility are **always computed on the server** from
-`lesson_progress`, `quiz_attempts` and `assignment_submissions`. The frontend only renders them.
+## Why the browser only ever sees one origin
 
-## 6. Environments
+The Pages Function `functions/api/[[path]].ts` forwards `/api/*` to the Worker through a
+**service binding** (`API`, same-account, no public hop) or the `API_ORIGIN` variable
+(fallback for `wrangler pages dev`). Consequences:
 
-| Concern | Local | Production |
-| --- | --- | --- |
-| Frontend | `node scripts/dev-server.mjs` (`:5173`) serving `apps/web/public` | Cloudflare Pages |
-| API | `wrangler dev` (`:8787`) | Cloudflare Workers, `production` env in `wrangler.jsonc` |
-| Database | Local Miniflare SQLite under `.wrangler/state` | D1 `g_world` (remote) |
-| Secrets | `apps/api/.dev.vars` (git-ignored) | `wrangler secret put …` |
-| Email | `console` provider + `email_messages` outbox | Resend (or any HTTPS email API) |
-| Origins | `ALLOWED_ORIGINS=http://localhost:5173` | empty (same-origin via Pages proxy) |
+- the session cookie is first-party, so `SameSite=Lax` + `HttpOnly` is sufficient;
+- CORS is irrelevant for the normal deployment (`ALLOWED_ORIGINS` stays empty);
+- the CSRF double-submit (`sk_csrf` cookie → `X-CSRF-Token` header) works without exceptions;
+- `scripts/dev-server.mjs` reproduces this locally: one origin on `:5173`, proxying `/api/*`,
+  `/uploads/*`, `/articles/*`, `/article(.html)`, `/robots.txt` and `/sitemap.xml` to the
+  Worker on `:8787`.
 
-The dev server proxies `/api/*` to the Worker so that local development is **single-origin**, exactly
-like production. This is why no code path needs to special-case CORS.
+## Document routes (SSR + SEO)
 
-## 7. Failure modes and how they are handled
+| Public URL              | Function                          | Worker endpoint                        |
+| ----------------------- | --------------------------------- | -------------------------------------- |
+| `/articles/<slug>/`     | `functions/articles/[slug]*`      | `GET /api/v1/render/articles/:slug`    |
+| `/article?slug=…`       | `functions/article.ts`            | `GET /api/v1/render/legacy-article`    |
+| `/robots.txt`           | `functions/robots.txt.ts`         | `GET /api/v1/seo/robots.txt`           |
+| `/sitemap.xml`          | `functions/sitemap.xml.ts`        | `GET /api/v1/seo/sitemap.xml`          |
+| `/uploads/<file>`       | `functions/uploads/[[path]].ts`   | `GET /api/v1/uploads/:filename`        |
+| `/`                     | `functions/index.ts`              | `GET /api/v1/render/home-meta`         |
+| `/about`, `/contact`, `/help_&_support`, `/privacy_policy` | `functions/<page>.ts` | — (static asset + origin metadata injection) |
 
-| Failure | Handling |
-| --- | --- |
-| D1 unavailable / query error | `error-handler` returns `503` envelope with `request_id`; the error is logged, never leaked |
-| Session expired | `401` with `code: SESSION_EXPIRED`; frontend clears cache and redirects to login with `?next=` |
-| Rate limit exceeded | `429` + `Retry-After`; login form shows a countdown |
-| Email provider down | Verification email is queued in `email_messages` with `status='failed'`; resend endpoint retries |
-| Duplicate enrollment | `409 CONFLICT` (also enforced by `UNIQUE(user_id, course_id)`) |
-| Invalid YouTube URL | Rejected at validation time (no arbitrary iframe sources can be injected) |
-| Deleted content with completions | `ON DELETE RESTRICT` on academic parents; archive instead of delete |
+The Worker renders the **exact shell the static site ships**: `apps/api/src/lib/article-shell.html`
+is imported as text (wrangler `rules`), and `tests/unit/deployment-parity.test.ts` fails if it
+drifts from `apps/web/public/article.html`. The renderer (`lib/article-page.ts`) is a faithful
+port of the legacy `cms/lib/article-page.js`: marked + sanitize-html, stable `<h2>` ids, TOC,
+author cards, related stories, schema.org graph, intrinsic image dimensions (from
+`lib/image-dimensions.json`) and `../../`-rewritten local links for the two-segment URL depth.
+
+Document responses replace the JSON security headers with the **page CSP** (kept byte-identical
+to `apps/web/public/_headers` — also parity-tested), so an SSR article and a static page behave
+the same in the browser.
+
+Origin resolution for canonical/OG/sitemap URLs: `?origin=` (passed by the Function) →
+`SITE_URL` var → `x-forwarded-host` → request URL. Previews and `*.pages.dev` therefore emit
+correct canonicals with no configuration; a custom domain sets `SITE_URL` once.
+
+## API worker (Hono)
+
+```
+requestContext → onError(envelope) → security(CORS+CSRF) → resolveAuth → routes
+```
+
+- **Envelope.** Every JSON answer is `{ success, data, meta }` or
+  `{ success:false, error:{ code, message, details }, meta }` (`packages/shared/src/api-contract.ts`).
+  The ported browser client (`cms-client.js`) and dashboard (`admin.js`) unwrap it.
+- **Routes.** `GET /health`, `/health/ready`, `/meta`; public content reads (`/articles`,
+  `/articles/:idOrSlug`, `/articles/categories`, `/authors`, `/settings`, `/images`); reader
+  engagement (`/articles/:slug/{engagement,reactions,comments,views}`); public forms
+  (`/subscriptions`, `/contact` — JSON *and* urlencoded, honeypot + per-IP rate limit); the
+  document/SEO renders above; and `/admin/*`.
+- **`/admin/*`** is gated by a session (`requireAuth`) at the subtree and by the **permission
+  catalogue** per route: editors (`article.submit`, `media.write`) can draft and upload; admins
+  add `article.write`, `author.write`, `settings.write`, `engagement.moderate`, `inbox.*`,
+  `analytics.read`, `audit.read`; super admins add account/role management. An editor asking for
+  `status: "published"` is silently redirected into the **submit-for-review** queue (`pending` +
+  a `submissions` row + an email to `EDITOR_EMAIL`), exactly like the legacy approval mode.
+- **Auth.** Opaque session tokens (SHA-256 at rest), `sk_session` HttpOnly cookie + `sk_csrf`
+  double-submit, PBKDF2-SHA256 passwords with transparent rehash, lockouts, IP+account rate
+  limits, audit trail, single-use email tokens, Resend/console mailer. Registration is disabled
+  by default (`ENABLE_REGISTRATION=false`); accounts are seeded or created by a super admin.
+
+## Reader data model (privacy)
+
+Readers have **no accounts**. Reactions, comments and read counts key on an anonymous
+browser-generated voter id; one vote per reader is enforced server-side (UNIQUE constraint),
+reads collapse to one per viewer per article per day (partial unique index), and no IP addresses
+or personal data are stored beyond what a reader types into a form.
+
+## Live dashboard (SSE on Workers)
+
+`GET /api/v1/admin/analytics/stream` streams `event: change` nudges (never figures — the client
+refetches). Workers are many short-lived isolates, so the legacy in-process event bus is replaced
+by a cheap D1 "activity signature" poll every 5 s inside the stream, a 25 s keep-alive comment
+and a self-close at ~55 s that the browser's `EventSource` reconnects through (`retry: 5000`).
+A dropped or duplicated nudge is harmless by design.
+
+## Cron (03:17 UTC nightly)
+
+1. publishes `scheduled` articles whose time has come,
+2. re-attributes articles orphaned by a deleted author to the house author,
+3. purges expired sessions, consumed tokens and stale rate-limit windows,
+4. prunes audit rows past the retention window (730 d production / 30 d dev).
+
+`POST /api/v1/admin/system/maintenance` runs the identical work on demand.
+
+## Media uploads
+
+`POST /api/v1/admin/images` (multipart, `media.write`): magic-byte container validation
+(no `sharp` on Workers — `lib/image-check.ts`), 8 MB cap, sanitised random-suffixed filename,
+R2 `put` with the sniffed content type, intrinsic dimensions recorded, and an `images` row.
+The row is the serve allow-list: `GET /api/v1/uploads/:filename` streams only recorded files.
+PDF import runs **client-side** (pdf.js in the admin browser) — manuscripts never touch the
+server until the author saves the article.
+
+## Environments
+
+`wrangler.jsonc` ships `development` (top-level defaults) and `production` envs. `check-config.mjs`
+fails strict deploys on placeholder D1 ids, dev routes in production, weak PBKDF2 counts and
+missing `SESSION_SECRET`. CI (`npm run verify` + `npm run build:web`) runs the same gates.

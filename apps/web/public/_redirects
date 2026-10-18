@@ -1,36 +1,18 @@
 # =============================================================================
-# G WORLD — static host routing rules (Cloudflare Pages)
+# Sholynk Tech — static host routing rules (Cloudflare Pages)
 # -----------------------------------------------------------------------------
 # Rules are evaluated top to bottom; the first match wins.
 #
-# What is deliberately NOT in this file: the clean-URL rewrites that a host
-# without built-in HTML handling would need (`/browse  /browse.html  200`).
-# Pages already does that itself, and `200` rewrites fight it:
-#
-#   /browse            → the rule rewrites internally to /browse.html
-#   /browse.html       → Pages strips the extension: 308 → /browse
-#   /browse            → matches the rule again … an infinite redirect loop
-#
-# Cloudflare says exactly that when it parses such a file:
-#
-#   ▲ Found 1 invalid redirect rule: Infinite loop detected in this rule and has
-#     been ignored. This will cause a redirect to strip `.html` or `/index` and
-#     end up triggering this rule again.
-#       at public/_redirects:10 | /                /index.html                          200
-#
-# With those rules gone, Pages serves `/browse` from `browse.html` (200, address
-# bar unchanged), `/browse.html` redirects once to the clean URL, `/` serves
-# `index.html` and `/admin/students` serves `admin/students.html`. Untouched
-# paths fall through to Pages itself, which answers with `404.html`.
-#
-# Only redirects that Pages cannot infer belong here — the short links people
-# type or paste, pointing straight at the clean URL so a browser makes one hop.
+# What is deliberately NOT in this file:
+#   * clean-URL rewrites (`/about  /about.html  200`). Pages serves /about from
+#     about.html itself, and a `200` rewrite targeting a .html file fights that
+#     handling and produces an infinite redirect loop (Cloudflare reports it as
+#     "Infinite loop detected ... and has been ignored").
+#   * anything under /articles/* — clean article URLs are server-rendered by
+#     functions/articles/[slug].ts, and the legacy /article.html?slug=… links
+#     are redirected by functions/article.ts.
 # =============================================================================
 
-# Short links people actually type or paste.
-/verify/:code    /verify?code=:code             302
-/q/:code         /verify?code=:code             302
-/enrol/:slug     /course?slug=:slug             302
-/learn/:lesson   /lesson?id=:lesson             302
-/course/:slug    /course?slug=:slug             302
-/lesson/:id      /lesson?id=:id                 302
+# /admin is deliberately not listed: Pages serves it from admin/index.html
+# itself (directory index handling), and a `/admin → /admin/` rule would match
+# both paths on hosts that normalise trailing slashes — a redirect loop.

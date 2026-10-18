@@ -1,11 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="G WORLD">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0C7ABF"/>
-      <stop offset="1" stop-color="#0A5C8F"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <path d="M20 32a12 12 0 1 1 12 12h-2v-6h2a6 6 0 1 0-6-6v9h-6z" fill="#ffffff" opacity="0.95"/>
-  <circle cx="44" cy="20" r="5" fill="#E8F5FD"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#000000"/>
+  <path d="M44 22.5c-2.6-3.4-7-5.5-12-5.5-6.4 0-10.6 3-10.6 7.6 0 4.4 3.6 6.4 11 8.2 8.9 2.1 13.6 4.8 13.6 11.2 0 6.8-5.8 11-14.4 11-6.3 0-11.8-2.3-15-6.6l4.6-4.3c2.8 3.6 7 5.6 10.9 5.6 5.9 0 9-2.5 9-6.6 0-3.7-2.9-5.6-9.9-7.3C22.6 33.9 17 31.3 17 25.1c0-6.4 5.7-10.6 14-10.6 5.7 0 10.6 2 13.6 5.4L44 22.5z" fill="#1d9bf0"/>
 </svg>

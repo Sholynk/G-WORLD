@@ -1,5 +1,5 @@
 /**
- * Cloudflare runtime types for the G WORLD Worker.
+ * Cloudflare runtime types for the Sholynk Tech Worker.
  *
  * `@cloudflare/workers-types` provides D1Database, R2Bucket, ScheduledController,
  * ExecutionContext and the rest of the runtime surface. It is referenced here

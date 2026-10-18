@@ -13,7 +13,7 @@ import process from 'node:process';
 export const ROOT = path.resolve(import.meta.dirname, '..', '..');
 export const CONFIG_REL = 'apps/api/wrangler.jsonc';
 export const CONFIG = path.join(ROOT, CONFIG_REL);
-export const DB_NAME = 'g_world';
+export const DB_NAME = 'sholynk_tech';
 export const SEED_DIR = path.join(ROOT, 'database', 'seeds');
 export const MIGRATIONS_DIR = path.join(ROOT, 'database', 'migrations');
 /** The `.wrangler` directory Miniflare uses for everything it caches. */
