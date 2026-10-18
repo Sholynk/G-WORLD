@@ -133,7 +133,7 @@
         "ALLOWED_ORIGINS": "https://sholynk-tech.pages.dev",
         "EMAIL_PROVIDER": "resend",
         "EMAIL_FROM": "Sholynk Tech <onboarding@resend.dev>",
-        "EDITOR_EMAIL": "sholynktech@gmail.com",
+        "EDITOR_EMAIL": "seun33154@gmail.com",
         "ENABLE_REGISTRATION": "true",
         "ENABLE_DEV_ROUTES": "false",
         "PASSWORD_ITERATIONS": "100000",
