@@ -1,5 +1,5 @@
 /**
- * G WORLD — Worker environment: bindings, variables and configuration access.
+ * Sholynk Tech — Worker environment: bindings, variables and configuration.
  *
  * Everything the Worker needs comes from bindings (`DB`, `BUCKET`) or from
  * environment variables/secrets, never from hardcoded values. `getConfig()`
@@ -7,14 +7,15 @@
  * the rest of the application reads.
  */
 import type { Context } from 'hono';
+import type { RoleKey } from '@sholynk/shared';
 import type { Logger } from './lib/logger.js';
 
 /** Cloudflare bindings + environment variables/secrets. */
 export interface Bindings {
   // --- Bindings -----------------------------------------------------------
-  /** D1 database (logical name `g_world`). */
+  /** D1 database (logical name `sholynk_tech`). */
   DB: D1Database;
-  /** R2 bucket for uploads. Optional: features degrade gracefully without it. */
+  /** R2 bucket for media-library uploads. Optional: uploads degrade gracefully. */
   BUCKET?: R2Bucket;
 
   // --- Vars and secrets ---------------------------------------------------
@@ -32,10 +33,18 @@ export interface Bindings {
   EMAIL_API_BASE_URL?: string;
   APP_BASE_URL?: string;
   API_BASE_URL?: string;
+  /**
+   * Canonical public origin of the website. Used for canonical URLs, Open Graph
+   * metadata, robots.txt and sitemap.xml. Empty means "derive from the request
+   * host" (correct for previews and *.pages.dev).
+   */
+  SITE_URL?: string;
+  /** Where "article submitted for review" notifications are emailed. */
+  EDITOR_EMAIL?: string;
   /** `true`/`false` string flags. */
   ENABLE_REGISTRATION?: string;
   ENABLE_DEV_ROUTES?: string;
-  /** PBKDF2 iteration override — see docs/adr/0004. */
+  /** PBKDF2 iteration override. */
   PASSWORD_ITERATIONS?: string;
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS?: string;
@@ -57,14 +66,13 @@ export type AppContext = Context<AppEnv>;
 export interface AuthContext {
   userId: string;
   email: string;
-  roleKey: 'public' | 'student' | 'admin' | 'super_admin';
+  roleKey: RoleKey;
   roleRank: number;
   permissions: string[];
   status: 'pending_verification' | 'active' | 'suspended' | 'deactivated';
   emailVerified: boolean;
   sessionId: string;
   displayName: string | null;
-  studentNumber: string | null;
 }
 
 export interface EmailConfig {
@@ -89,6 +97,10 @@ export interface AppConfig {
   allowedOrigins: string[];
   appBaseUrl: string;
   apiBaseUrl: string;
+  /** Canonical site origin ('' = derive from the request). */
+  siteUrl: string;
+  /** Editorial review notifications go here. */
+  editorEmail: string;
   passwordIterations: number;
   /**
    * Development-only relaxation of the fixed-window rate limits. Production is
@@ -103,6 +115,7 @@ export interface AppConfig {
 
 export const PASSWORD_ITERATIONS_DEFAULT = 100_000;
 export const PASSWORD_ITERATIONS_FLOOR = 10_000;
+export const DEFAULT_EDITOR_EMAIL = 'sholynktech@gmail.com';
 
 function bool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
@@ -126,6 +139,8 @@ export function getConfig(env: Bindings): AppConfig {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const siteUrl = String(env.SITE_URL ?? '').trim().replace(/\/+$/, '');
+
   return {
     environment,
     isProduction,
@@ -135,6 +150,8 @@ export function getConfig(env: Bindings): AppConfig {
     allowedOrigins,
     appBaseUrl: env.APP_BASE_URL ?? 'http://localhost:5173',
     apiBaseUrl: env.API_BASE_URL ?? '/api/v1',
+    siteUrl,
+    editorEmail: (env.EDITOR_EMAIL ?? '').trim() || DEFAULT_EDITOR_EMAIL,
     passwordIterations: Math.max(
       PASSWORD_ITERATIONS_FLOOR,
       int(env.PASSWORD_ITERATIONS, PASSWORD_ITERATIONS_DEFAULT, PASSWORD_ITERATIONS_FLOOR, 2_000_000),
@@ -144,12 +161,12 @@ export function getConfig(env: Bindings): AppConfig {
       : int(env.RATE_LIMIT_MULTIPLIER, 1, 1, 100),
     email: {
       provider,
-      from: env.EMAIL_FROM ?? 'G WORLD <no-reply@gworld.example>',
+      from: env.EMAIL_FROM ?? 'Sholynk Tech <no-reply@sholynktech.example>',
       apiKey: env.RESEND_API_KEY?.trim() || null,
       apiBaseUrl: env.EMAIL_API_BASE_URL ?? 'https://api.resend.com',
     },
     features: {
-      registration: bool(env.ENABLE_REGISTRATION, true),
+      registration: bool(env.ENABLE_REGISTRATION, false),
       devRoutes: bool(env.ENABLE_DEV_ROUTES, isDevelopment),
       fileUploads: Boolean(env.BUCKET),
     },
@@ -177,9 +194,23 @@ export function findConfigProblems(config: AppConfig, env: Bindings): string[] {
       problems.push('D1 binding "DB" is missing.');
     }
   }
+  if (config.siteUrl && !/^https?:\/\/[^/]+/i.test(config.siteUrl)) {
+    problems.push('SITE_URL must be an absolute HTTP(S) origin, for example https://sholynktech.com');
+  }
   return problems;
 }
 
 export function configFrom(c: AppContext): AppConfig {
   return c.get('config');
+}
+
+/**
+ * The public origin a response should advertise: the configured SITE_URL when
+ * set, otherwise the origin the request actually arrived on (correct for
+ * *.pages.dev, preview deployments and local development).
+ */
+export function publicOrigin(c: AppContext): string {
+  const config = c.get('config');
+  if (config.siteUrl) return new URL(config.siteUrl).origin;
+  return new URL(c.req.url).origin;
 }

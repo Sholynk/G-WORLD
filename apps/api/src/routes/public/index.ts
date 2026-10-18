@@ -1,19 +1,20 @@
 /**
- * Public router — mounted at `/api/v1` and reachable without a session.
+ * Public router — everything a signed-out reader (or the edge renderer) needs.
  *
- * Everything here is read-only and serves published content plus the public
- * verification endpoints. Because the routes are listed explicitly, adding a new
- * public endpoint is a deliberate act rather than a side effect of mounting a
- * feature router.
+ * Mounted flat under `/api/v1` so the ported frontend keeps the legacy path
+ * shape (`/articles`, `/settings`, `/articles/:slug/reactions`, …). Editorial
+ * mutations live under `/api/v1/admin` (see routes/admin/index.ts).
  */
 import { Hono } from 'hono';
 import type { AppEnv } from '../../env.js';
-import { catalogRoutes } from './catalog.js';
-import { discoveryRoutes } from './discovery.js';
-import { lessonViewRoutes } from './lessons.js';
+import { publicContentRoutes } from './content.js';
+import { publicEngagementRoutes } from './engagement.js';
+import { publicUploadsRoutes } from './uploads.js';
+import { publicSeoRoutes } from './seo.js';
 
 export const publicRoutes = new Hono<AppEnv>();
 
-publicRoutes.route('/', catalogRoutes);
-publicRoutes.route('/', discoveryRoutes);
-publicRoutes.route('/', lessonViewRoutes);
+publicRoutes.route('/', publicContentRoutes);
+publicRoutes.route('/', publicEngagementRoutes);
+publicRoutes.route('/', publicSeoRoutes);
+publicRoutes.route('/uploads', publicUploadsRoutes);

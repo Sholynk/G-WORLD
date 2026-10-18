@@ -1,9 +1,9 @@
 {
-  "name": "@g-world/shared",
-  "version": "0.1.0",
+  "name": "@sholynk/shared",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "G WORLD shared contracts: roles, permissions, statuses, API envelopes and validation schemas",
+  "description": "Sholynk Tech shared contracts: roles, permissions, statuses, API envelopes and validation schemas",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

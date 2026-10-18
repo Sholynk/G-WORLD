@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — lockfile check.
+ * Sholynk Tech — lockfile check.
  *
  *   npm run check:lock
  *   node scripts/check-lockfile.mjs --json

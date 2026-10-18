@@ -1,9 +1,12 @@
 -- ===========================================================================
--- G WORLD — Migration 0001: Domain A — Users and access
+-- Sholynk Tech — Migration 0001: Users and access
 -- ---------------------------------------------------------------------------
 -- Runtime: Cloudflare D1 (SQLite). Never MySQL syntax.
--- Conventions: TEXT ids, TEXT ISO-8601 UTC timestamps, INTEGER 0/1 booleans,
---              CHECK constraints instead of MySQL ENUMs.
+-- Conventions: TEXT ids for platform entities, TEXT ISO-8601 UTC timestamps,
+--              INTEGER 0/1 booleans, CHECK constraints instead of ENUMs.
+-- The editorial content tables (articles/authors/…) keep the legacy CMS's
+-- INTEGER AUTOINCREMENT ids so imported content and reader history keep their
+-- identifiers; platform tables use prefixed ULIDs.
 -- ===========================================================================
 
 PRAGMA foreign_keys = ON;
@@ -33,8 +36,8 @@ CREATE TABLE IF NOT EXISTS permissions (
   name        TEXT NOT NULL,
   description TEXT,
   domain      TEXT NOT NULL DEFAULT 'general' CHECK (domain IN (
-                'general', 'user', 'content', 'learning', 'assessment',
-                'certificate', 'analytics', 'security')),
+                'general', 'user', 'content', 'engagement', 'media',
+                'inbox', 'analytics', 'security')),
   is_system   INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0, 1)),
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -53,7 +56,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 );
 
 -- ---------------------------------------------------------------------------
--- users — every account, including administrators.
+-- users — every account, including administrators and contributing editors.
 -- * email is case-insensitively unique.
 -- * password_hash stores "pbkdf2$sha256$<iterations>$<salt_b64>$<hash_b64>".
 --   There is no code path that writes a plaintext password.
@@ -81,32 +84,24 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- ---------------------------------------------------------------------------
--- student_profiles — optional learner details, 1:1 with users.
--- Only information that genuinely improves the learning experience is stored.
+-- user_profiles — optional account details, 1:1 with users.
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS student_profiles (
-  user_id          TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  student_number   TEXT UNIQUE,
-  display_name     TEXT,
-  full_name        TEXT,
-  education_level  TEXT CHECK (education_level IS NULL OR education_level IN (
-                     'secondary', 'undergraduate', 'graduate', 'postgraduate',
-                     'professional', 'other')),
-  country          TEXT,
-  timezone         TEXT,
-  interests_json   TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(interests_json)),
-  goals            TEXT,
-  bio              TEXT,
-  avatar_url       TEXT,
-  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  CHECK (student_number IS NULL OR student_number LIKE 'GW-%'),
+CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id      TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
+  display_name TEXT,
+  full_name    TEXT,
+  bio          TEXT,
+  avatar_url   TEXT,
+  website      TEXT,
+  country      TEXT,
+  timezone     TEXT,
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   CHECK (display_name IS NULL OR length(display_name) BETWEEN 2 AND 80)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_role_id        ON users (role_id);
-CREATE INDEX IF NOT EXISTS idx_users_status         ON users (status);
-CREATE INDEX IF NOT EXISTS idx_users_email          ON users (email);
-CREATE INDEX IF NOT EXISTS idx_users_created_at     ON users (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_users_role_id         ON users (role_id);
+CREATE INDEX IF NOT EXISTS idx_users_status          ON users (status);
+CREATE INDEX IF NOT EXISTS idx_users_email           ON users (email);
+CREATE INDEX IF NOT EXISTS idx_users_created_at      ON users (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_perm ON role_permissions (permission_id);
-CREATE INDEX IF NOT EXISTS idx_student_profiles_number ON student_profiles (student_number);

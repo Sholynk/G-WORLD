@@ -1,0 +1,502 @@
+{
+ "assets/brand/logo.png": [
+  500,
+  500
+ ],
+ "assets/brand/my_pic.png": [
+  500,
+  500
+ ],
+ "assets/brand/new_page_logo.jpg": [
+  500,
+  500
+ ],
+ "assets/brand/page_logo.png": [
+  500,
+  200
+ ],
+ "assets/brand/hero-fallback.jpeg": [
+  160,
+  107
+ ],
+ "assets/brand/sholynk_icon.png": [
+  512,
+  512
+ ],
+ "assets/cards/ai/article_card_01.webp": [
+  360,
+  4259842
+ ],
+ "assets/cards/ai/article_card_02.webp": [
+  360,
+  4259842
+ ],
+ "assets/cards/ai/article_card_03.jpg": [
+  740,
+  416
+ ],
+ "assets/cards/ai/article_card_04.jpg": [
+  800,
+  453
+ ],
+ "assets/cards/ai/article_card_05.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/ai/article_card_06.jpg": [
+  467,
+  350
+ ],
+ "assets/cards/ai/article_card_07.jpg": [
+  1660,
+  1059
+ ],
+ "assets/cards/ai/article_card_08.jpg": [
+  1660,
+  883
+ ],
+ "assets/cards/ai/article_card_09.jpg": [
+  704,
+  704
+ ],
+ "assets/cards/ai/article_card_10.jpg": [
+  832,
+  1248
+ ],
+ "assets/cards/ai/article_card_11.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/ai/article_card_12.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/ai/article_card_13.jpg": [
+  612,
+  344
+ ],
+ "assets/cards/ai/article_card_14.jpg": [
+  612,
+  408
+ ],
+ "assets/cards/cryptocurrency/article_card_01.jpg": [
+  640,
+  427
+ ],
+ "assets/cards/cryptocurrency/article_card_02.jpg": [
+  644,
+  350
+ ],
+ "assets/cards/cryptocurrency/article_card_03.jpg": [
+  612,
+  344
+ ],
+ "assets/cards/cryptocurrency/article_card_04.jpg": [
+  360,
+  232
+ ],
+ "assets/cards/cryptocurrency/article_card_05.webp": [
+  1000,
+  525
+ ],
+ "assets/cards/cryptocurrency/article_card_06.jpg": [
+  1920,
+  1080
+ ],
+ "assets/cards/cryptocurrency/article_card_07.jpg": [
+  1200,
+  1202
+ ],
+ "assets/cards/cryptocurrency/article_card_08.png": [
+  880,
+  440
+ ],
+ "assets/cards/cryptocurrency/article_card_09.png": [
+  840,
+  230
+ ],
+ "assets/cards/cryptocurrency/article_card_10.png": [
+  1500,
+  1000
+ ],
+ "assets/cards/cryptocurrency/article_card_11.jpg": [
+  1200,
+  630
+ ],
+ "assets/cards/cryptocurrency/article_card_12.webp": [
+  547,
+  276
+ ],
+ "assets/cards/game/article_card_01.jpg": [
+  316,
+  350
+ ],
+ "assets/cards/game/article_card_02.jpg": [
+  612,
+  344
+ ],
+ "assets/cards/game/article_card_03.jpg": [
+  450,
+  450
+ ],
+ "assets/cards/game/article_card_04.jpg": [
+  3840,
+  2160
+ ],
+ "assets/cards/game/article_card_05.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/game/article_card_06.jpg": [
+  641,
+  360
+ ],
+ "assets/cards/game/article_card_07.jpg": [
+  800,
+  450
+ ],
+ "assets/cards/game/article_card_08.jpg": [
+  1024,
+  576
+ ],
+ "assets/cards/game/article_card_09.jpg": [
+  1267,
+  726
+ ],
+ "assets/cards/game/article_card_10.jpg": [
+  1152,
+  648
+ ],
+ "assets/cards/game/article_card_11.jpg": [
+  1360,
+  768
+ ],
+ "assets/cards/game/article_card_12.jpg": [
+  800,
+  450
+ ],
+ "assets/cards/game/article_card_13.jpg": [
+  800,
+  450
+ ],
+ "assets/cards/game/article_card_14.png": [
+  2000,
+  1500
+ ],
+ "assets/cards/game/article_card_15.jpg": [
+  510,
+  680
+ ],
+ "assets/cards/game/article_card_16.jpg": [
+  620,
+  589
+ ],
+ "assets/cards/home/article_card_01.jpg": [
+  3000,
+  2000
+ ],
+ "assets/cards/home/article_card_02.jpg": [
+  463,
+  260
+ ],
+ "assets/cards/home/article_card_03.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/home/article_card_04.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/home/article_card_05.jpg": [
+  1408,
+  768
+ ],
+ "assets/cards/technology/article_card_01.jpg": [
+  3000,
+  2000
+ ],
+ "assets/cards/technology/article_card_02.jpg": [
+  463,
+  260
+ ],
+ "assets/cards/technology/article_card_03.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/technology/article_card_04.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/technology/article_card_05.jpg": [
+  642,
+  350
+ ],
+ "assets/cards/technology/article_card_06.jpg": [
+  642,
+  350
+ ],
+ "assets/cards/technology/article_card_07.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/technology/article_card_08.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/technology/article_card_09.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/technology/article_card_10.jpg": [
+  800,
+  534
+ ],
+ "assets/cards/technology/article_card_11.jpg": [
+  3000,
+  1687
+ ],
+ "assets/cards/technology/article_card_12.jpg": [
+  612,
+  383
+ ],
+ "assets/cards/technology/article_card_13.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/technology/article_card_14.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/technology/article_card_15.jpg": [
+  360,
+  240
+ ],
+ "assets/cards/technology/article_card_16.jpg": [
+  525,
+  350
+ ],
+ "assets/cards/technology/article_card_17.webp": [
+  720,
+  4784130
+ ],
+ "assets/cards/technology/article_card_18.png": [
+  500,
+  281
+ ],
+ "assets/cards/technology/article_card_19.png": [
+  885,
+  459
+ ],
+ "assets/cards/technology/article_card_20.jpg": [
+  500,
+  281
+ ],
+ "assets/cards/technology/article_card_21.jpg": [
+  1920,
+  400
+ ],
+ "assets/cards/technology/article_card_22.jpg": [
+  1024,
+  1024
+ ],
+ "assets/cards/technology/article_card_23.jpg": [
+  357,
+  200
+ ],
+ "assets/cards/technology/article_card_24.jpg": [
+  625,
+  350
+ ],
+ "assets/cards/web-3/article_card_01.webp": [
+  400,
+  5636098
+ ],
+ "assets/cards/web-3/article_card_02.jpg": [
+  1400,
+  800
+ ],
+ "assets/cards/web-3/article_card_03.jpg": [
+  800,
+  531
+ ],
+ "assets/cards/web-3/article_card_04.jpg": [
+  800,
+  450
+ ],
+ "assets/cards/web-3/article_card_05.png": [
+  740,
+  740
+ ],
+ "assets/cards/web-3/article_card_06.webp": [
+  500,
+  4784129
+ ],
+ "assets/cards/web-3/article_card_07.jpg": [
+  800,
+  534
+ ],
+ "assets/cards/web-3/article_card_08.jpg": [
+  550,
+  386
+ ],
+ "assets/cards/web-3/article_card_09.jpg": [
+  940,
+  529
+ ],
+ "assets/cards/web-3/article_card_10.jpg": [
+  1200,
+  675
+ ],
+ "assets/cards/web-3/article_card_11.jpg": [
+  720,
+  540
+ ],
+ "assets/cards/web-3/article_card_12.webp": [
+  1920,
+  1080
+ ],
+ "assets/cards/web-3/article_card_13.png": [
+  2000,
+  1001
+ ],
+ "assets/cards/web-3/article_card_14.png": [
+  320,
+  200
+ ],
+ "assets/cards/web-3/article_card_15.png": [
+  1536,
+  1024
+ ],
+ "assets/cards/web-3/article_card_16.webp": [
+  595,
+  4784130
+ ],
+ "assets/cards/web-3/article_card_17.jpg": [
+  960,
+  720
+ ],
+ "assets/cards/web-3/article_card_18.png": [
+  892,
+  558
+ ],
+ "assets/cards/web-3/article_card_19.jpg": [
+  768,
+  525
+ ],
+ "assets/cards/web-3/article_card_20.jpg": [
+  2240,
+  1260
+ ],
+ "assets/articles/distraction-by-design/abstract-digital-blocks.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/distraction-by-design/notifications-screen-closeup.jpg": [
+  1260,
+  707
+ ],
+ "assets/articles/distraction-by-design/person-holding-cellphone.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/distraction-by-design/reading-book-digital-detox.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/distraction-by-design/reading-focus-park.jpg": [
+  3000,
+  1688
+ ],
+ "assets/articles/distraction-by-design/sitting-woman-using-smartphone.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/distraction-by-design/social-media-apps-hero.jpg": [
+  3000,
+  2000
+ ],
+ "assets/articles/distraction-by-design/walking-with-phone.jpg": [
+  3000,
+  1996
+ ],
+ "assets/articles/mastering-the-art-of-coding/architecture-planning.jpg": [
+  500,
+  334
+ ],
+ "assets/articles/mastering-the-art-of-coding/hero.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/mastering-the-art-of-coding/pair-programming.jpg": [
+  500,
+  750
+ ],
+ "assets/articles/mastering-the-art-of-coding/secure-servers.jpg": [
+  500,
+  333
+ ],
+ "assets/articles/multimodal-ai-models/audio-waveform.jpg": [
+  500,
+  264
+ ],
+ "assets/articles/multimodal-ai-models/document-analysis.jpg": [
+  500,
+  334
+ ],
+ "assets/articles/multimodal-ai-models/interface-point.jpg": [
+  500,
+  750
+ ],
+ "assets/articles/multimodal-ai-models/multimodal-inputs.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/quantum/quantum-computer-chandelier.jpg": [
+  2787,
+  1621
+ ],
+ "assets/articles/quantum/quantum-optics-laser.jpg": [
+  1920,
+  1280
+ ],
+ "assets/articles/quantum/quantum-processor-render.jpg": [
+  1280,
+  720
+ ],
+ "assets/articles/quantum/quantum-programming-code.jpg": [
+  1920,
+  1440
+ ],
+ "assets/articles/stablecoins-and-digital-payments/crypto-backing.jpg": [
+  500,
+  333
+ ],
+ "assets/articles/stablecoins-and-digital-payments/payment-shop.jpg": [
+  1123,
+  750
+ ],
+ "assets/articles/stablecoins-and-digital-payments/regulatory-hall.jpg": [
+  500,
+  750
+ ],
+ "assets/articles/stablecoins-and-digital-payments/stablecoin-payment-rails.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/the-rise-of-esports/esports-arena-stage.jpg": [
+  1408,
+  768
+ ],
+ "assets/articles/the-rise-of-esports/player-headphones.jpg": [
+  500,
+  750
+ ],
+ "assets/articles/the-rise-of-esports/pro-gamer.jpg": [
+  500,
+  333
+ ],
+ "assets/articles/the-rise-of-esports/team-players.jpg": [
+  500,
+  434
+ ]
+}

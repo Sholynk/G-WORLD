@@ -6,7 +6,7 @@
  * endpoint without special cases.
  */
 import type { AppContext } from '../env.js';
-import { buildPaginationMeta, type PaginationMeta } from '@g-world/shared';
+import { buildPaginationMeta, type PaginationMeta } from '@sholynk/shared';
 import { metaFor } from '../middleware/error-handler.js';
 
 export interface OkOptions {

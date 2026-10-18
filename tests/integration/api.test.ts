@@ -1,22 +1,21 @@
 /**
  * Integration tests — the running API over HTTP.
  *
- *   npm run test:integration
+ *   npm run dev:api && npm run db:reset:local && npm run test:integration
  *
- * Start the API first (`npm run dev:api`); if it is not reachable every suite
- * here skips itself with a message, so a clean checkout does not fail `npm test`
- * for the wrong reason. Everything asserted below is read-only (a sign-in and a
- * sign-out, which create and revoke one session row) so the suite can run
- * against a seeded database repeatedly.
- *
- * For the destructive, state-changing pass use `npm run test:smoke`.
+ * If the API is not reachable every suite here skips itself with a message, so
+ * a clean checkout does not fail `npm test` for the wrong reason. Assertions
+ * are read-only (plus one sign-in/sign-out pair, which creates and revokes a
+ * single session row) so the suite can run against a seeded database
+ * repeatedly. For the destructive, state-changing pass use `npm run test:smoke`.
  */
 import { describe, expect, it } from 'vitest';
 
 const API_ORIGIN = (process.env.API_BASE_URL ?? process.env.API_TARGET ?? 'http://127.0.0.1:8787').replace(/\/+$/, '');
 const BASE = `${API_ORIGIN}/api/v1`;
 
-const DEMO_STUDENT = { email: 'student@gworld.test', password: 'StudentPassword123!' };
+const DEMO_ADMIN = { email: 'admin@sholynk.test', password: 'AdminPassword123!' };
+const SEEDED_STORY = 'the-rise-of-quantum-computing';
 
 /** Minimal cookie jar: keeps `Set-Cookie` values and echoes them back. */
 class Jar {
@@ -25,8 +24,8 @@ class Jar {
   absorb(response: Response): void {
     for (const raw of response.headers.getSetCookie?.() ?? []) {
       const [pair] = raw.split(';');
-      const index = pair.indexOf('=');
-      if (index > 0) this.cookies.set(pair.slice(0, index).trim(), pair.slice(index + 1).trim());
+      const index = pair!.indexOf('=');
+      if (index > 0) this.cookies.set(pair!.slice(0, index).trim(), pair!.slice(index + 1).trim());
     }
   }
 
@@ -64,7 +63,11 @@ async function call(path: string, options: CallOptions = {}): Promise<Response> 
 
 /** Unwraps `{ success, data }` and fails loudly on an error envelope. */
 async function dataOf<T>(response: Response): Promise<T> {
-  const body = (await response.json()) as { success: boolean; data?: T; error?: { code: string; message: string } };
+  const body = (await response.json()) as {
+    success: boolean;
+    data?: T;
+    error?: { code: string; message: string };
+  };
   if (!body.success) throw new Error(`API error ${body.error?.code}: ${body.error?.message}`);
   return body.data as T;
 }
@@ -79,219 +82,237 @@ async function errorOf(response: Response): Promise<{ code: string; message: str
  * is evaluated while the file is being collected — a `beforeAll` hook would run
  * too late and silently skip everything.
  */
-const reachable = await (async () => {
-  try {
-    const response = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
-    if (!response.ok) return false;
-  } catch {
-    return false;
-  }
-
-  // The failed-sign-in checks below count toward the per-account lockout. In
-  // development the API exposes a route that clears the rate-limit windows so
-  // repeated runs of this suite cannot lock the demo student out; in production
-  // it does not exist and the call simply fails, which is fine.
-  try {
-    await fetch(`${BASE}/auth/dev/reset-limits`, { method: 'POST', signal: AbortSignal.timeout(3000) });
-  } catch {
-    /* development-only convenience */
-  }
-  return true;
-})();
-
-if (!reachable) {
-  console.warn(
-    `\n[integration] no API at ${BASE} — skipping. Start one with: npm run dev:api\n`,
-  );
+let reachable = false;
+try {
+  const probe = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2000) });
+  reachable = probe.ok;
+} catch {
+  reachable = false;
 }
 
-describe.skipIf(!reachable)('health', () => {
-  it('reports itself healthy', async () => {
+describe.skipIf(!reachable)('health and metadata', () => {
+  it('answers liveness without touching the database', async () => {
     const response = await call('/health');
     expect(response.status).toBe(200);
-    const data = await dataOf<{ status: string; service: string; environment: string; started_at: string }>(response);
+    const data = await dataOf<{ status: string; service: string }>(response);
     expect(data.status).toBe('ok');
-    expect(data.service).toBe('g-world-api');
-    expect(data.environment).toBeTruthy();
-    expect(Number.isNaN(Date.parse(data.started_at))).toBe(false);
+    expect(data.service).toBe('sholynk-tech-api');
   });
 
-  it('is ready, with a reachable database and no configuration problems', async () => {
+  it('reports readiness against a migrated, seeded database', async () => {
     const response = await call('/health/ready');
-    expect(response.status).toBe(200);
     const data = await dataOf<{
       status: string;
-      database: { reachable: boolean; migrations_applied: boolean };
+      database: { reachable: boolean; migrations_applied: boolean; articles: number };
       config_problems: string[];
     }>(response);
-    expect(data.status).toBe('ready');
     expect(data.database.reachable).toBe(true);
     expect(data.database.migrations_applied).toBe(true);
+    expect(data.database.articles).toBeGreaterThanOrEqual(56);
     expect(data.config_problems).toEqual([]);
-  });
-
-  it('advertises the API version and features via /meta', async () => {
-    const response = await call('/meta');
-    expect(response.status).toBe(200);
-    const data = await dataOf<{ name: string; api_version: string; features: Record<string, boolean> }>(response);
-    expect(data.name).toBe('G WORLD');
-    expect(data.api_version).toBe('v1');
-    expect(typeof data.features.registration).toBe('boolean');
   });
 });
 
-describe.skipIf(!reachable)('public catalog', () => {
-  it('returns a paginated list of published courses', async () => {
-    const response = await call('/courses?per_page=5');
+describe.skipIf(!reachable)('public content surface', () => {
+  it('lists published articles in the legacy DTO shape', async () => {
+    const response = await call('/articles');
     expect(response.status).toBe(200);
-    const data = await dataOf<{
-      items: { id: string; slug: string; title: string }[];
-      pagination: { page: number; per_page: number; total: number; total_pages: number };
-    }>(response);
-
-    expect(Array.isArray(data.items)).toBe(true);
-    expect(data.items.length).toBeLessThanOrEqual(5);
-    expect(data.pagination.page).toBe(1);
-    expect(data.pagination.per_page).toBe(5);
-    for (const course of data.items) {
-      expect(course.id).toMatch(/^crs_/);
-      expect(course.slug).toMatch(/^[a-z0-9-]+$/);
-      expect(course.title.length).toBeGreaterThan(0);
+    const articles = await dataOf<
+      { slug: string; title: string; category: string; status: string; link: string; cleanLink: string; date: string }[]
+    >(response);
+    expect(articles.length).toBeGreaterThanOrEqual(50);
+    for (const article of articles) {
+      expect(article.status).toBe('published');
+      expect(article.link).toBeTruthy();
     }
+    const story = articles.find((article) => article.slug === SEEDED_STORY);
+    expect(story, 'the seeded long-form story must be listed').toBeDefined();
+    expect(story!.cleanLink).toBe(`articles/${SEEDED_STORY}/`);
   });
 
-  it('never exposes an unpublished course in the public list', async () => {
-    const response = await call('/courses?per_page=100');
-    const data = await dataOf<{ items: { status?: string }[] }>(response);
-    for (const course of data.items) {
-      if (course.status) expect(course.status).toBe('published');
-    }
+  it('filters by hero placement, category and search', async () => {
+    const heroes = await dataOf<{ hero: boolean }[]>(await call('/articles?hero=true'));
+    expect(heroes.length).toBeGreaterThanOrEqual(4);
+    expect(heroes.every((article) => article.hero)).toBe(true);
+
+    const gameCategory = await dataOf<{ category: string }[]>(await call('/articles?category=Game'));
+    expect(gameCategory.length).toBeGreaterThan(0);
+    expect(gameCategory.every((article) => article.category === 'Game')).toBe(true);
+
+    const search = await dataOf<{ title: string; description: string }[]>(await call('/articles?q=quantum'));
+    expect(search.length).toBeGreaterThan(0);
   });
 
-  it('serves departments as a bare array', async () => {
-    const response = await call('/departments');
-    expect(response.status).toBe(200);
-    const data = await dataOf<{ id: string; name: string; slug: string }[]>(response);
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThan(0);
-    for (const department of data) {
-      expect(department.id).toMatch(/^dep_/);
-      expect(department.slug).toMatch(/^[a-z0-9-]+$/);
-    }
+  it('serves a single article with its body and sources', async () => {
+    const article = await dataOf<{
+      slug: string;
+      body: string;
+      sources: { url: string }[];
+      authorSlug: string;
+      keyTakeaways: string[];
+    }>(await call(`/articles/${SEEDED_STORY}`));
+    expect(article.slug).toBe(SEEDED_STORY);
+    expect(article.body.length).toBeGreaterThan(1000);
+    expect(article.authorSlug).toBe('oluwashola-busari');
+    expect(Array.isArray(article.sources)).toBe(true);
   });
 
-  it('searches and reports how many results matched', async () => {
-    const response = await call('/search?q=html');
-    expect(response.status).toBe(200);
-    const data = await dataOf<{ query: string; items: unknown[]; total: number }>(response);
-    expect(data.query).toBe('html');
-    expect(data.total).toBeGreaterThanOrEqual(1);
-    expect(data.items.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('rejects a search term that is too short', async () => {
-    const response = await call('/search?q=a');
-    expect(response.status).toBe(422);
-    const error = await errorOf(response);
-    expect(error.code).toBe('VALIDATION_ERROR');
-  });
-
-  it('answers 404 with an error envelope for an unknown course', async () => {
-    const response = await call('/courses/definitely-not-a-course');
+  it('404s unknown slugs inside the standard envelope', async () => {
+    const response = await call('/articles/definitely-not-a-real-story');
     expect(response.status).toBe(404);
     const error = await errorOf(response);
     expect(error.code).toBe('NOT_FOUND');
-    expect(error.message).not.toMatch(/SQL|D1|stack/i);
+    expect(error.message).toBe('Article not found');
+  });
+
+  it('exposes categories, authors and settings', async () => {
+    const categories = await dataOf<string[]>(await call('/articles/categories'));
+    expect(categories).toEqual(expect.arrayContaining(['Technology', 'AI Trends', 'Cryptocurrency', 'Game', 'Web 3']));
+
+    const authors = await dataOf<{ slug: string; name: string; image: string }[]>(await call('/authors'));
+    const house = authors.find((author) => author.slug === 'oluwashola-busari');
+    expect(house).toBeDefined();
+    expect(house!.image).toBe('assets/brand/my_pic.png');
+
+    const settings = await dataOf<Record<string, string>>(await call('/settings'));
+    expect(settings.siteTitle).toBe('Sholynk Tech - AI, Web3 and Emerging Tech Insights');
+  });
+
+  it('hides unpublished states behind a session', async () => {
+    const response = await call('/articles?status=all');
+    expect(response.status).toBe(401);
+    const error = await errorOf(response);
+    expect(error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('reads engagement for an anonymous voter', async () => {
+    const summary = await dataOf<{
+      reactions: { likes: number; dislikes: number; mine: string | null };
+      comments: unknown[];
+    }>(await call(`/articles/${SEEDED_STORY}/engagement?voterId=integration-tester`));
+    expect(summary.reactions).toMatchObject({ likes: expect.any(Number), dislikes: expect.any(Number) });
+    expect(Array.isArray(summary.comments)).toBe(true);
   });
 });
 
-describe.skipIf(!reachable)('authorisation boundary', () => {
-  it('refuses anonymous access to the learner area', async () => {
-    const response = await call('/me');
-    expect(response.status).toBe(401);
-    expect((await errorOf(response)).code).toBe('UNAUTHENTICATED');
+describe.skipIf(!reachable)('server-rendered documents', () => {
+  it('renders the clean article URL as a full HTML document', async () => {
+    const response = await call(`/render/articles/${SEEDED_STORY}?origin=${encodeURIComponent(API_ORIGIN)}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    const html = await response.text();
+    expect(html).toContain('data-server-rendered="true"');
+    expect(html).toContain(`<link rel="canonical" href="${API_ORIGIN}/articles/${SEEDED_STORY}/" />`);
+    expect(html).toContain('application/ld+json');
+    // Document routes swap the JSON CSP for the page policy (parity with _headers).
+    expect(response.headers.get('content-security-policy')).toContain("script-src 'self' https://cdn.jsdelivr.net");
+    expect(response.headers.get('x-frame-options')).toBe('SAMEORIGIN');
   });
 
-  it('refuses anonymous access to admin routes', async () => {
-    const response = await call('/admin/students');
-    expect([401, 403]).toContain(response.status);
+  it('404s an unknown story as plain text, like the legacy server', async () => {
+    const response = await call('/render/articles/no-such-story?origin=' + encodeURIComponent(API_ORIGIN));
+    expect(response.status).toBe(404);
+    expect(await response.text()).toBe('Article not found');
   });
 
-  it('refuses anonymous access to a quiz', async () => {
-    const response = await call('/quizzes/qz_js_fetch');
-    expect(response.status).toBe(401);
+  it('redirects legacy article.html links to the clean URL', async () => {
+    const response = await call(
+      `/render/legacy-article?slug=${SEEDED_STORY}&origin=${encodeURIComponent(API_ORIGIN)}`,
+    );
+    expect(response.status).toBe(301);
+    expect(response.headers.get('location')).toBe(`/articles/${SEEDED_STORY}/`);
   });
 
-  it('signs a student in, then out', async () => {
+  it('generates robots.txt and sitemap.xml from live data', async () => {
+    const robots = await call(`/seo/robots.txt?origin=${encodeURIComponent(API_ORIGIN)}`);
+    expect(robots.status).toBe(200);
+    const robotsText = await robots.text();
+    expect(robotsText).toContain('Disallow: /admin/');
+    expect(robotsText).toContain(`Sitemap: ${API_ORIGIN}/sitemap.xml`);
+
+    const sitemap = await call(`/seo/sitemap.xml?origin=${encodeURIComponent(API_ORIGIN)}`);
+    expect(sitemap.status).toBe(200);
+    const xml = await sitemap.text();
+    expect(xml).toContain('<urlset');
+    expect(xml).toContain(`${API_ORIGIN}/articles/${SEEDED_STORY}/`);
+    // Card-only entries (no body) are excluded, exactly like the legacy sitemap.
+    expect(xml).not.toContain('/articles/web3-and-the-future-of-the-internet/');
+  });
+});
+
+describe.skipIf(!reachable)('session auth and the admin boundary', () => {
+  it('signs the seeded administrator in and out', async () => {
     const jar = new Jar();
 
-    const login = await call('/auth/login', { method: 'POST', body: DEMO_STUDENT, jar });
+    const login = await call('/auth/login', { method: 'POST', body: DEMO_ADMIN, jar });
     expect(login.status).toBe(200);
-    const session = await dataOf<{ user: { id: string; email: string; role: string }; session: { expires_in_seconds: number } }>(
-      login,
+    const session = await dataOf<{ user: { email: string; role: string } }>(login);
+    expect(session.user.email).toBe(DEMO_ADMIN.email);
+    expect(session.user.role).toBe('super_admin');
+    expect(jar.value('sk_session')).toBeTruthy();
+    expect(jar.value('sk_csrf')).toBeTruthy();
+
+    const me = await dataOf<{ user: { email: string }; permissions: string[] }>(await call('/auth/me', { jar }));
+    expect(me.user.email).toBe(DEMO_ADMIN.email);
+    expect(me.permissions).toContain('article.write');
+
+    // Editorial reads unlock with the session.
+    const all = await dataOf<unknown[]>(await call('/articles?status=all', { jar }));
+    expect(all.length).toBeGreaterThanOrEqual(56);
+
+    const overview = await dataOf<{ totals: { articles: number; published: number } }>(
+      await call('/admin/analytics/overview?days=7', { jar }),
     );
-    expect(session.user.email).toBe(DEMO_STUDENT.email);
-    expect(session.user.role).toBe('student');
-    expect(session.session.expires_in_seconds).toBeGreaterThan(0);
-    expect(jar.value('gw_session')).toBeTruthy();
+    expect(overview.totals.articles).toBeGreaterThanOrEqual(56);
+    expect(overview.totals.published).toBeGreaterThanOrEqual(56);
 
-    // Permissions are resolved per request (they can change server-side at any
-    // moment), so they come from /me rather than being cached in the cookie.
-    const me = await call('/me', { jar });
-    expect(me.status).toBe(200);
-    const identity = await dataOf<{ user: { email: string; role: string }; permissions: string[] }>(me);
-    expect(identity.user.email).toBe(DEMO_STUDENT.email);
-    expect(identity.permissions.length).toBeGreaterThan(0);
-    expect(identity.permissions).not.toContain('user.role.write');
-
-    const logout = await call('/auth/logout', { method: 'POST', body: {}, jar, csrf: jar.value('gw_csrf') });
+    const logout = await call('/auth/logout', { method: 'POST', jar, csrf: jar.value('sk_csrf') });
     expect(logout.status).toBe(200);
 
-    // The session cookie is gone from the jar's perspective only after the
-    // response; the API must reject the old cookie regardless.
-    const after = await call('/me', { jar });
-    expect(after.status).toBe(401);
+    const afterLogout = await call('/auth/me', { jar });
+    expect(afterLogout.status).toBe(401);
   });
 
-  it('requires the CSRF header for an authenticated state change', async () => {
-    const jar = new Jar();
-    await call('/auth/login', { method: 'POST', body: DEMO_STUDENT, jar });
+  it('rejects wrong passwords inside the envelope', async () => {
+    const response = await call('/auth/login', {
+      method: 'POST',
+      body: { email: DEMO_ADMIN.email, password: 'wrong-password' },
+    });
+    expect(response.status).toBe(401);
+    const error = await errorOf(response);
+    expect(error.code).toBe('INVALID_CREDENTIALS');
+    expect(error.message).toBe('Email or password is incorrect');
+  });
 
-    const withoutToken = await call('/me/profile', {
-      method: 'PATCH',
-      body: { full_name: 'Should never be saved' },
+  it('guards the admin subtree for anonymous callers', async () => {
+    expect((await call('/admin/analytics/overview')).status).toBe(401);
+    expect((await call('/admin/comments')).status).toBe(401);
+    expect((await call('/admin/subscriptions')).status).toBe(401);
+  });
+
+  it('refuses unsafe methods that carry a session cookie but no CSRF token', async () => {
+    const jar = new Jar();
+    const login = await call('/auth/login', { method: 'POST', body: DEMO_ADMIN, jar });
+    expect(login.status).toBe(200);
+
+    const withoutCsrf = await call('/admin/settings', {
+      method: 'PUT',
+      body: { siteTitle: 'hijacked' },
       jar,
     });
-    expect(withoutToken.status).toBe(403);
-    expect((await errorOf(withoutToken)).message).toMatch(/csrf/i);
+    expect(withoutCsrf.status).toBe(403);
+    const error = await errorOf(withoutCsrf);
+    expect(error.message).toMatch(/CSRF/i);
 
-    await call('/auth/logout', { method: 'POST', body: {}, jar, csrf: jar.value('gw_csrf') });
-  });
-
-  it('stops a student from reaching an administrator endpoint', async () => {
-    const jar = new Jar();
-    await call('/auth/login', { method: 'POST', body: DEMO_STUDENT, jar });
-
-    const response = await call('/admin/students', { jar });
-    expect(response.status).toBe(403);
-    expect((await errorOf(response)).code).toBe('FORBIDDEN');
-
-    await call('/auth/logout', { method: 'POST', body: {}, jar, csrf: jar.value('gw_csrf') });
-  });
-
-  it('rejects a bad password without revealing whether the account exists', async () => {
-    const wrongPassword = await call('/auth/login', {
-      method: 'POST',
-      body: { email: DEMO_STUDENT.email, password: 'DefinitelyNotThePassword1' },
+    const withCsrf = await call('/admin/settings', {
+      method: 'PUT',
+      body: { siteTitle: 'Sholynk Tech - AI, Web3 and Emerging Tech Insights' },
+      jar,
+      csrf: jar.value('sk_csrf'),
     });
-    const unknownAccount = await call('/auth/login', {
-      method: 'POST',
-      body: { email: 'nobody@gworld.test', password: 'DefinitelyNotThePassword1' },
-    });
+    // Same value as the seed → a no-op write that proves the guard passed.
+    expect([200, 422]).toContain(withCsrf.status);
 
-    expect(wrongPassword.status).toBe(401);
-    expect(unknownAccount.status).toBe(401);
-    // Identical envelopes: no account enumeration through messages or codes.
-    expect((await errorOf(unknownAccount)).code).toBe((await errorOf(wrongPassword)).code);
+    await call('/auth/logout', { method: 'POST', jar, csrf: jar.value('sk_csrf') });
   });
 });

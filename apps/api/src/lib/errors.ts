@@ -1,12 +1,12 @@
 /**
- * G WORLD — typed application errors.
+ * Sholynk Tech — typed application errors.
  *
  * Handlers throw `AppError` subclasses; the error-handler middleware converts
  * them into the standard JSON error envelope with the right HTTP status. This
  * keeps handlers free of `c.json({...}, 403)` boilerplate and makes it obvious
  * which failures are expected (auth, validation, conflicts) versus bugs.
  */
-import { ERROR_STATUS, type ApiErrorCode, type ApiErrorDetail } from '@g-world/shared';
+import { ERROR_STATUS, type ApiErrorCode, type ApiErrorDetail } from '@sholynk/shared';
 
 export class AppError extends Error {
   readonly code: ApiErrorCode;

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — build the frontend for Cloudflare Pages.
+ * Sholynk Tech — build the frontend for Cloudflare Pages.
  *
  *   npm run build:web                 # from the repository root
  *   npm run build                     # from apps/web (same script)
@@ -45,8 +45,16 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB_DIR = path.join(ROOT, 'apps/web');
 const PUBLIC_DIR = path.join(WEB_DIR, 'public');
-const MODULES_DIR = path.join(PUBLIC_DIR, 'assets/js');
-const PAGES_FUNCTION = 'functions/api/[[path]].ts';
+const MODULES_DIR = PUBLIC_DIR;
+const PAGES_FUNCTIONS = [
+  'functions/api/[[path]].ts',
+  'functions/index.ts',
+  'functions/articles/[slug]/index.ts',
+  'functions/article.ts',
+  'functions/robots.txt.ts',
+  'functions/sitemap.xml.ts',
+  'functions/uploads/[[path]].ts',
+];
 
 const STRICT = process.argv.includes('--strict') || process.env.CI_STRICT === '1';
 const AS_JSON = process.argv.includes('--json');
@@ -58,15 +66,34 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 const REQUIRED = [
   'index.html',
+  'article.html',
+  'about.html',
+  'contact.html',
+  'help_&_support.html',
+  'privacy_policy.html',
+  'login.html',
+  'reset.html',
+  'styles.css',
+  'cms-client.js',
   'config.js',
   '_headers',
   '_redirects',
   '404.html',
-  'robots.txt',
-  'sitemap.xml',
+  '403.html',
+  '500.html',
   'manifest.webmanifest',
   'favicon.svg',
+  'admin/index.html',
+  'admin/admin.js',
+  'admin/admin.css',
+  'admin/pdf-extract.js',
 ];
+
+/**
+ * robots.txt and sitemap.xml are deliberately NOT required as static files:
+ * they are generated live from database rows by functions/robots.txt.ts and
+ * functions/sitemap.xml.ts.
+ */
 
 const problems = [];
 const warnings = [];
@@ -159,13 +186,15 @@ for (const relative of REQUIRED) {
   }
 }
 
-if (existsSync(path.join(WEB_DIR, PAGES_FUNCTION))) {
-  notes.push(`Pages Function present: apps/web/${PAGES_FUNCTION}`);
-} else {
-  fail(
-    `apps/web/${PAGES_FUNCTION} is missing`,
-    'Without it the Pages project does not proxy /api/*, and the frontend has no API.',
-  );
+for (const pagesFunction of PAGES_FUNCTIONS) {
+  if (existsSync(path.join(WEB_DIR, pagesFunction))) {
+    notes.push(`Pages Function present: apps/web/${pagesFunction}`);
+  } else {
+    fail(
+      `apps/web/${pagesFunction} is missing`,
+      'Without it the Pages project loses a document route the site depends on (see docs/01-architecture.md).',
+    );
+  }
 }
 
 const wranglerToml = path.join(WEB_DIR, 'wrangler.toml');
@@ -255,10 +284,24 @@ const attributePattern = /\b(?:href|src|poster)=("([^"]*)"|'([^']*)')/gi;
 const brokenLinks = new Map(); // deployment file → the references it breaks on
 let linkCount = 0;
 
+/**
+ * Decodes the HTML entities a browser decodes in an attribute URL. `&amp;` in
+ * an href is the *correct* way to write a literal `&` (this site ships
+ * help_&_support.html), so the checker must resolve the decoded value, exactly
+ * like the browser requests it.
+ */
+const decodeAttribute = (value) =>
+  value
+    .replace(/&amp;/gi, '&')
+    .replace(/&#0*38;/g, '&')
+    .replace(/&#x0*26;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/g, "'");
+
 for (const file of htmlFiles) {
   const html = readFileSync(file, 'utf8');
   for (const match of html.matchAll(attributePattern)) {
-    const reference = (match[2] ?? match[3] ?? '').trim();
+    const reference = decodeAttribute((match[2] ?? match[3] ?? '').trim());
     if (isExternal(reference)) continue;
     linkCount += 1;
     if (resolveReference(reference, path.dirname(file))) continue;
@@ -275,7 +318,7 @@ notes.push(`links: ${linkCount} local reference(s) across ${htmlFiles.length} HT
 
 /* ------------------------------------------------------- 5. modules, manifest, sitemap */
 
-const modules = walk(MODULES_DIR).filter((file) => file.endsWith('.js'));
+const modules = walk(MODULES_DIR).filter((file) => file.endsWith('.js') && !file.includes(`${path.sep}assets${path.sep}`));
 const brokenModules = [];
 for (const file of modules) {
   const parsed = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });

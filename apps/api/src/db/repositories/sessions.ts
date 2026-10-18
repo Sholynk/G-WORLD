@@ -6,7 +6,7 @@
  * to an attacker who cannot also set the victim's cookie.
  */
 import type { Db } from '../client.js';
-import type { AccountStatus, RoleKey } from '@g-world/shared';
+import type { AccountStatus, RoleKey } from '@sholynk/shared';
 import { newId, ID_PREFIXES } from '../../lib/ids.js';
 
 export interface SessionRow {
@@ -30,7 +30,6 @@ export interface SessionUserRow extends SessionRow {
   status: AccountStatus;
   email_verified_at: string | null;
   display_name: string | null;
-  student_number: string | null;
 }
 
 export interface CreateSessionInput {
@@ -72,11 +71,11 @@ export async function findActiveSession(
             s.revoked_at, s.ip_hash, s.user_agent,
             u.email, u.status, u.email_verified_at, u.role_id,
             r.key AS role_key, r.rank AS role_rank,
-            sp.display_name, sp.student_number
+            p.display_name
        FROM user_sessions s
        JOIN users u ON u.id = s.user_id
        JOIN roles r ON r.id = u.role_id
-       LEFT JOIN student_profiles sp ON sp.user_id = u.id
+       LEFT JOIN user_profiles p ON p.user_id = u.id
       WHERE s.token_hash = ?
         AND s.revoked_at IS NULL
         AND s.expires_at > ?

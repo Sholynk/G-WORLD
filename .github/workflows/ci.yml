@@ -1,4 +1,4 @@
-# G WORLD — continuous integration.
+# Sholynk Tech — continuous integration.
 #
 # The same commands a developer runs locally, in the same order, on the same Node
 # version: `npm ci` re-installs from the lock file exactly as Cloudflare's build

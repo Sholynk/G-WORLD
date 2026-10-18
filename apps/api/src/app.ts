@@ -1,5 +1,5 @@
 /**
- * G WORLD — application factory.
+ * Sholynk Tech — application factory.
  *
  * `buildApp()` returns a fresh Hono instance with the full middleware stack and
  * the v1 router mounted. Two reasons it is a factory rather than a module-level

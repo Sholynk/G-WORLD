@@ -1,21 +1,31 @@
 {
-  "name": "G WORLD — learn a field, prove it",
-  "short_name": "G WORLD",
-  "description": "Departments, courses, lessons, quizzes and verifiable certificates.",
-  "start_url": "/index.html",
+  "name": "Sholynk Tech",
+  "short_name": "Sholynk",
+  "description": "AI, Web3 and emerging technology stories — crisp explainers, practical guides and trend analysis.",
+  "start_url": "/",
   "scope": "/",
-  "display": "standalone",
-  "orientation": "any",
-  "background_color": "#f7f8fc",
-  "theme_color": "#4f46e5",
-  "lang": "en",
-  "categories": ["education"],
+  "display": "minimal-ui",
+  "background_color": "#f7f9f9",
+  "theme_color": "#000000",
+  "categories": ["news", "technology"],
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
-  ],
-  "shortcuts": [
-    { "name": "Browse courses", "url": "/courses.html" },
-    { "name": "My dashboard", "url": "/dashboard.html" },
-    { "name": "Verify a certificate", "url": "/verify.html" }
+    {
+      "src": "assets/brand/sholynk_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/brand/logo.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/brand/page_logo.png",
+      "sizes": "500x200",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

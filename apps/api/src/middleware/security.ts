@@ -64,7 +64,7 @@ export const securityMiddleware = createMiddleware<AppEnv>(async (c, next) => {
   } else if (origin && UNSAFE_METHODS.has(c.req.method)) {
     // Reject the write outright: silently serving it would look like success to
     // a caller while the browser discards the response.
-    throw new AppError('FORBIDDEN', 'This origin is not allowed to call the G WORLD API');
+    throw new AppError('FORBIDDEN', 'This origin is not allowed to call the Sholynk Tech API');
   }
 
   if (UNSAFE_METHODS.has(c.req.method)) {

@@ -1,10 +1,10 @@
 /**
- * G WORLD — transactional email templates.
+ * Sholynk Tech — transactional email templates.
  *
- * Plain text with a small HTML wrapper: teaches nothing to spam filters,
- * renders everywhere, and keeps the outbox row human-readable in the admin
- * dashboard. Every template returns `{ subject, text, html }` so the provider
- * adapter can send either or both.
+ * Pure functions: input object in, `{ subject, text, html, template }` out. No
+ * I/O, no environment reads — the caller (routes/auth.ts, the editorial
+ * notification service) supplies branding and URLs, which keeps the templates
+ * unit-testable and the provider layer dumb.
  */
 
 export interface EmailContent {
@@ -17,40 +17,37 @@ export interface EmailContent {
 export interface SiteBranding {
   siteName: string;
   appBaseUrl: string;
-  supportEmail?: string;
 }
 
 const DEFAULT_BRANDING: SiteBranding = {
-  siteName: 'G WORLD',
+  siteName: 'Sholynk Tech',
   appBaseUrl: 'http://localhost:5173',
-  supportEmail: 'support@gworld.example',
 };
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char,
-  );
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function wrapHtml(branding: SiteBranding, heading: string, bodyHtml: string, footerNote?: string): string {
   return `<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(heading)}</title>
-  </head>
-  <body style="margin:0;padding:24px;background:#f5f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;">
-    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
-      <p style="margin:0 0 24px;font-size:18px;font-weight:700;letter-spacing:0.02em;">${escapeHtml(branding.siteName)}</p>
-      <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;">${escapeHtml(heading)}</h1>
-      ${bodyHtml}
-      <hr style="margin:32px 0 16px;border:none;border-top:1px solid #e5e7eb;">
-      <p style="margin:0;font-size:12px;color:#6b7280;">
-        ${escapeHtml(footerNote ?? `You are receiving this email because an account was created at ${branding.siteName}.`)}
-      </p>
-      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">
-        Need help? Contact ${escapeHtml(branding.supportEmail ?? 'support@gworld.example')}.
+  <body style="margin:0;background:#f7f9f9;font-family:Arial,Helvetica,sans-serif;color:#0f1419;">
+    <div style="max-width:640px;margin:0 auto;padding:24px 16px;">
+      <div style="background:#000000;border-radius:12px 12px 0 0;padding:18px 24px;">
+        <span style="color:#ffffff;font-weight:700;font-size:18px;letter-spacing:0.02em;">${escapeHtml(branding.siteName)}</span>
+      </div>
+      <div style="background:#ffffff;border:1px solid rgba(29,155,240,0.16);border-top:none;border-radius:0 0 12px 12px;padding:24px;">
+        <h1 style="margin:0 0 12px;font-size:20px;color:#0f1419;">${escapeHtml(heading)}</h1>
+        ${bodyHtml}
+        ${footerNote ? `<p style="margin-top:20px;color:#536471;font-size:12px;">${escapeHtml(footerNote)}</p>` : ''}
+      </div>
+      <p style="color:#536471;font-size:12px;text-align:center;margin-top:16px;">
+        &copy; ${new Date().getFullYear()} ${escapeHtml(branding.siteName)}
       </p>
     </div>
   </body>
@@ -58,8 +55,8 @@ function wrapHtml(branding: SiteBranding, heading: string, bodyHtml: string, foo
 }
 
 function button(branding: SiteBranding, url: string, label: string): string {
-  return `<p style="margin:24px 0;">
-    <a href="${escapeHtml(url)}" style="display:inline-block;background:#1f4fd8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">${escapeHtml(label)}</a>
+  return `<p style="margin:20px 0;">
+    <a href="${escapeHtml(url)}" style="display:inline-block;background:#1d9bf0;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:600;">${escapeHtml(label)}</a>
   </p>`;
 }
 
@@ -70,31 +67,27 @@ export function verificationEmail(input: {
   branding?: Partial<SiteBranding>;
 }): EmailContent {
   const branding = { ...DEFAULT_BRANDING, ...input.branding };
-  const url = `${branding.appBaseUrl.replace(/\/+$/, '')}/verify-email.html?token=${encodeURIComponent(input.token)}`;
+  const url = `${branding.appBaseUrl.replace(/\/+$/, '')}/reset.html?verify=${encodeURIComponent(input.token)}`;
   const greeting = input.displayName ? `Hi ${input.displayName},` : 'Hi,';
   const text = `${greeting}
 
-Welcome to ${branding.siteName}. Confirm your email address to activate your account:
+Confirm your email address to activate your ${branding.siteName} account.
 
+Open this link to verify (it expires in 48 hours):
 ${url}
 
-This link expires in 48 hours and can be used once. If you did not create an account, ignore this email.
+If you did not create an account, you can ignore this message.`;
 
-— ${branding.siteName}`;
+  const html = wrapHtml(
+    branding,
+    'Confirm your email',
+    `<p style="color:#536471;">${escapeHtml(greeting)} thanks for joining ${escapeHtml(branding.siteName)}. Confirm your email address to activate your account.</p>
+     ${button(branding, url, 'Verify email address')}
+     <p style="color:#536471;font-size:13px;">This link expires in 48 hours. If you did not create an account, you can ignore this message.</p>`,
+    'You received this email because an account was created with your address.',
+  );
 
-  return {
-    subject: `Confirm your ${branding.siteName} email address`,
-    text,
-    html: wrapHtml(
-      branding,
-      'Confirm your email address',
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Welcome to ${escapeHtml(branding.siteName)}. Confirm your email address to activate your account and start learning.</p>
-       ${button(branding, url, 'Confirm email address')}
-       <p style="margin:0;font-size:13px;color:#6b7280;">This link expires in 48 hours and can be used once.</p>`,
-    ),
-    template: 'email_verification',
-  };
+  return { subject: `Confirm your ${branding.siteName} email`, text, html, template: 'verification' };
 }
 
 export function passwordResetEmail(input: {
@@ -104,138 +97,138 @@ export function passwordResetEmail(input: {
   branding?: Partial<SiteBranding>;
 }): EmailContent {
   const branding = { ...DEFAULT_BRANDING, ...input.branding };
-  const url = `${branding.appBaseUrl.replace(/\/+$/, '')}/reset-password.html?token=${encodeURIComponent(input.token)}`;
+  const url = `${branding.appBaseUrl.replace(/\/+$/, '')}/reset.html?token=${encodeURIComponent(input.token)}`;
   const greeting = input.displayName ? `Hi ${input.displayName},` : 'Hi,';
   const text = `${greeting}
 
-We received a request to reset your ${branding.siteName} password:
+We received a request to reset your ${branding.siteName} password.
 
+Choose a new password within the next hour:
 ${url}
 
-This link expires in 1 hour and can be used once. If you did not request it, no action is needed — your password stays unchanged.
+If you did not request this, you can safely ignore this email — your password stays unchanged.`;
 
-— ${branding.siteName}`;
+  const html = wrapHtml(
+    branding,
+    'Reset your password',
+    `<p style="color:#536471;">${escapeHtml(greeting)} we received a request to reset your password. This link is valid for one hour and can be used once.</p>
+     ${button(branding, url, 'Choose a new password')}
+     <p style="color:#536471;font-size:13px;">If you did not request this, you can safely ignore this email.</p>`,
+    'For your security, never share this link with anyone.',
+  );
 
-  return {
-    subject: `Reset your ${branding.siteName} password`,
-    text,
-    html: wrapHtml(
-      branding,
-      'Reset your password',
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">We received a request to reset your password. Choose a new one using the button below.</p>
-       ${button(branding, url, 'Choose a new password')}
-       <p style="margin:0;font-size:13px;color:#6b7280;">This link expires in 1 hour and can be used once. If you did not request it, you can safely ignore this email.</p>`,
-      'If you did not request a password reset, your password remains unchanged.',
-    ),
-    template: 'password_reset',
-  };
+  return { subject: `Reset your ${branding.siteName} password`, text, html, template: 'password_reset' };
 }
 
 export function welcomeEmail(input: {
   toEmail: string;
   displayName?: string | null;
-  studentNumber?: string | null;
   branding?: Partial<SiteBranding>;
 }): EmailContent {
   const branding = { ...DEFAULT_BRANDING, ...input.branding };
-  const dashboard = `${branding.appBaseUrl.replace(/\/+$/, '')}/dashboard.html`;
+  const home = `${branding.appBaseUrl.replace(/\/+$/, '')}/`;
   const greeting = input.displayName ? `Hi ${input.displayName},` : 'Hi,';
-  const numberLine = input.studentNumber
-    ? `Your student number is ${input.studentNumber}. Keep it handy — it appears on your G WORLD identity card.`
-    : 'Your student number will appear on your dashboard.';
+  const text = `${greeting}
 
-  return {
-    subject: `Your ${branding.siteName} account is ready`,
-    text: `${greeting}
+Your ${branding.siteName} account is ready.
 
-Your email is confirmed and your account is active.
+Read the latest stories: ${home}
+Editorial dashboard: ${branding.appBaseUrl.replace(/\/+$/, '')}/admin/
 
-${numberLine}
+— The ${branding.siteName} team`;
 
-Open your dashboard to browse departments and enrol in your first course:
-${dashboard}
+  const html = wrapHtml(
+    branding,
+    'Your account is ready',
+    `<p style="color:#536471;">${escapeHtml(greeting)} your email is confirmed and your ${escapeHtml(branding.siteName)} account is active.</p>
+     ${button(branding, home, 'Read the latest stories')}`,
+    'You received this email because your address was verified on Sholynk Tech.',
+  );
 
-— ${branding.siteName}`,
-    html: wrapHtml(
-      branding,
-      'Your account is ready',
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Your email is confirmed and your account is active.</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(numberLine)}</p>
-       ${button(branding, dashboard, 'Open your dashboard')}`,
-    ),
-    template: 'welcome',
-  };
+  return { subject: `Welcome to ${branding.siteName}`, text, html, template: 'welcome' };
 }
 
-export function certificateIssuedEmail(input: {
-  toEmail: string;
-  displayName?: string | null;
-  courseTitle: string;
-  certificateNumber: string;
-  verificationCode: string;
-  branding?: Partial<SiteBranding>;
-}): EmailContent {
-  const branding = { ...DEFAULT_BRANDING, ...input.branding };
-  const url = `${branding.appBaseUrl.replace(/\/+$/, '')}/verify.html?code=${encodeURIComponent(input.verificationCode)}`;
-  const greeting = input.displayName ? `Hi ${input.displayName},` : 'Hi,';
+/* -------------------------------------------------------------------------- */
+/* Editorial review notification (ported from the legacy CMS notifications.js)  */
+/* -------------------------------------------------------------------------- */
 
-  return {
-    subject: `Your certificate for ${input.courseTitle}`,
-    text: `${greeting}
-
-Congratulations — you completed "${input.courseTitle}" and your certificate has been issued.
-
-Certificate number: ${input.certificateNumber}
-Verification code: ${input.verificationCode}
-Verify or share it here: ${url}
-
-— ${branding.siteName}`,
-    html: wrapHtml(
-      branding,
-      'Certificate issued',
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Congratulations — you completed <strong>${escapeHtml(input.courseTitle)}</strong> and your certificate has been issued.</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Certificate number: <strong>${escapeHtml(input.certificateNumber)}</strong><br>Verification code: <strong>${escapeHtml(input.verificationCode)}</strong></p>
-       ${button(branding, url, 'View and verify certificate')}`,
-    ),
-    template: 'certificate_issued',
-  };
+export interface ReviewArticleSummary {
+  title: string;
+  slug: string;
+  author: string;
+  authorSlug?: string;
+  category: string;
+  subcategory?: string;
+  status: string;
+  description?: string;
+  body?: string;
+  tags?: string[];
+  submitterEmail?: string;
 }
 
-export function assignmentGradedEmail(input: {
-  toEmail: string;
-  displayName?: string | null;
-  assignmentTitle: string;
-  scorePoints: number;
-  maxPoints: number;
-  feedback?: string | null;
+/**
+ * "A new article has been submitted for review" — sent to EDITOR_EMAIL whenever
+ * an article enters the `pending` state. Text and HTML mirror the legacy
+ * notification so the editorial inbox reads the same as before.
+ */
+export function reviewSubmissionEmail(input: {
+  article: ReviewArticleSummary;
+  editorEmail: string;
   branding?: Partial<SiteBranding>;
 }): EmailContent {
   const branding = { ...DEFAULT_BRANDING, ...input.branding };
-  const greeting = input.displayName ? `Hi ${input.displayName},` : 'Hi,';
-  const percent = input.maxPoints > 0 ? Math.round((input.scorePoints / input.maxPoints) * 100) : 0;
-  const feedbackLine = input.feedback ? `\nFeedback: ${input.feedback}\n` : '';
+  const base = branding.appBaseUrl.replace(/\/+$/, '');
+  const article = input.article;
+  const adminUrl = `${base}/admin/`;
+  const previewPath = `/articles/${encodeURIComponent(article.slug)}/`;
+  const previewUrl = `${base}${previewPath}`;
+  const wordCount = String(article.body ?? '').split(/\s+/).filter(Boolean).length;
+
+  const text = [
+    'A new article has been submitted for review on Sholynk Tech.',
+    '',
+    `Title:        ${article.title}`,
+    `Author:       ${article.author}${article.authorSlug ? ` (${article.authorSlug})` : ''}`,
+    `Category:     ${article.category}${article.subcategory ? ` / ${article.subcategory}` : ''}`,
+    `Status:       ${article.status}`,
+    `Slug:         ${article.slug}`,
+    `Submitter:    ${article.submitterEmail || '(not provided)'}`,
+    `Word count:   ~${wordCount} words`,
+    `Tags:         ${(article.tags ?? []).join(', ') || '(none)'}`,
+    '',
+    'Description:',
+    article.description || '(no description provided)',
+    '',
+    `Open admin dashboard: ${adminUrl}`,
+    `Preview article:      ${previewUrl}`,
+    '',
+    'This message was generated automatically by the Sholynk CMS.',
+  ].join('\n');
+
+  const esc = escapeHtml;
+  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;color:#101828;max-width:640px;margin:0 auto;">
+    <h1 style="color:#1d9bf0;">New article submitted for review</h1>
+    <p><strong>${esc(article.title)}</strong></p>
+    <table style="border-collapse:collapse;margin:1rem 0;font-size:0.9rem;">
+      <tr><td style="padding:0.3rem 1rem 0.3rem 0;color:#667085;">Author</td><td>${esc(article.author)}</td></tr>
+      <tr><td style="padding:0.3rem 1rem 0.3rem 0;color:#667085;">Category</td><td>${esc(article.category)}${article.subcategory ? ` / ${esc(article.subcategory)}` : ''}</td></tr>
+      <tr><td style="padding:0.3rem 1rem 0.3rem 0;color:#667085;">Slug</td><td>${esc(article.slug)}</td></tr>
+      <tr><td style="padding:0.3rem 1rem 0.3rem 0;color:#667085;">Submitter</td><td>${esc(article.submitterEmail || '(not provided)')}</td></tr>
+      <tr><td style="padding:0.3rem 1rem 0.3rem 0;color:#667085;">Tags</td><td>${esc((article.tags ?? []).join(', ') || '(none)')}</td></tr>
+    </table>
+    <p style="color:#344054;">${esc(article.description || 'No description provided.')}</p>
+    <p>
+      <a href="${esc(adminUrl)}" style="display:inline-block;padding:0.7rem 1.1rem;background:#1d9bf0;color:#fff;border-radius:0.5rem;text-decoration:none;margin-right:0.6rem;">Open CMS admin</a>
+      <a href="${esc(previewUrl)}" style="display:inline-block;padding:0.7rem 1.1rem;border:1px solid #dfe5ec;color:#1d9bf0;border-radius:0.5rem;text-decoration:none;">Preview article</a>
+    </p>
+    <p style="color:#98a2b3;font-size:0.75rem;">Automated message from the Sholynk CMS.</p>
+  </body></html>`;
 
   return {
-    subject: `Your submission for ${input.assignmentTitle} has been graded`,
-    text: `${greeting}
-
-Your submission for "${input.assignmentTitle}" has been graded.
-
-Score: ${input.scorePoints} / ${input.maxPoints} (${percent}%)
-${feedbackLine}
-— ${branding.siteName}`,
-    html: wrapHtml(
-      branding,
-      'Submission graded',
-      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;">${escapeHtml(greeting)}</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Your submission for <strong>${escapeHtml(input.assignmentTitle)}</strong> has been graded.</p>
-       <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">Score: <strong>${input.scorePoints} / ${input.maxPoints} (${percent}%)</strong></p>
-       ${input.feedback ? `<p style="margin:0;font-size:15px;line-height:1.6;"><strong>Feedback:</strong> ${escapeHtml(input.feedback)}</p>` : ''}`,
-    ),
-    template: 'assignment_graded',
+    subject: `[Sholynk Review] ${article.title}`.replace(/[\r\n]+/g, ' ').slice(0, 900),
+    text,
+    html,
+    template: 'review_submission',
   };
 }
 
@@ -243,6 +236,5 @@ export const TEMPLATES = {
   verificationEmail,
   passwordResetEmail,
   welcomeEmail,
-  certificateIssuedEmail,
-  assignmentGradedEmail,
-} as const;
+  reviewSubmissionEmail,
+};

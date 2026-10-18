@@ -1,486 +1,237 @@
 #!/usr/bin/env node
 /**
- * G WORLD — frontend smoke test.
+ * Sholynk Tech — frontend smoke test (page-level pass).
  *
- * Loads every page from `apps/web/public` into a real DOM (happy-dom), runs the
- * page's own module exactly as the browser would, and lets the page talk to a
- * running API. It then asserts that the page rendered something true instead of
- * throwing.
+ *   npm run dev          # API on :8787 + site on :5173
+ *   npm run test:web     # everything
+ *   npm run test:web:reader   # public pages only
+ *   npm run test:web:admin    # sign-in + dashboard only
  *
- *   node scripts/smoke-web.mjs                       # all pages, as a visitor
- *   node scripts/smoke-web.mjs --as student          # signed-in pass
- *   node scripts/smoke-web.mjs --as admin
- *   node scripts/smoke-web.mjs --page dashboard.html # one page
+ * Talks to the dev server exactly like a browser would: one origin, relative
+ * URLs, cookies. It asserts the things a broken deploy would show immediately:
+ * every page answers, the SSR article route renders from live data, legacy
+ * links redirect, generated SEO files come from the database, the /api proxy
+ * works, static assets ship, and the dashboard is reachable only through a
+ * session.
  *
- * It is deliberately *not* a unit test of pure functions — those live in
- * `tests/unit`. This one answers a blunter question: does the site work end to
- * end, against the real API, without console errors?
- *
- * Requires:
- *   * the API running (`npm run dev:api`, default http://127.0.0.1:8787)
- *   * `happy-dom` installed (devDependency; `npm install`)
+ * Exit code 0 = every check passed.
  */
-import { readFile, readdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Window } from 'happy-dom';
+import process from 'node:process';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PUBLIC_DIR = path.join(ROOT, 'apps/web/public');
-const API_TARGET = (process.env.API_TARGET ?? 'http://127.0.0.1:8787').replace(/\/+$/, '');
-const WEB_ORIGIN = process.env.WEB_ORIGIN ?? 'http://localhost:32951';
-const FILTER = process.argv.includes('--page') ? process.argv[process.argv.indexOf('--page') + 1] : null;
-const AS = process.argv.includes('--as') ? process.argv[process.argv.indexOf('--as') + 1] : 'visitor';
+const WEB = (process.env.WEB_BASE_URL ?? 'http://127.0.0.1:5173').replace(/\/+$/, '');
+const MODE = process.argv.includes('--as')
+  ? process.argv[process.argv.indexOf('--as') + 1]
+  : 'all';
+const ADMIN = { email: 'admin@sholynk.test', password: 'AdminPassword123!' };
+const SEEDED_STORY = 'the-rise-of-quantum-computing';
 
-/**
- * The real `fetch`, captured before the harness proxies `globalThis.fetch` for
- * each page. Without this, the stub would call itself.
- */
-const realFetch = globalThis.fetch;
+let passed = 0;
+let failed = 0;
+const failures = [];
 
-const DEMO_ACCOUNTS = {
-  student: { email: 'student@gworld.test', password: 'StudentPassword123!' },
-  admin: { email: 'admin@gworld.test', password: 'AdminPassword123!' },
-};
-
-/* ------------------------------------------------------------------- reporting */
-
-const results = [];
-let failures = 0;
-
-function record(name, status, detail = '') {
-  results.push({ name, status, detail });
-  if (status === 'fail') failures += 1;
-  const icon = status === 'pass' ? '✓' : status === 'fail' ? '✗' : '·';
-  const colour = status === 'fail' ? '\u001b[31m' : status === 'pass' ? '\u001b[32m' : '\u001b[90m';
-  console.log(`${colour}${icon}\u001b[0m ${name}${detail ? ` — ${detail}` : ''}`);
+function log(ok, label, detail = '') {
+  if (ok) {
+    passed += 1;
+    console.log(`\u001b[32m✓\u001b[0m ${label}${detail ? ` \u001b[90m(${detail})\u001b[0m` : ''}`);
+  } else {
+    failed += 1;
+    failures.push(label);
+    console.log(`\u001b[31m✘\u001b[0m ${label}${detail ? ` \u001b[90m(${detail})\u001b[0m` : ''}`);
+  }
 }
 
-/* --------------------------------------------------------------------- cookie jar */
+function assert(condition, label, detail = '') {
+  log(Boolean(condition), label, detail);
+  return Boolean(condition);
+}
 
-/** Minimal cookie jar: the API's session lives in `gw_session` + `gw_csrf`. */
 class Jar {
   constructor() {
     this.cookies = new Map();
-    /** Set per page: cookies are mirrored into `document.cookie` exactly as a
-     *  browser would expose the non-HttpOnly ones (the API's CSRF cookie). */
-    this.document = null;
   }
 
-  syncDocument() {
-    if (!this.document) return;
-    for (const [name, value] of this.cookies) {
-      this.document.cookie = `${name}=${value}; path=/`;
+  absorb(response) {
+    for (const raw of response.headers.getSetCookie?.() ?? []) {
+      const [pair] = raw.split(';');
+      const index = pair.indexOf('=');
+      if (index > 0) this.cookies.set(pair.slice(0, index).trim(), pair.slice(index + 1).trim());
     }
   }
 
   header() {
-    return [...this.cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+    return [...this.cookies].map(([name, value]) => `${name}=${value}`).join('; ');
   }
 
-  store(response) {
-    const raw = response.headers.getSetCookie?.() ?? [];
-    for (const line of raw) {
-      const [pair] = line.split(';');
-      const index = pair.indexOf('=');
-      if (index === -1) continue;
-      const name = pair.slice(0, index).trim();
-      const value = pair.slice(index + 1).trim();
-      if (value === '' || /expires=Thu, 01 Jan 1970/i.test(line)) this.cookies.delete(name);
-      else this.cookies.set(name, value);
-    }
-    this.syncDocument();
+  get(name) {
+    return this.cookies.get(name);
   }
 }
 
-/* ---------------------------------------------------------------------- the API */
-
-function createFetch(jar, log) {
-  return async function fetchStub(input, init = {}) {
-    const rawUrl = typeof input === 'string' ? input : input.url;
-    const url = new URL(rawUrl, WEB_ORIGIN);
-    const target = new URL(`${url.pathname}${url.search}`, API_TARGET);
-
-    const headers = new Headers(init.headers ?? (typeof input === 'object' ? input.headers : undefined));
-    const cookie = jar.header();
-    if (cookie) headers.set('cookie', cookie);
-    headers.set('host', new URL(API_TARGET).host);
-
-    const method = (init.method ?? (typeof input === 'object' ? input.method : 'GET') ?? 'GET').toUpperCase();
-    log.push(`${method} ${url.pathname}${url.search}`);
-
-    const response = await realFetch(target, {
-      method,
-      headers,
-      body: init.body,
-      redirect: 'manual',
-      signal: init.signal,
-    });
-
-    jar.store(response);
-    return response;
-  };
-}
-
-/* ------------------------------------------------------------------ page harness */
-
-const PAGE_MODULE_IMPORT = /import \{ init \} from '(\/assets\/js\/pages\/[^']+)'/;
-
-/** Expectations per page: what must be true once `boot()` has finished. */
-const EXPECTATIONS = {
-  'index.html': [
-    ['[data-home-stats] .stat__value', (nodes) => nodes.some((node) => node.textContent.trim() !== '—')],
-    ['[data-home-departments] .department-tile', (nodes) => nodes.length > 0],
-    ['[data-home-featured] .card', (nodes) => nodes.length > 0],
-  ],
-  'browse.html': [
-    ['[data-browse-departments] .department-tile', (nodes) => nodes.length > 0],
-    ['[data-subjects] .card', (nodes) => nodes.length > 0],
-  ],
-  'courses.html': [
-    ['[data-course-list] .card', (nodes) => nodes.length > 0],
-    ['[data-result-count]', (nodes) => /\d/.test(nodes[0]?.textContent ?? '')],
-  ],
-  'course.html': [
-    ['[data-course-header] h1', (nodes) => (nodes[0]?.textContent ?? '').length > 2],
-    ['[data-course-curriculum] .curriculum__lesson', (nodes) => nodes.length > 0],
-    ['[data-course-outcomes] li', (nodes) => nodes.length > 0],
-  ],
-  'lesson.html': [
-    ['[data-lesson-title]', (nodes) => (nodes[0]?.textContent ?? '').length > 2],
-    ['[data-lesson-body]', (nodes) => (nodes[0]?.textContent ?? '').length > 20],
-    ['[data-progress-percent]', (nodes) => /%/.test(nodes[0]?.textContent ?? '') || (nodes[0]?.textContent ?? '') === '0%'],
-  ],
-  // A visitor is asked to sign in (a quiz is marked against an account); a
-  // signed-in learner gets the real quiz metadata.
-  'quiz.html': [
-    ['[data-quiz-title]', (nodes) => (nodes[0]?.textContent ?? '').length > 2],
-    ['[data-quiz-meta], [data-quiz-pass-mark]', () => true],
-  ],
-  'verify.html': [
-    ['[data-verify-result] .card', (nodes) => nodes.length > 0],
-    ['[data-verify-status]', (nodes) => /valid|found/i.test(nodes[0]?.textContent ?? '')],
-  ],
-  'search.html': [
-    ['[data-search-results] .card', (nodes) => nodes.length > 0],
-    ['[data-search-count]', (nodes) => /\d/.test(nodes[0]?.textContent ?? '')],
-  ],
-  'login.html': [['[data-login-form]', (nodes) => nodes.length === 1]],
-  'register.html': [['[data-register-form]', (nodes) => nodes.length === 1]],
-  'verify-email.html': [['[data-verify-card]', (nodes) => (nodes[0]?.textContent ?? '').length > 20]],
-  'forgot-password.html': [['[data-forgot-form]', (nodes) => nodes.length === 1]],
-  'reset-password.html': [['[data-reset-form]', (nodes) => nodes.length === 1]],
-  'dashboard.html': [
-    ['[data-dashboard-stats] .stat', (nodes) => nodes.length >= 6],
-    ['[data-dashboard-courses] .card, [data-dashboard-courses] .empty-state', (nodes) => nodes.length > 0],
-  ],
-  'my-courses.html': [['[data-enrolment-list] .card, [data-enrolment-list] .empty-state', (nodes) => nodes.length > 0]],
-  'certificates.html': [['[data-certificate-list] .card, [data-certificate-list] .empty-state', (nodes) => nodes.length > 0]],
-  // Holds a real certificate number, verification code and holder name.
-  'certificate.html': [['[data-certificate-card]', (nodes) => (nodes[0]?.textContent ?? '').length > 40]],
-  'profile.html': [['#display_name', (nodes) => (nodes[0]?.value ?? '').length > 0]],
-  'settings.html': [
-    ['[data-session-list] table', (nodes) => nodes.length > 0],
-    ['[data-qr-card] .qr-card', (nodes) => nodes.length > 0],
-  ],
-  'admin/scan.html': [['[data-scan-form]', (nodes) => nodes.length === 1]],
-  'admin/index.html': [['[data-admin-stats] .stat', (nodes) => nodes.length >= 5]],
-  'admin/students.html': [['[data-student-table] table', (nodes) => nodes.length > 0]],
-  'admin/enrollments.html': [['[data-enrolment-table] table', (nodes) => nodes.length > 0]],
-  'admin/certificates.html': [['[data-certificate-table] table', (nodes) => nodes.length > 0]],
-  'admin/departments.html': [['[data-department-table] table', (nodes) => nodes.length > 0]],
-  'admin/subjects.html': [['[data-subject-table] table', (nodes) => nodes.length > 0]],
-  'admin/courses.html': [['[data-course-table] table', (nodes) => nodes.length > 0]],
-  'admin/course-editor.html': [['[data-editor-modules] .card', (nodes) => nodes.length > 0]],
-  'admin/assessments.html': [
-    ['[data-quiz-table] table', (nodes) => nodes.length > 0],
-    // The default filter is the actionable queue ("awaiting a grade"), so an
-    // empty state is the correct render when everything has been marked.
-    ['[data-submission-table] table, [data-submission-table] .empty-state', (nodes) => nodes.length > 0],
-  ],
-  'admin/audit.html': [
-    ['[data-audit-table] table', (nodes) => nodes.length > 0],
-    ['[data-audit-summary] .stat', (nodes) => nodes.length >= 3],
-  ],
-  'admin/settings.html': [
-    ['[data-role-table] table', (nodes) => nodes.length > 0],
-    ['[data-email-table] table', (nodes) => nodes.length > 0],
-  ],
-};
-
-/** Pages a visitor is expected to be bounced away from rather than rendered. */
-const MEMBER_ONLY = new Set([
-  'dashboard.html',
-  'my-courses.html',
-  'certificates.html',
-  'certificate.html',
-  'profile.html',
-  'settings.html',
-]);
-
-/**
- * Query strings used when loading a page that needs one to have anything to
- * show. These are real seeded records (see database/seeds), so the pages render
- * live API data rather than fixtures invented here.
- */
-const PAGE_QUERY = {
-  'course.html': '?slug=html-and-css-foundations',
-  'lesson.html': '?id=lsn_js_1_1&course=javascript-fundamentals',
-  'quiz.html': '?id=qz_js_fetch',
-  'verify.html': '?code=XK4T-9QW2-M7PL',
-  'search.html': '?q=css',
-  'certificate.html': '?id=cert_demo_1',
-  'admin/course-editor.html': '?course=crs_html_css',
-};
-
-const moduleCache = new Map();
-
-async function loadPageModule(modulePath) {
-  const file = path.join(PUBLIC_DIR, modulePath.replace(/^\//, ''));
-  if (!moduleCache.has(file)) {
-    // The HTML asks for `/assets/js/pages/x.js`; on disk that is a real file, and
-    // Node can import it directly because every import inside it is relative.
-    moduleCache.set(file, import(`${pathToFileURL(file).href}?v=${Date.now()}`));
-  }
-  return moduleCache.get(file);
-}
-
-async function runPage(relativePath, jar) {
-  const htmlPath = path.join(PUBLIC_DIR, relativePath);
-  const html = await readFile(htmlPath, 'utf8');
-  const importMatch = html.match(PAGE_MODULE_IMPORT);
-
-  const consoleErrors = [];
-  const pageErrors = [];
-  const navigations = [];
-  const requests = [];
-
-  const window = new Window({
-    url: `${WEB_ORIGIN}/${relativePath}${PAGE_QUERY[relativePath] ?? ''}`,
-    settings: { disableComputedStyleRendering: true, fetch: { disableSameOriginPolicy: true } },
-  });
-  const { document } = window;
-  document.write(html);
-  jar.document = document;
-  jar.syncDocument();
-
-  // The page's `config.js` runs as a classic script in the browser; run it the
-  // same way so `window.GWORLD_CONFIG` is exactly what ships.
-  const configSource = await readFile(path.join(PUBLIC_DIR, 'config.js'), 'utf8');
-  // eslint-disable-next-line no-new-func
-  new Function('window', 'document', configSource)(window, document);
-
-  // ---------------------------------------------------------------- globals
-  // Some of these (navigator, fetch) are accessor properties on the Node global
-  // object, so they are replaced via descriptors and put back exactly as they
-  // were afterwards.
-  const restore = [];
-  const expose = (name, value) => {
-    restore.push([name, Object.getOwnPropertyDescriptor(globalThis, name)]);
-    Object.defineProperty(globalThis, name, {
-      value,
-      configurable: true,
-      writable: true,
-      enumerable: false,
-    });
-  };
-
-  expose('window', window);
-  expose('document', document);
-  expose('navigator', window.navigator);
-  expose('Node', window.Node);
-  expose('Element', window.Element);
-  expose('HTMLElement', window.HTMLElement);
-  expose('HTMLDialogElement', window.HTMLDialogElement);
-  expose('Event', window.Event);
-  expose('CustomEvent', window.CustomEvent);
-  expose('MouseEvent', window.MouseEvent);
-  expose('CSS', window.CSS);
-  expose('FormData', window.FormData);
-  expose('getComputedStyle', window.getComputedStyle.bind(window));
-  expose('requestAnimationFrame', (callback) => setTimeout(() => callback(Date.now()), 0));
-  expose('MutationObserver', window.MutationObserver);
-  expose('fetch', createFetch(jar, requests));
-  expose('scrollTo', () => {});
-
-  window.scrollTo = () => {};
-
-  const realLocation = window.location;
-  const locationProxy = new Proxy(realLocation, {
-    get(target, property) {
-      if (property === 'assign' || property === 'replace') {
-        return (url) => navigations.push(String(url));
-      }
-      if (property === 'reload') return () => navigations.push('reload');
-      if (property === 'href') return `${WEB_ORIGIN}/${relativePath}${PAGE_QUERY[relativePath] ?? ''}`;
-      const value = Reflect.get(target, property);
-      return typeof value === 'function' ? value.bind(target) : value;
-    },
-  });
-  try {
-    Object.defineProperty(window, 'location', { configurable: true, value: locationProxy });
-  } catch {
-    // Older happy-dom builds freeze `location`; navigation then shows up as a
-    // page error instead, and the harness reports it as a failure to inspect.
-    window.location.assign = (url) => navigations.push(String(url));
-  }
-
-  window.addEventListener('error', (event) => pageErrors.push(event.error ?? event.message));
-  window.addEventListener('unhandledrejection', (event) => pageErrors.push(event.reason));
-  window.console.error = (...args) => consoleErrors.push(args.map(String).join(' '));
-  window.console.warn = () => {};
-
-  const previousConsoleError = console.error;
-  console.error = (...args) => consoleErrors.push(args.map(String).join(' '));
-
-  try {
-    if (!importMatch) {
-      return { ok: true, note: 'no page module' };
-    }
-
-    const module = await loadPageModule(importMatch[1]);
-    const boot = await import(`${pathToFileURL(path.join(PUBLIC_DIR, 'assets/js/core/boot.js')).href}?v=${Date.now()}`);
-    await boot.boot(module.init);
-
-    // Give fire-and-forget follow-ups (outline, QR) a moment to land.
-    await new Promise((resolve) => setTimeout(resolve, 120));
-    await window.happyDOM?.waitUntilComplete?.().catch(() => {});
-
-    // An error panel rendered by boot()/pageError() counts as a failure even
-    // though it was handled gracefully: the page did not show real content.
-    const errorPanel = document.querySelector('[data-page-error] .empty-state--error');
-
-    const expectations = EXPECTATIONS[relativePath];
-    if (!expectations) {
-      return { ok: !errorPanel && pageErrors.length === 0, errorPanel, pageErrors, requests, navigations };
-    }
-
-    for (const [selector, predicate] of expectations) {
-      const nodes = [...document.querySelectorAll(selector)];
-      if (!predicate(nodes)) {
-        return {
-          ok: false,
-          reason: `expected ${selector} to be populated${nodes.length ? ` (found ${nodes.length})` : ' (found none)'}`,
-          pageErrors,
-          requests,
-          navigations,
-        };
-      }
-    }
-
-    return { ok: !errorPanel, errorPanel, pageErrors, requests, navigations };
-  } catch (error) {
-    return { ok: false, reason: error?.message ?? String(error), pageErrors, requests, navigations, thrown: error };
-  } finally {
-    for (const [name, descriptor] of restore.reverse()) {
-      if (descriptor === undefined) delete globalThis[name];
-      else Object.defineProperty(globalThis, name, descriptor);
-    }
-    console.error = previousConsoleError;
-    jar.document = null;
-    await window.happyDOM?.close?.().catch(() => {});
-  }
-}
-
-/* ------------------------------------------------------------------------ main */
-
-async function signIn(jar, account) {
-  const response = await realFetch(`${API_TARGET}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(account),
-  });
-  jar.store(response);
-  return response.ok;
+async function get(path, { jar } = {}) {
+  const headers = jar ? { cookie: jar.header() } : {};
+  const response = await fetch(`${WEB}${path}`, { headers, redirect: 'manual' });
+  jar?.absorb(response);
+  const text = await response.text();
+  return { status: response.status, headers: response.headers, text };
 }
 
 async function main() {
-  const pages = [];
-  for (const entry of await readdir(PUBLIC_DIR, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith('.html')) pages.push(entry.name);
-    if (entry.isDirectory() && entry.name === 'admin') {
-      for (const adminEntry of await readdir(path.join(PUBLIC_DIR, 'admin'))) {
-        if (adminEntry.endsWith('.html')) pages.push(`admin/${adminEntry}`);
-      }
-    }
-  }
-  pages.sort();
+  console.log(`Sholynk Tech web smoke test → ${WEB} (mode: ${MODE})\n`);
 
-  // Health check first: a skipped run must say why, not just "0 failures".
-  try {
-    const health = await realFetch(`${API_TARGET}/api/v1/health`);
-    if (!health.ok) throw new Error(`status ${health.status}`);
-  } catch (error) {
-    record('API reachable', 'fail', `${API_TARGET} — ${error.message}. Start it with: npm run dev:api`);
-    process.exit(1);
-  }
-  record('API reachable', 'pass', API_TARGET);
-
-  const jar = new Jar();
-  if (AS !== 'visitor') {
-    const account = DEMO_ACCOUNTS[AS];
-    if (!account) {
-      record(`sign in as ${AS}`, 'fail', 'unknown account (expected student or admin)');
-      process.exit(1);
-    }
-    const ok = await signIn(jar, account);
-    record(`sign in as ${AS}`, ok ? 'pass' : 'fail', account.email);
-    if (!ok) process.exit(1);
-  }
-
-  let selected = FILTER ? pages.filter((page) => page === FILTER) : pages;
-  if (AS === 'admin' && !FILTER) {
-    // An administrator account has no enrolments or certificates of its own, so
-    // the learner screens legitimately render empty states. The student pass
-    // covers them; this pass covers the admin area.
-    selected = selected.filter((page) => !MEMBER_ONLY.has(page));
-  }
-  if (!selected.length) {
-    record('pages found', 'fail', FILTER ? `no page matched ${FILTER}` : 'no HTML pages in public/');
+  const probe = await fetch(`${WEB}/`).then((r) => r.status).catch(() => 0);
+  if (!probe) {
+    console.error('The site is not reachable. Start it with `npm run dev` (API + static server + proxies).');
     process.exit(1);
   }
 
-  for (const page of selected) {
-    // Reset the session cache between "pages": each page load is a fresh document.
-    const result = await runPage(page, jar);
+  const wantsReader = MODE === 'all' || MODE === 'reader';
+  const wantsAdmin = MODE === 'all' || MODE === 'admin';
 
-    const navigations = (result.navigations ?? []).map(String);
-    const memberOnly = MEMBER_ONLY.has(page);
+  if (wantsReader) {
+    // --- pages ---------------------------------------------------------------
+    const home = await get('/');
+    assert(home.status === 200, 'the homepage answers');
+    assert(home.text.includes('hero-section'), 'the homepage ships the hero slider mount point');
+    assert(home.text.includes('cardsContainer'), 'the homepage ships the card grid mount point');
+    assert(home.text.includes('Sholynk Tech'), 'the homepage is branded Sholynk Tech');
+    assert(home.text.includes('/api/v1/subscriptions'), 'the newsletter form posts to the API proxy');
+    assert(!/<script>(?![^<]*ld\+json)/.test(home.text.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '')), 'the homepage has no inline scripts (CSP-safe)');
 
-    if (AS === 'visitor' && memberOnly && navigations.some((url) => url.includes('/login.html'))) {
-      record(`${page} (redirects to sign-in)`, 'pass', 'no session — bounced as designed');
-      continue;
+    for (const [page, marker] of [
+      ['/about', 'About'],
+      ['/contact', 'contactForm'],
+      ['/help_&_support', 'Help'],
+      ['/privacy_policy', 'Privacy'],
+    ]) {
+      const response = await get(page);
+      assert(response.status === 200 && response.text.toLowerCase().includes(marker.toLowerCase()), `${page} answers with its content`);
     }
 
-    // Admin screens are staff-only: a signed-in student is sent to 403, which is
-    // the client-side half of a rule the API enforces again on every request.
-    if (page.startsWith('admin/') && AS !== 'admin' && navigations.some((url) => url.includes('/login.html') || url.includes('/403.html'))) {
-      record(`${page} (${AS} bounced)`, 'pass', navigations.find((url) => url.includes('/403') || url.includes('/login')) ?? '');
-      continue;
-    }
+    // --- server-rendered article ---------------------------------------------
+    const story = await get(`/articles/${SEEDED_STORY}/`);
+    assert(story.status === 200, 'the seeded story renders at its clean URL');
+    assert(story.text.includes('data-server-rendered="true"'), 'the story document is server-rendered');
+    assert(story.text.includes('article-toc'), 'the story carries its table of contents');
+    assert(story.text.includes('../../styles.css'), 'the story rewrites assets for its URL depth');
+    assert(story.text.includes('engagementRoot'), 'the story mounts the engagement widgets');
 
-    if (result.ok) {
-      record(page, 'pass', `${result.requests?.length ?? 0} API call(s)`);
-      continue;
-    }
+    const missing = await get('/articles/definitely-not-a-story/');
+    assert(missing.status === 404 && missing.text.includes('Article not found'), 'an unknown story 404s as a document');
 
-    const detail = [
-      result.reason,
-      result.errorPanel ? 'rendered an error panel' : null,
-      result.pageErrors?.length ? `page error: ${String(result.pageErrors[0]?.message ?? result.pageErrors[0])}` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-    record(page, 'fail', detail || 'unknown failure');
+    // --- legacy redirect -------------------------------------------------------
+    const legacy = await get(`/article.html?slug=${SEEDED_STORY}`);
+    assert(legacy.status === 301, 'the legacy article.html link redirects (301)');
+    assert((legacy.headers.get('location') ?? '').endsWith(`/articles/${SEEDED_STORY}/`), 'the legacy redirect targets the clean URL');
+
+    // --- generated SEO files -----------------------------------------------------
+    const robots = await get('/robots.txt');
+    assert(robots.status === 200 && robots.text.includes('Disallow: /admin/'), 'robots.txt is generated with the admin exclusion');
+    assert(robots.text.includes(`Sitemap: ${WEB}/sitemap.xml`), 'robots.txt advertises the sitemap for this origin');
+
+    const sitemap = await get('/sitemap.xml');
+    assert(sitemap.status === 200 && sitemap.text.includes('<urlset'), 'sitemap.xml is generated');
+    assert(sitemap.text.includes(`/articles/${SEEDED_STORY}/`), 'the sitemap lists live articles');
+
+    // --- API proxy -----------------------------------------------------------------
+    const health = await get('/api/v1/health');
+    const healthJson = JSON.parse(health.text || '{}');
+    assert(health.status === 200 && healthJson.success === true, 'the /api proxy reaches the worker');
+
+    const articles = await get('/api/v1/articles');
+    const articlesJson = JSON.parse(articles.text || '{}');
+    assert(Array.isArray(articlesJson.data) && articlesJson.data.length >= 50, 'the proxied article list carries the catalogue', `${articlesJson.data?.length ?? 0} articles`);
+
+    const settings = JSON.parse((await get('/api/v1/settings')).text || '{}');
+    assert(settings.data?.siteTitle?.startsWith('Sholynk Tech'), 'the proxied settings are live');
+
+    // --- static assets ---------------------------------------------------------------
+    const stylesheet = await get('/styles.css');
+    assert(stylesheet.status === 200 && stylesheet.headers.get('content-type')?.includes('text/css'), 'the stylesheet ships');
+    const logo = await get('/assets/brand/page_logo.png');
+    assert(logo.status === 200 && logo.headers.get('content-type')?.includes('image/png'), 'brand assets ship');
+    const cardImage = await get('/assets/cards/web-3/article_card_02.jpg');
+    assert(cardImage.status === 200 && cardImage.headers.get('content-type')?.includes('image/jpeg'), 'migrated card images ship');
+    const storyImage = await get('/assets/articles/quantum/quantum-computer-chandelier.jpg');
+    assert(storyImage.status === 200, 'migrated story images ship');
+
+    // --- error page ---------------------------------------------------------------------
+    const notFound = await get('/this-page-does-not-exist');
+    assert(notFound.status === 404 && notFound.text.includes('Error 404'), 'unknown URLs answer with the styled 404');
   }
 
-  const passed = results.filter((row) => row.status === 'pass').length;
-  console.log(`\n${passed} passed, ${failures} failed  (as ${AS})`);
-  process.exit(failures ? 1 : 0);
+  if (wantsAdmin) {
+    // --- the dashboard shell ------------------------------------------------------------
+    const adminPage = await get('/admin/');
+    assert(adminPage.status === 200 && adminPage.text.includes('admin-tabs'), 'the dashboard shell loads (data requires a session)');
+    assert(adminPage.text.includes('data-panel="inbox"'), 'the dashboard ships the inbox tab');
+    assert(!adminPage.text.includes('adminToken'), 'the legacy admin-token field is gone');
+    assert(adminPage.text.includes('signOutBtn'), 'the dashboard has a session sign-out control');
+
+    // --- signed-out visitors cannot read editorial data --------------------------------------
+    const anonymous = await get('/api/v1/admin/analytics/overview');
+    assert(anonymous.status === 401, 'analytics refuse anonymous callers');
+
+    // --- sign in through the same origin the browser uses ----------------------------------------
+    const jar = new Jar();
+    const loginResponse = await fetch(`${WEB}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(ADMIN),
+    });
+    jar.absorb(loginResponse);
+    assert(loginResponse.status === 200, 'the login page endpoint signs the admin in');
+    assert(Boolean(jar.get('sk_session')), 'the session cookie is set through the proxy');
+
+    const overview = await get('/api/v1/admin/analytics/overview?days=7', { jar });
+    const overviewJson = JSON.parse(overview.text || '{}');
+    assert(overview.status === 200 && overviewJson.data?.totals?.articles >= 56, 'the signed-in dashboard reads analytics', `articles=${overviewJson.data?.totals?.articles ?? '?'}`);
+
+    const allArticles = await get('/api/v1/articles?status=all', { jar });
+    assert(JSON.parse(allArticles.text || '{}').data?.length >= 56, 'the signed-in article manager lists every status');
+
+    // CSRF: a cookie-bearing unsafe request without the header is refused
+    const noCsrf = await fetch(`${WEB}/api/v1/admin/settings`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: jar.header() },
+      body: JSON.stringify({ homeTagline: 'should not stick' }),
+    });
+    assert(noCsrf.status === 403, 'the double-submit CSRF guard protects mutations');
+
+    // with the header it works — write the same tagline back so nothing changes
+    const settingsNow = JSON.parse((await get('/api/v1/settings', { jar })).text || '{}');
+    const withCsrf = await fetch(`${WEB}/api/v1/admin/settings`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie: jar.header(), 'x-csrf-token': jar.get('sk_csrf') ?? '' },
+      body: JSON.stringify({ homeTagline: settingsNow.data?.homeTagline ?? '' }),
+    });
+    assert(withCsrf.status === 200, 'the dashboard can save settings with its CSRF token');
+
+    const logout = await fetch(`${WEB}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { cookie: jar.header(), 'x-csrf-token': jar.get('sk_csrf') ?? '' },
+    });
+    jar.absorb(logout);
+    assert(logout.status === 200, 'sign-out succeeds through the proxy');
+
+    const afterLogout = await get('/api/v1/auth/me', { jar });
+    assert(afterLogout.status === 401, 'the revoked session no longer authenticates');
+
+    // --- the login page ships ------------------------------------------------------------------
+    const loginPage = await get('/login.html');
+    assert(loginPage.status === 200 && loginPage.text.includes('loginForm'), 'the login page ships');
+    const resetPage = await get('/reset.html');
+    assert(resetPage.status === 200 && resetPage.text.includes('forgotForm'), 'the recovery page ships');
+  }
+
+  console.log(`\n${failed === 0 ? '\u001b[32m' : '\u001b[31m'}web smoke test: ${passed} passed, ${failed} failed\u001b[0m`);
+  if (failed) {
+    console.log('failed checks:');
+    for (const label of failures) console.log(`  · ${label}`);
+  }
+  process.exit(failed ? 1 : 0);
 }
 
 main().catch((error) => {
-  console.error('smoke-web crashed:', error);
+  console.error('\nweb smoke test crashed:', error);
   process.exit(1);
 });

@@ -1,8 +1,8 @@
 -- ===========================================================================
--- G WORLD — Migration 0002: Domain B — Platform and security data
+-- Sholynk Tech — Migration 0002: Platform and security data
 -- ---------------------------------------------------------------------------
--- Sessions, single-use tokens, QR identity codes, notifications, the email
--- outbox, the audit trail and the rate-limit counters all live here.
+-- Sessions, single-use tokens, notifications, the email outbox, the audit
+-- trail and the rate-limit counters all live here.
 -- Raw tokens are NEVER stored: only their SHA-256 hash, so a database leak
 -- cannot be replayed against the platform.
 -- ===========================================================================
@@ -10,7 +10,7 @@
 PRAGMA foreign_keys = ON;
 
 -- ---------------------------------------------------------------------------
--- user_sessions — database-backed sessions (see docs/adr/0003).
+-- user_sessions — database-backed sessions.
 -- `token_hash` = SHA-256 of the opaque value held in the httpOnly cookie.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS user_sessions (
@@ -29,34 +29,13 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 
 -- ---------------------------------------------------------------------------
--- qr_codes — student identity cards and certificate verification codes.
--- `code` is the human-readable/value string encoded in the QR image; the image
--- itself is rendered on demand (no binary blobs in the database).
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS qr_codes (
-  id            TEXT PRIMARY KEY,
-  user_id       TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  code          TEXT NOT NULL UNIQUE,
-  kind          TEXT NOT NULL DEFAULT 'student_id' CHECK (kind IN ('student_id', 'certificate')),
-  certificate_id TEXT,
-  payload_url   TEXT NOT NULL,
-  scan_count    INTEGER NOT NULL DEFAULT 0 CHECK (scan_count >= 0),
-  last_scanned_at TEXT,
-  expires_at    TEXT,
-  revoked_at    TEXT,
-  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-
--- ---------------------------------------------------------------------------
--- notifications — in-app notices for learners and administrators.
+-- notifications — in-app notices for editors and administrators.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notifications (
   id          TEXT PRIMARY KEY,
   user_id     TEXT REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
   type        TEXT NOT NULL DEFAULT 'info' CHECK (type IN (
-                'info', 'success', 'warning', 'error', 'enrollment',
-                'assessment', 'certificate', 'announcement')),
+                'info', 'success', 'warning', 'error', 'editorial', 'announcement')),
   title       TEXT NOT NULL,
   body        TEXT,
   link_url    TEXT,
@@ -149,17 +128,15 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_user        ON user_sessions (user_id, expires_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sessions_expiry      ON user_sessions (expires_at);
-CREATE INDEX IF NOT EXISTS idx_qr_user              ON qr_codes (user_id, kind);
-CREATE INDEX IF NOT EXISTS idx_qr_code              ON qr_codes (code);
-CREATE INDEX IF NOT EXISTS idx_notifications_user   ON notifications (user_id, read_at, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_evt_user             ON email_verification_tokens (user_id);
-CREATE INDEX IF NOT EXISTS idx_evt_expiry           ON email_verification_tokens (expires_at);
-CREATE INDEX IF NOT EXISTS idx_prt_user             ON password_reset_tokens (user_id);
-CREATE INDEX IF NOT EXISTS idx_prt_expiry           ON password_reset_tokens (expires_at);
-CREATE INDEX IF NOT EXISTS idx_email_status         ON email_messages (status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_actor          ON audit_logs (actor_user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_entity         ON audit_logs (entity_type, entity_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_created        ON audit_logs (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_rate_limits_expiry   ON rate_limits (expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user      ON user_sessions (user_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_expiry    ON user_sessions (expires_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, read_at, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_evt_user           ON email_verification_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_evt_expiry         ON email_verification_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_prt_user           ON password_reset_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_prt_expiry         ON password_reset_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_email_status       ON email_messages (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_actor        ON audit_logs (actor_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity       ON audit_logs (entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_created      ON audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expiry ON rate_limits (expires_at);

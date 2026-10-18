@@ -1,67 +1,49 @@
 <!doctype html>
-<html lang="en" data-page="error-403">
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Not allowed · G WORLD</title>
-    <meta name="description" content="You do not have permission to open this page.">
-    <link rel="canonical" href="https://g-world.pages.dev/403.html">
-    <meta name="theme-color" content="#4f46e5">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="stylesheet" href="/assets/css/tokens.css">
-    <link rel="stylesheet" href="/assets/css/base.css">
-    <link rel="stylesheet" href="/assets/css/layout.css">
-    <link rel="stylesheet" href="/assets/css/components.css">
-    <link rel="stylesheet" href="/assets/css/forms.css">
-    <link rel="stylesheet" href="/assets/css/tables.css">
-    <link rel="stylesheet" href="/assets/css/animations.css">
-    <link rel="stylesheet" href="/assets/css/visual-refresh.css">
-    <!-- Public runtime configuration (no secrets). Loaded before the modules. -->
-    <script src="/config.js"></script>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <title>Access denied - Sholynk Tech</title>
+    <meta content="noindex, follow" name="robots" />
+    <meta content="#000000" name="theme-color" />
+    <link rel="shortcut icon" href="/assets/brand/sholynk_icon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
+    <link href="/styles.css" rel="stylesheet" />
   </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-
-    <!-- Header and footer are rendered by assets/js/components/*.js so the
-         navigation exists in exactly one place. -->
-    <header class="site-header" data-site-header></header>
-
-    <main id="main" class="site-main" tabindex="-1">
-      <div class="container container--narrow">
-        <div class="page-head">
-          <p class="page-head__eyebrow">403</p>
-          <h1>You do not have access to this page</h1>
-          <p class="lede">
-            Your account is signed in, but this area needs a permission it does not have.
-            If you think that is wrong, ask an administrator to check your role.
-          </p>
-        </div>
-        <div class="cluster">
-          <a class="btn btn--primary" href="/dashboard.html">My dashboard</a>
-          <a class="btn" href="/index.html">Home</a>
-        </div>
-        <div data-page-error></div>
+  <body class="auth-view">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="/" aria-label="Sholynk homepage">
+          <img alt="Sholynk logo" class="site-logo" height="24" src="/assets/brand/page_logo.png" width="120" />
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="/">Home</a>
+          <a href="/about">About</a>
+          <a href="/contact">Contact</a>
+        </nav>
       </div>
+    </header>
 
+    <main class="auth-main" id="main-content">
+      <section class="auth-card" aria-labelledby="error-title">
+        <p class="eyebrow">Error 403</p>
+        <h1 id="error-title">This area is for the editorial team</h1>
+        <p class="auth-subtitle">You need to sign in with an editorial account to open this page. If you believe you should have access, contact the site owner.</p>
+        <p class="auth-links">
+          <a href="/login.html">Editorial sign in</a>
+          <a href="/">Back to the homepage</a>
+        </p>
+      </section>
     </main>
 
-    <footer class="site-footer" data-site-footer></footer>
-
-    <noscript>
-      <div class="container alert alert--warning mb-4">
-        <p><strong>JavaScript is off.</strong> Browsing, reading lesson previews and
-        verifying a certificate still work, because each page ships real HTML and the
-        server renders the content. Signing in, enrolling, tracking progress and taking
-        quizzes need JavaScript — the whole app is a set of ES modules talking to the
-        G WORLD API.</p>
+    <footer class="site-footer">
+      <div class="footer-legal">
+        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
       </div>
-    </noscript>
-
-    <script type="module">
-      import { boot } from '/assets/js/core/boot.js';
-      import { init } from '/assets/js/pages/error-page.js';
-      boot(init);
-    </script>
+    </footer>
+    <script src="/error.js"></script>
   </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * G WORLD — structured logger.
+ * Sholynk Tech — structured logger.
  *
  * Cloudflare captures `console.*` output and indexes it; emitting one JSON
  * object per line makes logs queryable (`wrangler tail`, Workers Logs) without

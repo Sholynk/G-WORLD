@@ -12,8 +12,8 @@
  */
 import type { Context } from 'hono';
 import type { AppEnv } from '../env.js';
-import type { ApiErrorCode, ApiErrorDetail } from '@g-world/shared';
-import { ERROR_STATUS } from '@g-world/shared';
+import type { ApiErrorCode, ApiErrorDetail } from '@sholynk/shared';
+import { ERROR_STATUS } from '@sholynk/shared';
 import { AppError, isAppError } from '../lib/errors.js';
 import { classifySqliteError } from '../db/client.js';
 import { applySecurityHeaders } from '../lib/security-headers.js';
@@ -47,11 +47,8 @@ function fromDatabaseError(error: unknown): AppError | null {
     if (target.includes('users.email')) {
       return new AppError('CONFLICT', 'An account with this email address already exists');
     }
-    if (target.includes('enrollments.user_id')) {
-      return new AppError('CONFLICT', 'You are already enrolled in this course');
-    }
-    if (target.includes('certificates.user_id') || target.includes('certificates.enrollment_id')) {
-      return new AppError('CONFLICT', 'A certificate has already been issued for this course');
+    if (target.includes('newsletter_subscribers.email')) {
+      return new AppError('CONFLICT', 'That email address is already subscribed');
     }
     if (target.includes('slug')) {
       return new AppError('CONFLICT', 'That URL slug is already in use');

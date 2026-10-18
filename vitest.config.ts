@@ -8,7 +8,23 @@
  */
 import { defineConfig } from 'vitest/config';
 
+/**
+ * The API worker imports its article shell as text (`*.html`, configured in
+ * wrangler.jsonc → rules). This plugin gives Vitest the same behaviour so
+ * lib/article-page.ts is importable in unit tests.
+ */
+const htmlAsText = {
+  name: 'html-as-text',
+  transform(code: string, id: string) {
+    if (id.endsWith('.html')) {
+      return { code: `export default ${JSON.stringify(code)};`, map: null };
+    }
+    return null;
+  },
+};
+
 export default defineConfig({
+  plugins: [htmlAsText],
   test: {
     name: 'unit',
     environment: 'node',

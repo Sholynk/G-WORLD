@@ -20,7 +20,7 @@
 interface Env {
   /** Optional service binding to the API worker (see wrangler.toml). */
   API?: { fetch: (request: Request) => Promise<Response> };
-  /** Absolute origin of the API worker, e.g. https://g-world-api.example.workers.dev */
+  /** Absolute origin of the API worker, e.g. https://sholynk-tech-api.<your-subdomain>.workers.dev */
   API_ORIGIN?: string;
 }
 
@@ -41,7 +41,7 @@ const unavailable = (message: string, status = 502): Response =>
 /**
  * Builds the upstream URL for `API_ORIGIN`, or null when that value cannot be
  * turned into one — a leftover placeholder such as
- * `https://g-world-api.<your-subdomain>.workers.dev` is not a valid URL (angle
+ * `https://sholynk-tech-api.<your-subdomain>.workers.dev` is not a valid URL (angle
  * brackets are forbidden in a host), and `new URL` throws on it. That throw used
  * to surface as an opaque `500 TypeError`, which is exactly the case an
  * unconfigured deployment hits first.

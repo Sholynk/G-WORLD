@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * G WORLD — structure check.
+ * Sholynk Tech — structure check.
  *
  *   npm run check:structure
  *
@@ -60,20 +60,39 @@ const REQUIRED_FILES = {
     'apps/api/src/middleware/auth.ts',
     'apps/api/src/routes/health.ts',
     'apps/api/src/routes/auth.ts',
-    'apps/api/src/services/learning.ts',
+    'apps/api/src/routes/public/content.ts',
+    'apps/api/src/routes/public/engagement.ts',
+    'apps/api/src/routes/public/seo.ts',
+    'apps/api/src/routes/admin/index.ts',
+    'apps/api/src/routes/admin/articles.ts',
+    'apps/api/src/lib/article-page.ts',
+    'apps/api/src/lib/article-shell.html',
+    'apps/api/src/lib/markdown.ts',
+    'apps/api/src/lib/image-dimensions.json',
+    'apps/api/src/services/audit.ts',
   ],
   frontend: [
     'apps/web/package.json',
     'apps/web/wrangler.toml',
     'apps/web/functions/api/[[path]].ts',
+    'apps/web/functions/index.ts',
+    'apps/web/functions/articles/[slug]/index.ts',
+    'apps/web/functions/article.ts',
+    'apps/web/functions/robots.txt.ts',
+    'apps/web/functions/sitemap.xml.ts',
+    'apps/web/functions/uploads/[[path]].ts',
     'apps/web/public/index.html',
+    'apps/web/public/article.html',
+    'apps/web/public/styles.css',
+    'apps/web/public/cms-client.js',
+    'apps/web/public/login.html',
     'apps/web/public/_headers',
     'apps/web/public/_redirects',
     'apps/web/public/config.js',
-    'apps/web/public/robots.txt',
-    'apps/web/public/sitemap.xml',
     'apps/web/public/manifest.webmanifest',
     'apps/web/public/404.html',
+    'apps/web/public/admin/index.html',
+    'apps/web/public/admin/admin.js',
   ],
   'local development scripts': [
     'scripts/dev-server.mjs',
@@ -99,28 +118,30 @@ const REQUIRED_DIRECTORIES = {
     'apps/api/src/lib',
     'apps/api/src/middleware',
     'apps/api/src/routes',
+    'apps/api/src/routes/public',
+    'apps/api/src/routes/admin',
     'apps/api/src/schemas',
     'apps/api/src/services',
   ],
   'frontend assets': [
-    'apps/web/public/assets/css',
-    'apps/web/public/assets/js/core',
-    'apps/web/public/assets/js/components',
-    'apps/web/public/assets/js/pages',
+    'apps/web/public/assets/brand',
+    'apps/web/public/assets/cards',
+    'apps/web/public/assets/articles',
     'apps/web/public/admin',
+    'apps/web/functions/_lib',
   ],
 };
 
 /** Directories that must contain at least N entries — an empty folder is a lie. */
 const MINIMUM_ENTRIES = [
-  ['database/migrations', 1, 'SQL migration files'],
-  ['database/seeds', 1, 'seed files'],
-  ['apps/api/src/db/repositories', 5, 'repository modules'],
+  ['database/migrations', 6, 'SQL migration files'],
+  ['database/seeds', 2, 'seed files'],
+  ['apps/api/src/db/repositories', 10, 'repository modules'],
   ['apps/api/src/routes', 4, 'route modules'],
-  ['apps/web/public/assets/js/core', 5, 'core frontend modules'],
-  ['apps/web/public/assets/js/components', 8, 'UI components'],
-  ['apps/web/public/assets/js/pages', 10, 'page controllers'],
-  ['apps/web/public/admin', 5, 'admin pages'],
+  ['apps/web/public/assets/brand', 5, 'brand assets'],
+  ['apps/web/public/assets/articles', 6, 'article image folders'],
+  ['apps/web/public/admin', 4, 'admin dashboard files'],
+  ['apps/web/functions', 8, 'Pages Function routes'],
 ];
 
 const missing = [];

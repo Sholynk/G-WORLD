@@ -13,11 +13,21 @@ import process from 'node:process';
 export const ROOT = path.resolve(import.meta.dirname, '..', '..');
 export const CONFIG_REL = 'apps/api/wrangler.jsonc';
 export const CONFIG = path.join(ROOT, CONFIG_REL);
-export const DB_NAME = 'g_world';
+export const DB_NAME = 'sholynk_tech';
 export const SEED_DIR = path.join(ROOT, 'database', 'seeds');
 export const MIGRATIONS_DIR = path.join(ROOT, 'database', 'migrations');
-/** Miniflare's local state (the SQLite files D1 writes to in development). */
-export const LOCAL_STATE_DIR = path.join(ROOT, 'apps', 'api', '.wrangler');
+/** The `.wrangler` directory Miniflare uses for everything it caches. */
+export const WRANGLER_DIR = path.join(ROOT, 'apps', 'api', '.wrangler');
+/**
+ * Miniflare's local state (the SQLite files D1 writes to in development,
+ * the R2 uploads and the session store).
+ *
+ * Only this directory is wiped by a reset. `apps/api/.wrangler/tmp` holds
+ * the build cache of `wrangler dev`; deleting it under a running dev server
+ * makes the worker fail to rebuild ("Could not resolve …/middleware-loader
+ * .entry.ts") and the API stops answering.
+ */
+export const LOCAL_STATE_DIR = path.join(WRANGLER_DIR, 'state');
 
 const WRANGLER = path.join(ROOT, 'node_modules', '.bin', 'wrangler');
 
@@ -117,7 +127,11 @@ export function query(sql) {
   }
 }
 
-/** Deletes the local Miniflare state: sessions, uploads and the D1 file go away. */
+/**
+ * Deletes the local Miniflare state: sessions, uploads and the D1 file go
+ * away. The build cache in `apps/api/.wrangler/tmp` is kept, so a running
+ * `wrangler dev` keeps working.
+ */
 export function wipeLocalState() {
   if (existsSync(LOCAL_STATE_DIR)) {
     rmSync(LOCAL_STATE_DIR, { recursive: true, force: true });
