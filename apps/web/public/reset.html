@@ -6,6 +6,7 @@
     <title>Account recovery - Sholynk Tech</title>
     <meta content="Reset your Sholynk Tech editorial password or confirm your email address." name="description" />
     <meta content="noindex, nofollow" name="robots" />
+    <meta name="referrer" content="no-referrer" />
     <meta content="#000000" name="theme-color" />
     <link rel="canonical" href="./" />
     <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
@@ -42,6 +43,31 @@
     </header>
 
     <main class="auth-main" id="main-content">
+      <section class="auth-card" id="ownerRequestCard" aria-labelledby="owner-request-title" hidden>
+        <p class="eyebrow">Website owner</p>
+        <h1 id="owner-request-title">Request your private setup email</h1>
+        <p>This works only after an operator provisions the reserved owner account. The email always goes to the designated owner, never an address supplied here.</p>
+        <form id="ownerRequestForm" class="auth-form">
+          <button class="btn-primary auth-submit" type="submit">Send owner setup email</button>
+          <p id="ownerRequestStatus" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
+      </section>
+      <section class="auth-card" id="ownerSecurityCard" aria-labelledby="owner-security-title" hidden>
+        <p class="eyebrow">Private owner security</p>
+        <h1 id="owner-security-title">Set up your owner account</h1>
+        <p id="ownerSecurityDescription">Choose a new login password and a different confirmation code for sensitive actions. Keep both private.</p>
+        <form id="ownerSecurityForm" class="auth-form">
+          <div class="form-field"><label for="ownerPassword" id="ownerPasswordLabel">New login password</label><input id="ownerPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
+          <div class="form-field" id="ownerPasswordConfirmField"><label for="ownerPasswordConfirm">Confirm new login password</label><input id="ownerPasswordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
+          <div class="form-field"><label for="ownerCode">Separate confirmation code</label><input id="ownerCode" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><small>Use a private code or passphrase of at least 12 characters, different from your login password.</small></div>
+          <div class="form-field"><label for="ownerCodeConfirm">Confirm the separate code</label><input id="ownerCodeConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
+          <button class="btn-primary auth-submit" type="submit" id="ownerSecuritySubmit">Complete owner setup</button>
+        </form>
+        <p id="ownerSecurityStatus" class="form-status" role="status" aria-live="polite"></p>
+        <p class="auth-links"><a href="login.html">Sign in</a><a href="reset.html#owner-request">Request a new setup email</a></p>
+      </section>
+
       <!-- Mode 1: request a reset link -->
       <section class="auth-card" id="forgotCard" aria-labelledby="forgot-title" hidden>
         <p class="eyebrow">Sholynk CMS</p>
@@ -101,7 +127,7 @@
         &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
       </div>
     </footer>
-    <script src="script.js"></script>
     <script src="reset.js"></script>
+    <script src="script.js"></script>
   </body>
 </html>

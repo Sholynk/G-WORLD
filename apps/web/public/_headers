@@ -49,3 +49,8 @@
   Cache-Control: public, max-age=300
 /manifest.webmanifest
   Cache-Control: public, max-age=86400
+
+# Private setup/recovery forms should not be cached or send referrers.
+/reset.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer

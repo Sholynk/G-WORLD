@@ -75,6 +75,7 @@ export function sanitizeMetadata(metadata: Record<string, unknown> | undefined):
 
   const SENSITIVE = new Set([
     'password', 'new_password', 'current_password', 'password_hash', 'token', 'token_hash',
+    'confirmation_code', 'confirmation_hash', 'bootstrap_password_hash', 'x-owner-confirmation',
     'secret', 'session_secret', 'api_key', 'authorization', 'cookie', 'answer_text',
     'selected_option_ids', 'submission_text',
   ]);

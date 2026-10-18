@@ -37,8 +37,8 @@ function toApi(row: ImageRow | null): ImageDto | null {
   };
 }
 
-export async function list(db: Db): Promise<ImageDto[]> {
-  const rows = await db.all<ImageRow>('SELECT * FROM images ORDER BY id DESC');
+export async function list(db: Db, ownerUserId?: string): Promise<ImageDto[]> {
+  const rows = await db.all<ImageRow>(`SELECT * FROM images${ownerUserId ? ' WHERE owner_user_id = ?' : ''} ORDER BY id DESC`, ownerUserId ? [ownerUserId] : []);
   return rows.map((row) => toApi(row)!);
 }
 
@@ -54,6 +54,7 @@ export async function create(
   db: Db,
   input: {
     filename: string;
+    ownerUserId?: string;
     alt?: string;
     mimeType?: string;
     sizeBytes?: number;
@@ -62,7 +63,7 @@ export async function create(
   },
 ): Promise<ImageDto | null> {
   const result = await db.run(
-    'INSERT INTO images (filename, url, alt, mime_type, size_bytes, width, height) VALUES (?,?,?,?,?,?,?)',
+    'INSERT INTO images (filename, url, alt, mime_type, size_bytes, width, height, owner_user_id) VALUES (?,?,?,?,?,?,?,?)',
     [
       input.filename,
       `/uploads/${input.filename}`,
@@ -71,6 +72,7 @@ export async function create(
       Number(input.sizeBytes ?? 0),
       input.width ?? null,
       input.height ?? null,
+      input.ownerUserId ?? null,
     ],
   );
   return getById(db, Number(result.lastRowId ?? 0));

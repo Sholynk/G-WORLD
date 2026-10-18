@@ -22,7 +22,7 @@ import { createDb } from '../../db/client.js';
 import * as articlesRepo from '../../db/repositories/articles.js';
 import { articleInputSchema, articleUpdateSchema, refineArticlePayload, articleSourceSchema } from '@sholynk/shared';
 import { parseJson } from '../../middleware/validate.js';
-import { requirePermission } from '../../middleware/auth.js';
+import { requireScopedPermission as requirePermission, authorScope, assertResourceOwner } from '../../middleware/author-scope.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { audit } from '../../services/audit.js';
@@ -44,7 +44,18 @@ function canPublish(c: AppContext): boolean {
  * requested status is redirected to `pending` (submit for review), mirroring
  * the legacy approval mode.
  */
-function applyApprovalPolicy(c: AppContext, payload: { status?: string }, existing?: ArticleDto) {
+async function applyApprovalPolicy(c: AppContext, payload: articlesRepo.ArticleWriteInput, existing?: ArticleDto) {
+  const scope = await authorScope(c);
+  if (scope) {
+    // Never trust client bylines, submitter identity or site-wide placement.
+    payload.author = scope.name; payload.authorSlug = scope.slug;
+    payload.submitterEmail = c.get('auth')!.email;
+    if (!existing && !payload.status) payload.status = 'draft';
+    payload.featured = existing?.featured ?? false;
+    payload.hero = existing?.hero ?? false;
+    payload.heroOrder = existing?.heroOrder ?? null;
+    return payload;
+  }
   if (payload.status === 'published' && !canPublish(c) && existing?.status !== 'published') {
     payload.status = 'pending';
   }
@@ -99,11 +110,11 @@ async function notifyReview(c: AppContext, article: ArticleDto, notes: string): 
 
 adminArticleRoutes.post('/articles', requirePermission('article.submit'), async (c) => {
   const payload = await parseJson(c, articleInputSchema);
-  applyApprovalPolicy(c, payload);
+  await applyApprovalPolicy(c, payload);
   assertEditorialRules(payload);
 
   const db = dbFrom(c);
-  const article = await articlesRepo.create(db, payload);
+  const article = await articlesRepo.create(db, payload, c.get('auth')!.userId);
 
   let data: ArticleDto & { reviewNotice?: string } = article;
   if (article.status === 'pending') {
@@ -131,10 +142,11 @@ for (const method of ['put', 'patch'] as const) {
 
     const payload = await parseJson(c, articleUpdateSchema);
     const db = dbFrom(c);
+    await assertResourceOwner(c, 'articles', articleId);
     const existing = await articlesRepo.getById(db, articleId);
     if (!existing) throw notFound('Article not found');
 
-    applyApprovalPolicy(c, payload, existing);
+    await applyApprovalPolicy(c, payload, existing);
     assertEditorialRules({ ...existing, ...payload });
 
     const updated = await articlesRepo.update(db, articleId, payload);
@@ -169,6 +181,7 @@ adminArticleRoutes.delete('/articles/:id', requirePermission('article.write'), a
   const id = Number.parseInt(c.req.param('id') ?? '', 10);
   if (!Number.isFinite(id) || id <= 0) throw notFound('Article not found');
   const db = dbFrom(c);
+  await assertResourceOwner(c, 'articles', id);
   const existing = await articlesRepo.getById(db, id);
   if (!existing) throw notFound('Article not found');
 
@@ -195,6 +208,7 @@ adminArticleRoutes.post(
     if (!Number.isFinite(id) || id <= 0) throw notFound('Article not found');
     const source = await parseJson(c, articleSourceSchema);
     const db = dbFrom(c);
+    await assertResourceOwner(c, 'articles', id);
     const added = await articlesRepo.addSource(db, id, source);
     if (!added) throw notFound('Article not found');
     return created(c, added);
@@ -209,6 +223,7 @@ adminArticleRoutes.delete(
     const sourceId = Number.parseInt(c.req.param('sourceId') ?? '', 10);
     if (!Number.isFinite(id) || !Number.isFinite(sourceId)) throw notFound('Source not found');
     const db = dbFrom(c);
+    await assertResourceOwner(c, 'articles', id);
     const removed = await articlesRepo.removeSource(db, id, sourceId);
     if (!removed) throw notFound('Source not found');
     return noContent(c);

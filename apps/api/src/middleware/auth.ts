@@ -27,6 +27,7 @@ import { createDb } from '../db/client.js';
 import * as sessions from '../db/repositories/sessions.js';
 import * as roles from '../db/repositories/roles.js';
 import * as users from '../db/repositories/users.js';
+import { accessAllowed } from '../db/repositories/author-access.js';
 import { hashToken } from '../lib/tokens.js';
 import { readCookie, SESSION_COOKIE } from '../lib/cookies.js';
 import {
@@ -68,7 +69,7 @@ export const resolveAuth = createMiddleware<AppEnv>(async (c, next) => {
     return;
   }
 
-  if (session.status === 'suspended' || session.status === 'deactivated') {
+  if (session.status !== 'active' || !session.email_verified_at || !(await accessAllowed(db, session.user_id))) {
     c.set('auth', null);
     await next();
     return;

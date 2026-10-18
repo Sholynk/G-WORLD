@@ -596,3 +596,26 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(37, 99, 235,
   font-weight: 900;
   color: #1d9bf0;
 }
+
+/* Never expose dashboard panels while the session check is pending. */
+[hidden] { display: none !important; }
+#accountAccessList { margin-block: 1rem; }
+#accountAccessList > li { padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); }
+#accountAccessList .ghost-button { margin-right: .5rem; }
+#accountConfirmation { width: min(90vw, 32rem); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; }
+#accountConfirmation::backdrop { background: rgb(0 0 0 / .55); }
+#accountConfirmationError { color: #b42318; }
+
+#sensitiveConfirmation { width: min(90vw, 32rem); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; }
+#sensitiveConfirmation::backdrop { background: rgb(0 0 0 / .55); }
+
+/* The author workspace shares the editor, but never the owner's account tools. */
+.author-workspace-card { max-width: 54rem; background: #fff; padding: 1.5rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.author-workspace-card p { line-height: 1.6; color: var(--ink-soft); }
+.author-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.author-metric { display: grid; gap: .5rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: white; }
+.author-metric strong { font-size: 1.75rem; }
+.author-table-wrap { overflow-x: auto; }
+.author-analytics-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; background: white; }
+.author-analytics-table th, .author-analytics-table td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--line); }
+.author-analytics-table caption { text-align: left; padding: .8rem 0; font-weight: 600; }

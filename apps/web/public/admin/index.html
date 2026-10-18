@@ -14,7 +14,7 @@
     <i class="fas fa-pen-nib" aria-hidden="true"></i>
     <div>
      <strong>Sholynk CMS</strong>
-     <span>Content dashboard</span>
+     <span id="workspaceLabel">Content dashboard</span>
     </div>
    </div>
    <div class="header-actions">
@@ -30,9 +30,14 @@
    </div>
   </header>
 
-  <nav class="admin-tabs" aria-label="Sections">
+  <p id="adminLoading" role="status">Checking your session…</p>
+  <noscript><p>JavaScript is required for the dashboard. <a href="/login.html">Login or register</a>.</p></noscript>
+  <nav class="admin-tabs" id="adminNavigation" aria-label="Sections" hidden>
    <button class="tab active" type="button" data-panel="dashboard">Dashboard</button>
    <button class="tab" type="button" data-panel="articles">Articles</button>
+   <button class="tab" type="button" data-panel="author-analytics" hidden>My analytics</button>
+   <button class="tab" type="button" data-panel="profile" hidden>My profile</button>
+   <button class="tab" type="button" data-panel="accounts" id="accountAccessTab" hidden>Author access <span id="pendingAccountCount"></span></button>
    <button class="tab" type="button" data-panel="authors">Authors</button>
    <button class="tab" type="button" data-panel="media">Media library</button>
    <button class="tab" type="button" data-panel="comments">Comments</button>
@@ -40,7 +45,44 @@
    <button class="tab" type="button" data-panel="settings">Site metadata</button>
   </nav>
 
-  <main>
+  <main id="adminMain" hidden>
+   <section class="panel" id="panel-profile" aria-label="My author profile" hidden>
+    <div class="author-workspace-card">
+     <h2>My public author profile</h2>
+     <p>Your name, photo, biography and social links appear alongside your articles. Your login email and permissions cannot be changed here.</p>
+     <form id="selfProfileForm">
+      <div class="field"><label for="selfName">Public name</label><input id="selfName" minlength="2" maxlength="80" required autocomplete="name" /></div>
+      <div class="field"><label for="selfBio">Biography</label><textarea id="selfBio" rows="5" maxlength="1000"></textarea></div>
+      <div class="field-row">
+       <div class="field"><label for="selfImageFile">Upload a profile photo</label><input id="selfImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" /></div>
+       <div class="field"><label for="selfImageAlt">Photo description (alt text)</label><input id="selfImageAlt" maxlength="500" /></div>
+      </div>
+      <div class="field"><label for="selfImage">Photo URL</label><input id="selfImage" placeholder="Your /uploads/ image or an HTTPS portrait URL" maxlength="2048" /></div>
+      <div class="field"><label for="selfProfileUrl">Website / full profile URL</label><input id="selfProfileUrl" type="url" placeholder="https://..." maxlength="2048" /></div>
+      <h3>Social links</h3>
+      <div class="field-row">
+       <div class="field"><label for="selfSocialX">X</label><input id="selfSocialX" type="url" placeholder="https://x.com/..." /></div>
+       <div class="field"><label for="selfSocialLinkedin">LinkedIn</label><input id="selfSocialLinkedin" type="url" placeholder="https://www.linkedin.com/in/..." /></div>
+       <div class="field"><label for="selfSocialGithub">GitHub</label><input id="selfSocialGithub" type="url" placeholder="https://github.com/..." /></div>
+       <div class="field"><label for="selfSocialInstagram">Instagram</label><input id="selfSocialInstagram" type="url" placeholder="https://instagram.com/..." /></div>
+       <div class="field"><label for="selfSocialYoutube">YouTube</label><input id="selfSocialYoutube" type="url" placeholder="https://youtube.com/..." /></div>
+      </div>
+      <button class="primary-button" type="submit">Save my profile</button>
+      <p id="selfProfileStatus" role="status" aria-live="polite"></p>
+     </form>
+    </div>
+   </section>
+   <section class="panel" id="panel-author-analytics" aria-label="My article analytics" hidden>
+    <h2>My article analytics</h2>
+    <p>Only your articles are included. Reads, reactions and comments cover the selected period; article counts cover all your work.</p>
+    <label for="selfAnalyticsDays">Reporting period</label>
+    <select id="selfAnalyticsDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+    <button type="button" class="ghost-button" id="refreshSelfAnalytics">Refresh</button>
+    <p id="selfAnalyticsStatus" role="status" aria-live="polite"></p>
+    <div id="selfAnalyticsTotals" class="author-metrics"></div>
+    <div class="author-table-wrap"><table class="author-analytics-table"><caption>Performance of your articles</caption><thead><tr><th scope="col">Article</th><th scope="col">Status</th><th scope="col">Reads</th><th scope="col">Comments</th><th scope="col">Reactions</th></tr></thead><tbody id="selfAnalyticsRows"></tbody></table></div>
+    <div class="form-head-actions"><button type="button" class="ghost-button" id="previousSelfAnalytics">Previous</button><span id="selfAnalyticsPage"></span><button type="button" class="ghost-button" id="nextSelfAnalytics">Next</button></div>
+   </section>
    <!-- Dashboard -->
    <section class="panel active" id="panel-dashboard" aria-label="Analytics dashboard">
     <div class="dash-toolbar">
@@ -423,6 +465,35 @@
      </div>
     </div>
    </section>
+
+   <section class="panel" id="panel-accounts" aria-label="Author access" hidden>
+    <h2>Author applications and access</h2>
+    <p>Approve verified applicants, decline applications, or suspend and restore approved authors. Suspension preserves all articles and bylines.</p>
+    <p id="accountAccessStatus" role="status" aria-live="polite"></p>
+    <button type="button" class="ghost-button" id="refreshAccounts">Refresh</button>
+    <button type="button" class="ghost-button" id="recoverOwnerCode">Email me a confirmation-code recovery link</button>
+    <ul id="accountAccessList" class="article-list"></ul>
+    <div class="form-head-actions"><button type="button" class="ghost-button" id="previousAccounts">Previous</button><span id="accountPage"></span><button type="button" class="ghost-button" id="nextAccounts">Next</button></div>
+   </section>
+   <dialog id="sensitiveConfirmation" aria-labelledby="sensitiveConfirmationTitle">
+    <form id="sensitiveConfirmationForm">
+     <h2 id="sensitiveConfirmationTitle">Confirm sensitive action</h2>
+     <p id="sensitiveConfirmationDescription"></p>
+     <div class="field"><label for="sensitiveConfirmationCode">Your separate owner confirmation code</label><input type="password" id="sensitiveConfirmationCode" autocomplete="off" maxlength="128" required /></div>
+     <button type="button" class="ghost-button" id="cancelSensitiveConfirmation">Cancel</button>
+     <button type="submit" class="primary-button">Confirm action</button>
+    </form>
+   </dialog>
+   <dialog id="accountConfirmation" aria-labelledby="accountConfirmationTitle">
+    <form id="accountConfirmationForm" class="auth-form">
+     <h2 id="accountConfirmationTitle">Confirm sensitive action</h2>
+     <p id="accountConfirmationDescription"></p>
+     <div class="field"><label for="accountConfirmationCode">Your separate confirmation code</label><input type="password" id="accountConfirmationCode" autocomplete="off" maxlength="128" required /></div>
+     <p id="accountConfirmationError" role="alert"></p>
+     <button type="button" class="ghost-button" id="cancelAccountConfirmation">Cancel</button>
+     <button type="submit" class="primary-button">Confirm action</button>
+    </form>
+   </dialog>
 
    <!-- Authors -->
    <section class="panel" id="panel-authors" aria-label="Authors" hidden>

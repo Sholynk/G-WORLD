@@ -27,6 +27,7 @@ const ALLOWED_HEADERS = [
   'Content-Type',
   'Authorization',
   'X-CSRF-Token',
+  'X-Owner-Confirmation',
   'X-Request-Id',
   'Accept',
   'Accept-Language',

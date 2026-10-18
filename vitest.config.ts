@@ -1,10 +1,9 @@
 /**
  * Unit test configuration — Node environment.
  *
- * Only runtime-agnostic logic is tested here (hashing, tokens, slugs, scoring,
- * permission maps, validation schemas, formatting). Anything that touches D1,
- * bindings or the Hono router belongs in tests/integration and runs inside
- * workerd via vitest.integration.config.ts.
+ * Includes runtime-agnostic helpers, DOM behavior and full Hono request-stack
+ * tests backed by an in-memory SQLite D1 adapter. Live Worker HTTP tests use
+ * vitest.integration.config.ts; no unused workerd test-pool dependency is needed.
  */
 import { defineConfig } from 'vitest/config';
 

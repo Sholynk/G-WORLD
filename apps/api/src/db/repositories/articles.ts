@@ -209,6 +209,7 @@ async function toDto(db: Db, row: ArticleRow | null): Promise<ArticleDto | null>
 /* -------------------------------------------------------------------------- */
 
 export interface ArticleListFilters {
+  ownerUserId?: string;
   category?: string;
   q?: string;
   status?: string; // 'published' | 'draft' | 'scheduled' | 'pending' | 'all'
@@ -220,6 +221,7 @@ export interface ArticleListFilters {
 function whereFor(filters: ArticleListFilters): { clause: string; params: SqlValue[] } {
   const clauses: string[] = [];
   const params: SqlValue[] = [];
+  if (filters.ownerUserId) { clauses.push('owner_user_id = ?'); params.push(filters.ownerUserId); }
   if (filters.status && filters.status !== 'all') {
     clauses.push('status = ?');
     params.push(filters.status);
@@ -405,7 +407,7 @@ const INSERT_FIELDS = [
   'review_notes', 'submitter_email', 'submitted_at',
 ] as const;
 
-export async function create(db: Db, payload: ArticleWriteInput): Promise<ArticleDto> {
+export async function create(db: Db, payload: ArticleWriteInput, ownerUserId: string | null = null): Promise<ArticleDto> {
   const requestedAuthorSlug = String(payload.authorSlug ?? '').trim();
   const createAuthorSlug = await resolveAuthorSlug(db, requestedAuthorSlug);
   const createAuthorName = await resolveAuthorName(
@@ -416,9 +418,7 @@ export async function create(db: Db, payload: ArticleWriteInput): Promise<Articl
   );
 
   const baseSlug = slugify(payload.slug || payload.title || '');
-  const slug = await uniqueSlug(baseSlug, async (candidate) =>
-    db.exists('SELECT 1 AS found FROM articles WHERE slug = ?', [candidate]),
-  );
+  const slug = await uniqueSlugFor(db, baseSlug);
 
   const isSubmission = payload.status === 'pending';
   const values: SqlValue[] = [
@@ -456,8 +456,8 @@ export async function create(db: Db, payload: ArticleWriteInput): Promise<Articl
   ];
 
   const result = await db.run(
-    `INSERT INTO articles (${INSERT_FIELDS.join(',')}) VALUES (${INSERT_FIELDS.map(() => '?').join(',')})`,
-    values,
+    `INSERT INTO articles (${INSERT_FIELDS.join(',')}, owner_user_id) VALUES (${INSERT_FIELDS.map(() => '?').join(',')}, ?)`,
+    [...values, ownerUserId],
   );
   const id = Number(result.lastRowId ?? 0);
   if (payload.sources) await replaceSources(db, id, payload.sources);
@@ -466,13 +466,13 @@ export async function create(db: Db, payload: ArticleWriteInput): Promise<Articl
   return created;
 }
 
-/** Slug helper re-exported with the legacy argument order. */
+/** Retired URLs stay reserved; another author must not claim a redirect. */
 async function uniqueSlugFor(db: Db, base: string, ignoreId?: number): Promise<string> {
-  return uniqueSlug(base, async (candidate) =>
-    ignoreId
-      ? db.exists('SELECT 1 AS found FROM articles WHERE slug = ? AND id != ?', [candidate, ignoreId])
-      : db.exists('SELECT 1 AS found FROM articles WHERE slug = ?', [candidate]),
-  );
+  return uniqueSlug(base, (candidate) => db.exists(
+    `SELECT 1 AS found FROM articles WHERE slug = ? AND id != ?
+     UNION ALL SELECT 1 AS found FROM redirects WHERE old_slug = ? LIMIT 1`,
+    [candidate, ignoreId ?? -1, candidate],
+  ));
 }
 
 const FIELD_MAP: Readonly<Record<string, string>> = {
@@ -705,7 +705,9 @@ export async function publishDueScheduled(db: Db): Promise<number> {
             updated_at = datetime('now')
       WHERE status = 'scheduled'
         AND scheduled_at IS NOT NULL
-        AND datetime(scheduled_at) <= datetime('now')`,
+        AND datetime(scheduled_at) <= datetime('now')
+        AND NOT EXISTS (SELECT 1 FROM author_applications app JOIN users u ON u.id = app.user_id
+          WHERE app.user_id = articles.owner_user_id AND (app.status <> 'approved' OR u.status <> 'active'))`,
   );
 }
 

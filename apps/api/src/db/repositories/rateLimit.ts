@@ -34,6 +34,10 @@ export interface RateLimitState {
 
 /** Sensible defaults per sensitive endpoint (documented in docs/05-security.md). */
 export const RATE_LIMIT_RULES: Record<string, RateLimitRule> = {
+  'owner.setup.request': { scope: 'owner.setup.request', limit: 3, windowSeconds: 3600, blockSeconds: 3600 },
+  'owner.setup.complete': { scope: 'owner.setup.complete', limit: 8, windowSeconds: 900, blockSeconds: 900 },
+  'owner.code.request': { scope: 'owner.code.request', limit: 3, windowSeconds: 3600, blockSeconds: 3600 },
+  'owner.confirmation': { scope: 'owner.confirmation', limit: 5, windowSeconds: 900, blockSeconds: 900 },
   'auth.register': { scope: 'auth.register', limit: 5, windowSeconds: 3600, blockSeconds: 1800 },
   'auth.login': { scope: 'auth.login', limit: 10, windowSeconds: 900, blockSeconds: 900 },
   'auth.login.account': { scope: 'auth.login.account', limit: 8, windowSeconds: 900, blockSeconds: 900 },

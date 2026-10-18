@@ -23,6 +23,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
+import { Readable } from 'node:stream';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -175,7 +176,7 @@ function resolveFile(urlPath) {
 
   // Path traversal guard: the resolved path must stay inside PUBLIC_DIR.
   const candidate = path.resolve(PUBLIC_DIR, relative);
-  if (!candidate.startsWith(PUBLIC_DIR)) return null;
+  if (candidate !== PUBLIC_DIR && !candidate.startsWith(PUBLIC_DIR + path.sep)) return null;
 
   if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
 
@@ -225,6 +226,18 @@ async function sendFile(file, request, response) {
 async function proxy(request, response, targetOverride) {
   const target = targetOverride ?? `${API_TARGET}${request.url}`;
   const headers = { ...request.headers, host: new URL(API_TARGET).host };
+  // Browser preview hosts and custom dev ports are still same-origin. Map only
+  // a validated same-host Origin to the Worker's configured local frontend;
+  // leave cross-origin/malformed origins untouched so its CORS guard rejects them.
+  if (typeof request.headers.origin === 'string') {
+    try {
+      const origin = new URL(request.headers.origin);
+      if (['http:', 'https:'].includes(origin.protocol) && origin.host === request.headers.host) {
+        headers.origin = process.env.DEV_UPSTREAM_ORIGIN || 'http://localhost:5173';
+      }
+    } catch { /* Preserve the invalid origin for the upstream guard. */ }
+  }
+
 
   const hasBody = !['GET', 'HEAD'].includes(request.method ?? 'GET');
   const upstream = await fetch(target, {
@@ -250,6 +263,17 @@ async function proxy(request, response, targetOverride) {
     outgoing[key] = value;
   }
   const cookies = upstream.headers.getSetCookie?.() ?? [];
+  if (upstream.headers.get('content-type')?.includes('text/event-stream') && upstream.body) {
+    // SSE must reach the browser immediately, not after an infinite response
+    // has been buffered. Disconnects also cancel the upstream reader.
+    response.writeHead(upstream.status, { ...outgoing, ...(cookies.length ? { 'set-cookie': cookies } : {}) });
+    response.flushHeaders();
+    const stream = Readable.fromWeb(upstream.body);
+    response.once('close', () => stream.destroy());
+    stream.once('error', () => response.destroy());
+    stream.pipe(response);
+    return;
+  }
   const buffer = Buffer.from(await upstream.arrayBuffer());
 
   response.writeHead(upstream.status, {

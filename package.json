@@ -2,11 +2,11 @@
   "name": "sholynk-technology",
   "version": "1.0.0",
   "private": true,
-  "description": "Sholynk Tech — a technology publication: AI, Web3, cryptocurrency and software stories, with an editorial CMS.",
+  "description": "Sholynk Tech \u2014 a technology publication: AI, Web3, cryptocurrency and software stories, with an editorial CMS.",
   "license": "MIT",
   "type": "module",
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.13"
   },
   "workspaces": [
     "apps/*",
@@ -38,14 +38,17 @@
     "deploy:web": "npm run check:config && node scripts/deploy-web.mjs",
     "test:web": "node scripts/smoke-web.mjs",
     "test:web:reader": "node scripts/smoke-web.mjs --as reader",
-    "test:web:admin": "node scripts/smoke-web.mjs --as admin"
+    "test:web:admin": "node scripts/smoke-web.mjs --as admin",
+    "owner:provision": "node scripts/provision-owner.mjs",
+    "test:browser": "node scripts/browser-check.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "happy-dom": "^21.0.3",
+    "playwright": "^1.64.1",
     "typescript": "^5.7.2",
-    "vitest": "^3.2.0",
-    "wrangler": "^4.151.0",
-    "happy-dom": "^21.0.3"
+    "vitest": "^4.1.12",
+    "wrangler": "^4.151.0"
   },
   "allowScripts": {
     "esbuild@0.27.0": true,
