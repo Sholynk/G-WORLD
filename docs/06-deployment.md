@@ -71,8 +71,10 @@ curl https://sholynk-tech-api.<your-subdomain>.workers.dev/api/v1/health/ready
 ```
 
 `health/ready` must report `database.reachable`, `migrations_applied`, the article count and an
-empty `config_problems` array. The cron trigger (03:17 UTC: scheduled publishing + housekeeping)
-is registered by `wrangler.jsonc` automatically.
+empty `config_problems` array. Two cron triggers are registered by `wrangler.jsonc`
+automatically: `*/15 * * * *` publishes scheduled articles within 15 minutes of their
+time, and `17 3 * * *` adds the nightly housekeeping pass (re-attribution, expired
+sessions/tokens, rate-limit windows, audit retention).
 
 ## 5. Deploy the frontend (Pages)
 

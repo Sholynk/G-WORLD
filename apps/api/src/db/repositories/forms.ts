@@ -77,10 +77,12 @@ export async function addContactMessage(
   return { accepted: true, id: Number(result.lastRowId ?? 0) };
 }
 
-export async function listSubscribers(db: Db): Promise<SubscriberDto[]> {
+/** One page of subscribers, newest first. The inbox is never loaded in full. */
+export async function listSubscribers(db: Db, limit = 50, offset = 0): Promise<SubscriberDto[]> {
   const rows = await db.all<Record<string, string | number>>(
     `SELECT id, name, email, status, created_at AS createdAt, updated_at AS updatedAt
-     FROM newsletter_subscribers ORDER BY id DESC`,
+     FROM newsletter_subscribers ORDER BY id DESC LIMIT ? OFFSET ?`,
+    [Number(limit), Number(offset)],
   );
   return rows.map((row) => ({
     id: Number(row.id),
@@ -92,10 +94,16 @@ export async function listSubscribers(db: Db): Promise<SubscriberDto[]> {
   }));
 }
 
-export async function listContactMessages(db: Db): Promise<ContactMessageDto[]> {
+export async function countSubscribers(db: Db): Promise<number> {
+  return db.count('SELECT COUNT(*) AS total FROM newsletter_subscribers');
+}
+
+/** One page of contact messages, newest first. */
+export async function listContactMessages(db: Db, limit = 50, offset = 0): Promise<ContactMessageDto[]> {
   const rows = await db.all<Record<string, string | number>>(
     `SELECT id, name, email, subject, message, status, created_at AS createdAt
-     FROM contact_messages ORDER BY id DESC`,
+     FROM contact_messages ORDER BY id DESC LIMIT ? OFFSET ?`,
+    [Number(limit), Number(offset)],
   );
   return rows.map((row) => ({
     id: Number(row.id),
@@ -106,6 +114,10 @@ export async function listContactMessages(db: Db): Promise<ContactMessageDto[]> 
     status: String(row.status ?? 'new'),
     createdAt: String(row.createdAt ?? ''),
   }));
+}
+
+export async function countContactMessages(db: Db): Promise<number> {
+  return db.count('SELECT COUNT(*) AS total FROM contact_messages');
 }
 
 export async function removeSubscriber(db: Db, id: number): Promise<boolean> {

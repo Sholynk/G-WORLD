@@ -81,6 +81,13 @@ requestContext → onError(envelope) → security(CORS+CSRF) → resolveAuth →
   `analytics.read`, `audit.read`; super admins add account/role management. An editor asking for
   `status: "published"` is silently redirected into the **submit-for-review** queue (`pending` +
   a `submissions` row + an email to `EDITOR_EMAIL`), exactly like the legacy approval mode.
+- **Unpublished reads** need `article.read.any` *or* ownership of the row. A signed-in account
+  without that permission only ever sees its own drafts (list, detail, sources, preview); anyone
+  else gets the same 404 as an unknown id/slug, so private titles, review notes and submitter
+  emails cannot leak through the content API (`apps/api/src/lib/article-visibility.ts`).
+- **`GET /admin/articles/:id/preview`** renders a draft through the public article shell so it can
+  be checked before publishing. It follows the same visibility rule, is owner/author scoped, and
+  answers `Cache-Control: no-store` with `X-Robots-Tag: noindex`.
 - **Auth.** Opaque session tokens (SHA-256 at rest), `sk_session` HttpOnly cookie + `sk_csrf`
   double-submit, PBKDF2-SHA256 passwords with transparent rehash, lockouts, IP+account rate
   limits, audit trail, single-use email tokens, Resend/console mailer. Registration is disabled
@@ -101,14 +108,17 @@ by a cheap D1 "activity signature" poll every 5 s inside the stream, a 25 s keep
 and a self-close at ~55 s that the browser's `EventSource` reconnects through (`retry: 5000`).
 A dropped or duplicated nudge is harmless by design.
 
-## Cron (03:17 UTC nightly)
+## Cron (`*/15` publish tick + `17 3 * * *` nightly)
 
-1. publishes `scheduled` articles whose time has come,
-2. re-attributes articles orphaned by a deleted author to the house author,
-3. purges expired sessions, consumed tokens and stale rate-limit windows,
-4. prunes audit rows past the retention window (730 d production / 30 d dev).
+Every 15 minutes the handler publishes `scheduled` articles whose time has come, so an
+editor's chosen minute is honoured within a quarter of an hour. The nightly run adds:
 
-`POST /api/v1/admin/system/maintenance` runs the identical work on demand.
+1. re-attribution of articles orphaned by a deleted author to the house author,
+2. purging expired sessions, consumed tokens and stale rate-limit windows,
+3. pruning audit rows past the retention window (730 d production / 30 d dev).
+
+`POST /api/v1/admin/system/maintenance` runs the identical work on demand, and the
+dashboard's System tab reads `GET /admin/system/stats` + `/admin/system/audit`.
 
 ## Media uploads
 

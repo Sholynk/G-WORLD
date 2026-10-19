@@ -143,6 +143,14 @@ export async function listComments(db: Db, slug: string, limit?: number): Promis
 }
 
 /** Full comment history across every article, newest first — the admin record. */
+/** How many comments exist (for the author, scoped to their articles). */
+export async function countAllComments(db: Db, ownerUserId?: string): Promise<number> {
+  const sql = `SELECT COUNT(*) AS total FROM comments c
+    LEFT JOIN articles a ON a.slug = c.article_slug
+    ${ownerUserId ? 'WHERE a.owner_user_id = ?' : ''}`;
+  return db.count(sql, ownerUserId ? [ownerUserId] : []);
+}
+
 export async function listAllComments(db: Db, limit?: number, ownerUserId?: string): Promise<AdminCommentDto[]> {
   const sql = `
     SELECT c.*, a.title AS article_title

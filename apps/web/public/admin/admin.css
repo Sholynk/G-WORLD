@@ -619,3 +619,81 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgba(37, 99, 235,
 .author-analytics-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; background: white; }
 .author-analytics-table th, .author-analytics-table td { padding: .8rem; text-align: left; border-bottom: 1px solid var(--line); }
 .author-analytics-table caption { text-align: left; padding: .8rem 0; font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+ * Small screens.
+ *
+ * The dashboard is the densest surface in the product — a two-column editor, a
+ * metrics grid, wide tables and a tab strip — so it gets its own breakpoints.
+ * (The public browser check only ever reaches the signed-out redirect, so this
+ * layout is verified by CSS review rather than a real 390px viewport.)
+ * ------------------------------------------------------------------------- */
+
+/* Grid and flex children default to min-content width, which lets a long slug
+   or URL push a panel wider than the viewport. */
+.panel-grid > *,
+.dash-grid > *,
+.metric-grid > *,
+.author-metrics > * { min-width: 0; }
+
+.article-list strong,
+.comment-admin-body,
+.comment-admin-author,
+.activity-item,
+.table-identity { overflow-wrap: anywhere; }
+
+.admin-tabs { row-gap: 0.25rem; }
+
+@media (max-width: 640px) {
+  .admin-header { padding: 0.75rem 1rem; gap: 0.5rem; }
+  .brand div { min-width: 0; }
+  .session-user {
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .header-actions { gap: 0.5rem; }
+  .admin-tabs { padding: 0.5rem 1rem 0; }
+  .tab { padding: 0.6rem 0.65rem; }
+  main { padding: 0.9rem 1rem 2.5rem; }
+  .list-column, .form-column, .upload-card, .settings-card, .author-workspace-card { padding: 0.85rem; }
+  .metric-grid { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 0.6rem; }
+  .dash-toolbar { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+  .dash-toolbar-actions { justify-content: space-between; }
+  .dash-toolbar-actions .dash-range { flex: 1 1 auto; }
+  .media-grid { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); }
+  .article-list { max-height: 18rem; }
+  .chart-canvas-wrap { height: 10rem; }
+  .chart-canvas-wrap--tall { height: 12rem; }
+  .author-table-wrap, .table-scroll { -webkit-overflow-scrolling: touch; }
+  /* Tables scroll inside their card instead of stretching the page. */
+  .table-scroll { margin-inline: -0.85rem; padding-inline: 0.85rem; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Autosave note, field hints, inbox toolbar and the System panel.
+ * ------------------------------------------------------------------------- */
+
+.form-title-group { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.autosave-note { margin: 0; font-size: 0.68rem; color: var(--ink-soft); min-height: 0.9rem; }
+.field-hint { display: block; margin-top: 0.3rem; font-size: 0.66rem; color: var(--ink-soft); }
+
+.inbox-toolbar { margin: 0.75rem 0 0.35rem; }
+.inbox-toolbar input { flex: 2 1 12rem; }
+.inbox-toolbar .ghost-button { flex: 0 0 auto; white-space: nowrap; }
+
+.load-more { margin-top: 0.75rem; width: 100%; justify-content: center; }
+
+/* Counts read as a definition list, two columns on wide cards. */
+.system-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem 1rem;
+  margin: 0 0 1rem;
+}
+.system-stats dt { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+.system-stats dd { margin: 0.1rem 0 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+#panel-system .table-card { margin-bottom: 1.25rem; }
+#runMaintenance { margin-bottom: 0.6rem; }

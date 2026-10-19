@@ -193,6 +193,24 @@ async function main() {
     assertEqual(response.status, 403, 'a session cookie without a valid CSRF token is refused');
   }
 
+  // 4b. inbox pagination envelope
+  {
+    const subs = await call('/admin/subscriptions?page=1&limit=2', { jar: adminJar });
+    assertEqual(subs.response.status, 200, 'subscribers read with a page size');
+    const subsMeta = subs.json?.meta?.pagination;
+    assert(Boolean(subsMeta), 'the subscriber list returns pagination metadata');
+    assert((subs.json?.data ?? []).length <= 2, 'the subscriber page respects its limit', String((subs.json?.data ?? []).length));
+    assert(Number(subsMeta?.total) >= (subs.json?.data ?? []).length, 'the subscriber total covers the page');
+    assert(Number(subsMeta?.total_pages) >= 1, 'the subscriber envelope reports a page count');
+
+    const messages = await call('/admin/contact-messages?page=1&limit=1', { jar: adminJar });
+    assertEqual(messages.response.status, 200, 'contact messages read with a page size');
+    assert(Boolean(messages.json?.meta?.pagination), 'the message list returns pagination metadata');
+
+    const comments = await call('/admin/comments?limit=1', { jar: adminJar });
+    assertEqual(typeof comments.json?.meta?.total, 'number', 'the comment list reports how many entries exist in total');
+  }
+
   // 5. article lifecycle (create draft → publish → rename → redirect → delete)
   const stamp = Date.now().toString(36);
   const draftTitle = `Smoke Test Story ${stamp}`;
@@ -227,6 +245,32 @@ async function main() {
 
     const publicRead = await call(`/articles/${articleSlug}`);
     assertEqual(publicRead.json?.data?.title, draftTitle, 'the published article is readable anonymously');
+
+    // Optimistic concurrency: a save based on a stale `updatedAt` must not
+    // overwrite the newer version, it must come back as a 409.
+    const staleSave = await call(`/admin/articles/${articleId}`, {
+      method: 'PUT',
+      jar: adminJar,
+      body: { title: `${draftTitle} (stale overwrite)`, expectedUpdatedAt: '2020-01-01T00:00:00.000Z' },
+    });
+    assertEqual(staleSave.response.status, 409, 'a stale save is rejected with 409');
+    assertEqual(staleSave.json?.error?.code, 'CONFLICT', 'the stale save reports CONFLICT');
+    const afterConflict = await call(`/articles/${articleId}`);
+    assertEqual(afterConflict.json?.data?.title, draftTitle, 'the stale save left the article untouched');
+
+    // The same save with the version the editor actually loaded succeeds.
+    const freshSave = await call(`/admin/articles/${articleId}`, {
+      method: 'PUT',
+      jar: adminJar,
+      body: { title: `${draftTitle} (edited)`, expectedUpdatedAt: published.json?.data?.updatedAt },
+    });
+    assertEqual(freshSave.json?.data?.title, `${draftTitle} (edited)`, 'a save with the current version is accepted');
+    const restoredTitle = await call(`/admin/articles/${articleId}`, {
+      method: 'PUT',
+      jar: adminJar,
+      body: { title: draftTitle, expectedUpdatedAt: freshSave.json?.data?.updatedAt },
+    });
+    assertEqual(restoredTitle.json?.data?.title, draftTitle, 'the smoke article title is restored');
 
     const renamedSlug = `${articleSlug}-renamed`;
     const renamed = await call(`/admin/articles/${articleId}`, { method: 'PUT', jar: adminJar, body: { slug: renamedSlug } });

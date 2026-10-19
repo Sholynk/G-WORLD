@@ -32,8 +32,8 @@
 
   <p id="adminLoading" role="status">Checking your session…</p>
   <noscript><p>JavaScript is required for the dashboard. <a href="/login.html">Login or register</a>.</p></noscript>
-  <nav class="admin-tabs" id="adminNavigation" aria-label="Sections" hidden>
-   <button class="tab active" type="button" data-panel="dashboard">Dashboard</button>
+  <nav class="admin-tabs" id="adminNavigation" role="tablist" aria-label="Sections" hidden>
+   <button class="tab active" type="button" role="tab" data-panel="dashboard">Dashboard</button>
    <button class="tab" type="button" data-panel="articles">Articles</button>
    <button class="tab" type="button" data-panel="author-analytics" hidden>My analytics</button>
    <button class="tab" type="button" data-panel="profile" hidden>My profile</button>
@@ -43,6 +43,7 @@
    <button class="tab" type="button" data-panel="comments">Comments</button>
    <button class="tab" type="button" data-panel="inbox">Inbox</button>
    <button class="tab" type="button" data-panel="settings">Site metadata</button>
+   <button class="tab" type="button" data-panel="system" hidden>System</button>
   </nav>
 
   <main id="adminMain" hidden>
@@ -84,7 +85,7 @@
     <div class="form-head-actions"><button type="button" class="ghost-button" id="previousSelfAnalytics">Previous</button><span id="selfAnalyticsPage"></span><button type="button" class="ghost-button" id="nextSelfAnalytics">Next</button></div>
    </section>
    <!-- Dashboard -->
-   <section class="panel active" id="panel-dashboard" aria-label="Analytics dashboard">
+   <section class="panel active" id="panel-dashboard" role="tabpanel" aria-label="Analytics dashboard">
     <div class="dash-toolbar">
      <div>
       <h2>Editorial analytics</h2>
@@ -245,7 +246,10 @@
      <div class="form-column">
       <form id="articleForm" novalidate>
        <div class="form-head">
-        <h2 id="formTitle">New article</h2>
+        <div class="form-title-group">
+         <h2 id="formTitle">New article</h2>
+         <p class="autosave-note" id="autosaveNote" role="status" aria-live="polite"></p>
+        </div>
         <div class="form-head-actions">
          <button class="danger-button" id="deleteArticle" type="button" hidden>
           <i class="fas fa-trash" aria-hidden="true"></i> Delete
@@ -434,6 +438,7 @@
         <div class="field">
          <label for="scheduledAt">Scheduled publishing time</label>
          <input id="scheduledAt" name="scheduledAt" type="datetime-local"/>
+         <small class="field-hint" id="scheduledAtHint">Your local time. Posts go live within 15 minutes of this time.</small>
         </div>
         <div class="field">
          <label for="canonicalUrl">Canonical URL override</label>
@@ -573,6 +578,12 @@
        <h3 id="subscribersTitle">Newsletter subscribers</h3>
        <p class="chart-note">Everyone who signed up through the site forms.</p>
       </div>
+      <div class="list-toolbar inbox-toolbar">
+       <input id="subscriberSearch" type="search" placeholder="Search name or email" aria-label="Search subscribers"/>
+       <button class="ghost-button" id="exportSubscribers" type="button">
+        <i class="fas fa-file-csv" aria-hidden="true"></i> Export CSV
+       </button>
+      </div>
       <p class="list-count" id="subscriberCount" aria-live="polite"></p>
       <div class="table-scroll">
        <table class="data-table">
@@ -588,6 +599,7 @@
         <tbody id="subscriberTableBody"></tbody>
        </table>
       </div>
+      <button class="ghost-button load-more" id="moreSubscribers" type="button" hidden>Load more subscribers</button>
      </section>
 
      <section class="table-card" aria-labelledby="messagesTitle">
@@ -597,6 +609,7 @@
       </div>
       <p class="list-count" id="messageCount" aria-live="polite"></p>
       <ul class="comment-admin-list" id="messageList"></ul>
+      <button class="ghost-button load-more" id="moreMessages" type="button" hidden>Load more messages</button>
      </section>
     </div>
    </section>
@@ -623,6 +636,52 @@
      </div>
      <button class="primary-button" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Save metadata</button>
     </form>
+   </section>
+   <!-- System: account/content counts, the audit trail and on-demand housekeeping -->
+   <section class="panel" id="panel-system" aria-label="System" hidden>
+    <div class="dash-grid dash-grid--tables">
+     <section class="table-card" aria-labelledby="systemStatsTitle">
+      <div class="chart-head">
+       <h3 id="systemStatsTitle">Platform snapshot</h3>
+       <p class="chart-note">Accounts and article counts straight from D1.</p>
+      </div>
+      <p class="list-count" id="systemStatsStatus" role="status" aria-live="polite"></p>
+      <dl class="system-stats" id="systemStats"></dl>
+     </section>
+
+     <section class="table-card" aria-labelledby="maintenanceTitle">
+      <div class="chart-head">
+       <h3 id="maintenanceTitle">Housekeeping</h3>
+       <p class="chart-note">The same job the nightly cron runs: expired sessions and tokens, rate-limit windows, audit retention and due scheduled posts.</p>
+      </div>
+      <button class="primary-button" id="runMaintenance" type="button">
+       <i class="fas fa-broom" aria-hidden="true"></i> Run maintenance now
+      </button>
+      <p class="list-count" id="maintenanceStatus" role="status" aria-live="polite"></p>
+     </section>
+    </div>
+
+    <section class="table-card" aria-labelledby="auditTitle">
+     <div class="chart-head">
+      <h3 id="auditTitle">Audit trail</h3>
+      <p class="chart-note">Who changed what, newest first.</p>
+     </div>
+     <p class="list-count" id="auditCount" aria-live="polite"></p>
+     <div class="table-scroll">
+      <table class="data-table">
+       <thead>
+        <tr>
+         <th scope="col">When</th>
+         <th scope="col">Actor</th>
+         <th scope="col">Action</th>
+         <th scope="col">Entity</th>
+         <th scope="col">Description</th>
+        </tr>
+       </thead>
+       <tbody id="auditTableBody"></tbody>
+      </table>
+     </div>
+    </section>
    </section>
   </main>
 

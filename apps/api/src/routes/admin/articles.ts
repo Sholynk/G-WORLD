@@ -20,15 +20,19 @@ import { Hono } from 'hono';
 import type { AppEnv, AppContext } from '../../env.js';
 import { createDb } from '../../db/client.js';
 import * as articlesRepo from '../../db/repositories/articles.js';
+import * as authorsRepo from '../../db/repositories/authors.js';
 import { articleInputSchema, articleUpdateSchema, refineArticlePayload, articleSourceSchema } from '@sholynk/shared';
 import { parseJson } from '../../middleware/validate.js';
 import { requireScopedPermission as requirePermission, authorScope, assertResourceOwner } from '../../middleware/author-scope.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { audit } from '../../services/audit.js';
 import { sendEmail, TEMPLATES } from '../../lib/mailer/index.js';
 import { created, noContent, ok } from '../helpers.js';
 import type { ArticleDto } from '../../db/repositories/articles.js';
+import { renderArticlePage } from '../../lib/article-page.js';
+import { assertCanReadPrivateArticle, canReadAnyArticle } from '../../lib/article-visibility.js';
+import { PAGE_CSP, resolveOrigin } from '../public/seo.js';
 
 export const adminArticleRoutes = new Hono<AppEnv>();
 
@@ -143,13 +147,24 @@ for (const method of ['put', 'patch'] as const) {
     const payload = await parseJson(c, articleUpdateSchema);
     const db = dbFrom(c);
     await assertResourceOwner(c, 'articles', articleId);
+    // `article.submit` means "own drafts": without `article.read.any` an account
+    // may only edit articles it owns, even when it knows the numeric id.
+    if (!canReadAnyArticle(c)) await assertCanReadPrivateArticle(c, db, articleId);
     const existing = await articlesRepo.getById(db, articleId);
     if (!existing) throw notFound('Article not found');
 
-    await applyApprovalPolicy(c, payload, existing);
-    assertEditorialRules({ ...existing, ...payload });
+    // Optimistic concurrency: the dashboard echoes the `updatedAt` it loaded, so
+    // a second editor saving the same article is told to reload instead of
+    // silently overwriting the first save.
+    const { expectedUpdatedAt, ...changes } = payload;
+    if (expectedUpdatedAt && expectedUpdatedAt !== existing.updatedAt) {
+      throw conflict('This article was changed by someone else after you opened it. Reload to see their version before saving.');
+    }
 
-    const updated = await articlesRepo.update(db, articleId, payload);
+    await applyApprovalPolicy(c, changes, existing);
+    assertEditorialRules({ ...existing, ...changes });
+
+    const updated = await articlesRepo.update(db, articleId, changes);
     if (!updated) throw notFound('Article not found');
 
     let data: ArticleDto & { reviewNotice?: string } = updated;
@@ -175,6 +190,47 @@ for (const method of ['put', 'patch'] as const) {
   });
 }
 
+/* --------------------------------- preview --------------------------------- */
+
+/**
+ * GET /admin/articles/:id/preview — the article as it will look when published.
+ *
+ * The public renderer only serves published rows, so drafting blind used to be
+ * the only option: the dashboard's Preview button refused anything unpublished.
+ * This route renders the same shell for a draft, behind the same visibility rule
+ * as every other unpublished read (`article.read.any`, or the owner), and marks
+ * the response uncacheable and unindexable.
+ */
+adminArticleRoutes.get('/articles/:id/preview', requirePermission('article.submit'), async (c) => {
+  const id = Number.parseInt(c.req.param('id') ?? '', 10);
+  if (!Number.isFinite(id) || id <= 0) throw notFound('Article not found');
+  const db = dbFrom(c);
+  const article = await articlesRepo.getById(db, id);
+  if (!article) throw notFound('Article not found');
+  if (article.status !== 'published') await assertCanReadPrivateArticle(c, db, id);
+
+  const [articles, authors] = await Promise.all([
+    articlesRepo.list(db, { status: 'published' }, 'summary'),
+    authorsRepo.list(db),
+  ]);
+  const html = renderArticlePage({
+    article,
+    articles,
+    authors,
+    origin: resolveOrigin(c),
+    allowUnpublished: true,
+  });
+  if (!html) throw badRequest('Add a body before previewing this article.');
+
+  c.header('Content-Security-Policy', PAGE_CSP);
+  c.header('X-Robots-Tag', 'noindex, nofollow');
+  c.header('X-Frame-Options', 'SAMEORIGIN');
+  return c.body(html, 200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store, private',
+  });
+});
+
 /* --------------------------------- delete ---------------------------------- */
 
 adminArticleRoutes.delete('/articles/:id', requirePermission('article.write'), async (c) => {
@@ -182,6 +238,7 @@ adminArticleRoutes.delete('/articles/:id', requirePermission('article.write'), a
   if (!Number.isFinite(id) || id <= 0) throw notFound('Article not found');
   const db = dbFrom(c);
   await assertResourceOwner(c, 'articles', id);
+  if (!canReadAnyArticle(c)) await assertCanReadPrivateArticle(c, db, id);
   const existing = await articlesRepo.getById(db, id);
   if (!existing) throw notFound('Article not found');
 
@@ -209,6 +266,7 @@ adminArticleRoutes.post(
     const source = await parseJson(c, articleSourceSchema);
     const db = dbFrom(c);
     await assertResourceOwner(c, 'articles', id);
+    if (!canReadAnyArticle(c)) await assertCanReadPrivateArticle(c, db, id);
     const added = await articlesRepo.addSource(db, id, source);
     if (!added) throw notFound('Article not found');
     return created(c, added);
@@ -224,6 +282,7 @@ adminArticleRoutes.delete(
     if (!Number.isFinite(id) || !Number.isFinite(sourceId)) throw notFound('Source not found');
     const db = dbFrom(c);
     await assertResourceOwner(c, 'articles', id);
+    if (!canReadAnyArticle(c)) await assertCanReadPrivateArticle(c, db, id);
     const removed = await articlesRepo.removeSource(db, id, sourceId);
     if (!removed) throw notFound('Source not found');
     return noContent(c);

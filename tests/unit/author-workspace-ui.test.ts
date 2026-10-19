@@ -5,7 +5,10 @@ let window: Window;
 let calls: { url: string; init: RequestInit }[];
 const author = { userId: 'alice', authorId: 1, name: 'Alice', slug: 'alice' };
 const profile = { id: 1, name: 'Alice', slug: 'alice', bio: 'A writer', image: '', imageAlt: '', profileUrl: '', socialLinks: {} };
-function load(isAuthor = true) {
+const SUPER_ADMIN_PERMISSIONS = ['article.read.any', 'article.submit', 'article.write', 'author.write', 'settings.write',
+  'media.write', 'engagement.moderate', 'inbox.read', 'inbox.write', 'analytics.read', 'audit.read', 'user.read.any',
+  'user.write.any', 'user.role.write', 'admin.manage'];
+function load(isAuthor = true, limitedEditor = false) {
   calls = [];
   window = new Window({ url: 'https://publication.example/admin/', settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   window.document.write(readFileSync('apps/web/public/admin/index.html', 'utf8'));
@@ -13,8 +16,13 @@ function load(isAuthor = true) {
   window.fetch = vi.fn(async (url, init = {}) => {
     const path = String(url); calls.push({ url: path, init: init as RequestInit });
     let data: unknown = [];
-    if (path.endsWith('/auth/me')) data = { user: { email: 'alice@example.test', display_name: 'Alice' } };
-    else if (path.includes('/accounts/capabilities')) data = { owner: !isAuthor, author: isAuthor ? author : null, workspace_pending: false };
+    if (path.endsWith('/auth/me')) {
+      data = {
+        user: { email: 'alice@example.test', display_name: 'Alice' },
+        permissions: limitedEditor ? ['article.submit', 'media.write'] : isAuthor ? ['article.submit', 'media.write'] : SUPER_ADMIN_PERMISSIONS,
+      };
+    }
+    else if (path.includes('/accounts/capabilities')) data = { owner: !isAuthor && !limitedEditor, author: isAuthor ? author : null, workspace_pending: false };
     else if (path.includes('/accounts?page=')) data = { items: [], pending: 0 };
     else if (path.endsWith('/author/profile')) data = (init as RequestInit).method === 'PATCH' ? { ...profile, ...JSON.parse(String(init.body)) } : profile;
     else if (path.includes('/author/analytics')) data = { totals: { articles: 1, published: 1, drafts: 0, views: 7, comments: 2, reactions: 3 }, items: [{ title: 'My article', status: 'published', views: 7, comments: 2, reactions: 3 }] };
@@ -80,6 +88,19 @@ describe('author dashboard experience', () => {
     submit('uploadForm');
     await vi.waitFor(() => expect(calls.some((call) => call.url === '/api/v1/admin/images' && call.init.method === 'POST')).toBe(true));
     expect(calls.some((call) => call.url === '/api/v1/images' && call.init.method === 'POST')).toBe(false);
+  });
+  it('hides navigation a contributing editor cannot use and lands on articles', async () => {
+    load(false, true); await vi.waitFor(() => expect(el('adminMain').hidden).toBe(false));
+    for (const panel of ['dashboard', 'authors', 'inbox', 'settings', 'accounts', 'comments']) {
+      expect((window.document.querySelector(`[data-panel="${panel}"]`) as unknown as HTMLElement).hidden, panel).toBe(true);
+    }
+    for (const panel of ['articles', 'media']) {
+      expect((window.document.querySelector(`[data-panel="${panel}"]`) as unknown as HTMLElement).hidden, panel).toBe(false);
+    }
+    expect(el('panel-articles').hidden).toBe(false);
+    expect(el('panel-dashboard').hidden).toBe(true);
+    expect(calls.some((call) => call.url.includes('/admin/analytics'))).toBe(false);
+    expect(calls.some((call) => call.url.includes('/admin/accounts?page='))).toBe(false);
   });
   it('keeps owner tools visible for the owner and hides author-only panels', async () => {
     load(false); await vi.waitFor(() => expect(el('adminMain').hidden).toBe(false));

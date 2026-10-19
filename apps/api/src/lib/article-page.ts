@@ -472,6 +472,12 @@ export interface RenderArticlePageInput {
   articles?: RenderableArticle[];
   authors?: RenderableAuthor[];
   origin: string;
+  /**
+   * Editorial preview: render an unpublished draft through the public shell so
+   * an author can see the real layout before publishing. Only the authenticated
+   * `/admin/articles/:id/preview` route sets this; public document routes never do.
+   */
+  allowUnpublished?: boolean;
 }
 
 /**
@@ -483,8 +489,9 @@ export function renderArticlePage({
   articles = [],
   authors = [],
   origin,
+  allowUnpublished = false,
 }: RenderArticlePageInput): string | null {
-  if (!article || article.status !== 'published' || !article.body || article.externalLink) return null;
+  if (!article || (!allowUnpublished && article.status !== 'published') || !article.body || article.externalLink) return null;
   if (!/^https?:\/\//i.test(origin || '')) throw new Error('A valid public origin is required');
 
   const canonical = article.canonicalUrl || siteUrl(`/articles/${encodeURIComponent(article.slug)}/`, origin);

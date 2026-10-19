@@ -13,6 +13,8 @@ export interface OkOptions {
   status?: 200 | 201 | 202;
   pagination?: PaginationMeta;
   notices?: string[];
+  /** Extra JSON-safe meta fields (e.g. `{ total }` for a capped list). */
+  meta?: Record<string, unknown>;
 }
 
 export function ok<T>(c: AppContext, data: T, options: OkOptions = {}) {
@@ -23,6 +25,7 @@ export function ok<T>(c: AppContext, data: T, options: OkOptions = {}) {
       meta: metaFor(c, {
         ...(options.pagination ? { pagination: options.pagination } : {}),
         ...(options.notices?.length ? { notices: options.notices } : {}),
+        ...(options.meta ?? {}),
       }),
     },
     (options.status ?? 200) as 200,
