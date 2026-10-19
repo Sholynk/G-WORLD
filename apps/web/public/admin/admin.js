@@ -129,6 +129,7 @@
       if (tab.dataset.panel === 'comments') loadComments();
       if (tab.dataset.panel === 'inbox') loadInbox();
       if (tab.dataset.panel === 'settings') loadSettings();
+      if (tab.dataset.panel === 'system') loadSystem();
     });
   });
 
@@ -202,10 +203,12 @@
     $('formTitle').textContent = article ? `Editing: ${article.title}` : 'New article';
     ['title', 'category', 'subcategory', 'contentType', 'slug', 'description', 'hook',
       'directAnswer', 'img', 'alt', 'body', 'author', 'authorSlug', 'submitterEmail', 'date',
-      'readingTime', 'status', 'scheduledAt', 'reviewNotes', 'externalLink', 'canonicalUrl',
+      'readingTime', 'status', 'reviewNotes', 'externalLink', 'canonicalUrl',
       'seoTitle', 'seoDescription'].forEach((key) => {
       if ($(key)) $(key).value = values[key] ?? '';
     });
+    // Stored as UTC, edited in the local clock.
+    $('scheduledAt').value = utcToLocalInput(values.scheduledAt);
     ['tags', 'keyTakeaways', 'relatedSlugs'].forEach((key) => {
       $(key).value = Array.isArray(values[key]) ? values[key].join('\n') : '';
     });
@@ -322,6 +325,106 @@
     return slug !== expected;
   }
 
+  /* --------------------------- scheduling -------------------------------- */
+
+  // `datetime-local` is a wall-clock value with no zone. The API stores one UTC
+  // instant (that is what the cron compares against), so the conversion lives
+  // here and the field shows the editor's own clock.
+  const localTimeZone = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time'; }
+    catch { return 'local time'; }
+  })();
+
+  function localInputToUtc(value) {
+    if (!value) return '';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString();
+  }
+
+  function utcToLocalInput(value) {
+    if (!value) return '';
+    const text = String(value).trim();
+    // Stored rows are UTC ISO strings; older rows may be "YYYY-MM-DD HH:MM:SS".
+    const parsed = new Date(/[Z+]|[+-]\d{2}:?\d{2}$/.test(text) ? text : `${text.replace(' ', 'T')}Z`);
+    if (Number.isNaN(parsed.valueOf())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`
+      + `T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  }
+
+  if ($('scheduledAtHint')) {
+    $('scheduledAtHint').textContent = `Your local time (${localTimeZone}). Posts go live within 15 minutes of this time.`;
+  }
+
+  /* ----------------------------- autosave -------------------------------- */
+
+  // Restores work after a crash, a closed tab or an accidental reload. The
+  // snapshot lives in localStorage under one key per article ("new" for the
+  // unsaved form) and is cleared on every successful save or delete.
+  const AUTOSAVE_PREFIX = 'sholynk.admin.draft.';
+  const AUTOSAVE_DELAY = 1200;
+  let autosaveTimer = null;
+
+  const autosaveKey = () => `${AUTOSAVE_PREFIX}${$('articleId').value || 'new'}`;
+
+  function readAutosave(key) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  function writeAutosave() {
+    if (!isFormDirty()) return;
+    const key = autosaveKey();
+    const snapshot = {};
+    for (const id of FORM_FIELDS) snapshot[id] = $(id)?.value ?? '';
+    snapshot.featured = Boolean($('featured')?.checked);
+    snapshot.hero = Boolean($('hero')?.checked);
+    snapshot.savedAt = new Date().toISOString();
+    try {
+      window.localStorage.setItem(key, JSON.stringify(snapshot));
+      const note = $('autosaveNote');
+      if (note) note.textContent = `Draft autosaved at ${new Date().toLocaleTimeString()}.`;
+    } catch { /* storage full or disabled: the guard still protects the tab */ }
+  }
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(writeAutosave, AUTOSAVE_DELAY);
+  }
+
+  function clearAutosave(key = autosaveKey()) {
+    clearTimeout(autosaveTimer);
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    const note = $('autosaveNote');
+    if (note) note.textContent = '';
+  }
+
+  /** Offers to restore a snapshot left behind by an earlier session. */
+  function restoreAutosaveIfAny(article) {
+    const key = `${AUTOSAVE_PREFIX}${article?.id ?? 'new'}`;
+    const snapshot = readAutosave(key);
+    if (!snapshot) return;
+    const when = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : 'earlier';
+    const label = snapshot.title?.trim() || 'Untitled article';
+    if (typeof window.confirm === 'function'
+      && !window.confirm(`An unsaved draft of "${label}" from ${when} was found. Restore it?`)) {
+      clearAutosave(key);
+      return;
+    }
+    for (const id of FORM_FIELDS) if ($(id) && snapshot[id] !== undefined) $(id).value = snapshot[id];
+    $('featured').checked = Boolean(snapshot.featured);
+    $('hero').checked = Boolean(snapshot.hero);
+    updateImagePreview();
+    setSubmitButtonLabel();
+    updateStatusHelp();
+    toast('Restored your unsaved draft');
+  }
+
+  $('articleForm').addEventListener('input', scheduleAutosave);
+  $('articleForm').addEventListener('change', scheduleAutosave);
+
   /* ------------------------- unsaved-change guard ------------------------ */
 
   // The form is the only place in the dashboard where a stray click can destroy
@@ -363,8 +466,10 @@
   function selectArticle(id) {
     if (id !== state.selectedId && !confirmDiscard()) return;
     state.selectedId = id;
-    fillForm(state.articles.find((article) => article.id === id) || null);
+    const article = state.articles.find((item) => item.id === id) || null;
+    fillForm(article);
     markFormClean();
+    restoreAutosaveIfAny(article);
     renderList();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -390,6 +495,7 @@
     state.selectedId = null;
     fillForm(null);
     markFormClean();
+    restoreAutosaveIfAny(null);
     renderList();
     $('title').focus();
   });
@@ -427,7 +533,11 @@
   function validateForSubmission(payload, { isNew }) {
     const errors = [];
     const body = String(payload.body || '').trim();
-    if (payload.status === 'pending') {
+    // The review queue and the public site share one quality bar: a published
+    // story with a thin description, no tags or no body is just as broken as a
+    // submission, and a bodyless "published" article 404s on its own URL.
+    const gated = ['pending', 'published', 'scheduled'].includes(payload.status);
+    if (gated) {
       if (payload.title.trim().length < 6) errors.push('Title is required (min 6 characters).');
       if (!payload.category.trim()) errors.push('Category is required.');
       if (body.length < 200) errors.push(`Article body is too short (${body.length} chars). Add at least 200 characters.`);
@@ -496,7 +606,8 @@
       date: $('date').value,
       readingTime: $('readingTime').value.trim(),
       status: forceStatus || $('status').value,
-      scheduledAt: $('scheduledAt').value,
+      // One UTC instant, converted from the editor's local clock.
+      scheduledAt: localInputToUtc($('scheduledAt').value),
       reviewNotes: $('reviewNotes').value,
       heroOrder: $('heroOrder').value,
       externalLink: $('externalLink').value.trim(),
@@ -516,6 +627,17 @@
       return null;
     }
 
+    // Unpublishing a live article removes its public page: never do that silently.
+    const previous = state.articles.find((item) => String(item.id) === String(id));
+    if (previous && previous.status === 'published' && payload.status !== 'published'
+      && typeof window.confirm === 'function'
+      && !window.confirm(`"${previous.title}" is live. Changing it to "${payload.status}" removes its public page. Continue?`)) {
+      return null;
+    }
+
+    // Optimistic concurrency: tell the API which version this edit started from.
+    if (id && previous?.updatedAt) payload.expectedUpdatedAt = previous.updatedAt;
+
     articleSaving = true;
     setArticleBusy(true);
     try {
@@ -525,6 +647,8 @@
       // The server now holds these values, so the form is clean before the
       // reselect below runs (which would otherwise prompt to discard).
       markFormClean();
+      clearAutosave();
+      if (!id) clearAutosave(`${AUTOSAVE_PREFIX}new`);
       await loadArticles();
       selectArticle(result.data.id);
       if (result.data.reviewNotice) {
@@ -565,10 +689,12 @@
     setArticleBusy(true);
     try {
       await request(`/admin/articles/${id}`, { method: 'DELETE' });
+      const removedKey = `${AUTOSAVE_PREFIX}${id}`;
       state.selectedId = null;
       await loadArticles();
       fillForm(null);
       markFormClean();
+      clearAutosave(removedKey);
       toast('Article deleted');
     } catch (error) {
       toast(error.message, true);
@@ -753,10 +879,7 @@
     if (!file) return;
     const alt = $('authorImageAlt').value.trim() || `Photo of ${$('authorName').value.trim() || 'the author'}`;
     try {
-      const form = new FormData();
-      form.append('image', file);
-      form.append('alt', alt);
-      const response = await request('/admin/images', { method: 'POST', body: form });
+      const response = await uploadImage(file, alt);
       $('authorImage').value = response.data.url;
       if (!$('authorImageAlt').value.trim()) $('authorImageAlt').value = alt;
       updateAuthorImagePreview();
@@ -897,6 +1020,53 @@
     }
   }
 
+  /**
+   * Shrinks a large photo in the browser before it is uploaded.
+   *
+   * Editorial images are routinely several thousand pixels wide and 3–8 MB;
+   * the public cards never need more than ~2400px. Re-encoding saves upload
+   * time, R2 storage and reader bandwidth. Anything the browser cannot decode
+   * (or an in-flight failure) falls back to the original file, so this can only
+   * ever make the upload smaller — never fail it.
+   */
+  const IMAGE_MAX_EDGE = 2400;
+  const IMAGE_OPTIMISE_ABOVE = 1.5 * 1024 * 1024;
+
+  async function optimiseImage(file) {
+    if (!file || file.size < IMAGE_OPTIMISE_ABOVE || !/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+    if (typeof window.createImageBitmap !== 'function' || typeof document.createElement('canvas').toBlob !== 'function') return file;
+    try {
+      const bitmap = await window.createImageBitmap(file);
+      const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) return file;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+      bitmap.close?.();
+      if (!blob || blob.size >= file.size) return file;
+      const name = file.name.replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+      return new File([blob], name, { type: 'image/jpeg' });
+    } catch {
+      return file;
+    }
+  }
+
+  async function uploadImage(file, alt, button) {
+    if (button) button.disabled = true;
+    try {
+      const optimised = await optimiseImage(file);
+      if (optimised !== file) toast(`Optimised ${(file.size / 1048576).toFixed(1)}MB → ${(optimised.size / 1048576).toFixed(1)}MB`);
+      const form = new FormData();
+      form.append('image', optimised);
+      form.append('alt', alt);
+      return await request('/admin/images', { method: 'POST', body: form });
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   $('uploadForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const file = $('imageFile').files[0];
@@ -904,11 +1074,8 @@
     if (!file) return toast('Choose an image file first', true);
     if (!alt) return toast('Alt text is required for accessibility', true);
 
-    const form = new FormData();
-    form.append('image', file);
-    form.append('alt', alt);
     try {
-      await request('/admin/images', { method: 'POST', body: form });
+      await uploadImage(file, alt, event.target.querySelector('[type="submit"]'));
       $('uploadForm').reset();
       loadImages();
       toast('Image uploaded');
@@ -933,8 +1100,11 @@
     try {
       const payload = await request('/admin/comments?limit=200');
       const comments = payload.data || [];
+      const total = payload.meta?.total ?? comments.length;
       list.innerHTML = '';
-      $('commentCount').textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'} in the history`;
+      $('commentCount').textContent = total > comments.length
+        ? `Showing the latest ${comments.length} of ${total} comments`
+        : `${total} comment${total === 1 ? '' : 's'} in the history`;
       if (!comments.length) {
         const empty = document.createElement('p');
         empty.className = 'comment-admin-empty';
@@ -1583,129 +1753,328 @@
     table.append(row);
   }
 
-  async function loadSubscribers() {
+  /**
+   * Inbox pages.
+   *
+   * The API returns 50 rows per page with a pagination envelope, so a list with
+   * thousands of subscribers never has to be rendered (or downloaded) at once.
+   */
+  const inbox = {
+    subscribers: { page: 1, items: [], total: 0, pages: 1, loaded: false },
+    messages: { page: 1, items: [], total: 0, pages: 1, loaded: false },
+    subscriberQuery: ''
+  };
+
+  function matchesQuery(value, query) {
+    return !query || String(value ?? '').toLowerCase().includes(query);
+  }
+
+  function renderSubscribers() {
     const body = $('subscriberTableBody');
-    try {
-      const payload = await request('/admin/subscriptions');
-      const subscribers = payload.data || [];
-      body.innerHTML = '';
-      $('subscriberCount').textContent = `${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'}`;
-      if (!subscribers.length) {
-        emptyTableRow(body, 5, 'No subscribers yet. Signups from the footer form appear here.');
-        return;
-      }
-      subscribers.forEach((subscriber) => {
-        const row = document.createElement('tr');
-        const cells = [subscriber.name || '(no name)', subscriber.email, subscriber.status, formatInboxDate(subscriber.createdAt)];
-        cells.forEach((text) => {
+    const state = inbox.subscribers;
+    const rows = state.items.filter((subscriber) =>
+      matchesQuery(`${subscriber.name} ${subscriber.email}`, inbox.subscriberQuery));
+    body.innerHTML = '';
+
+    const shown = state.items.length;
+    $('subscriberCount').textContent = state.total > shown
+      ? `Showing ${shown} of ${state.total} subscribers${inbox.subscriberQuery ? ` (${rows.length} matching this search)` : ''}`
+      : `${state.total} subscriber${state.total === 1 ? '' : 's'}${inbox.subscriberQuery ? ` (${rows.length} matching this search)` : ''}`;
+
+    if (!state.items.length) {
+      emptyTableRow(body, 5, 'No subscribers yet. Signups from the footer form appear here.');
+    } else if (!rows.length) {
+      emptyTableRow(body, 5, 'No subscribers match this search.');
+    }
+
+    rows.forEach((subscriber) => {
+      const row = document.createElement('tr');
+      [subscriber.name || '(no name)', subscriber.email, subscriber.status, formatInboxDate(subscriber.createdAt)]
+        .forEach((text) => {
           const cell = document.createElement('td');
           cell.textContent = text;
           row.append(cell);
         });
-        const actions = document.createElement('td');
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'danger-button';
-        remove.textContent = 'Delete';
-        remove.addEventListener('click', async () => {
-          if (!window.confirm(`Remove ${subscriber.email} from the newsletter?`)) return;
-          try {
-            await request(`/admin/subscriptions/${subscriber.id}`, { method: 'DELETE' });
-            toast('Subscriber removed');
-            loadSubscribers();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-        actions.append(remove);
-        row.append(actions);
-        body.append(row);
+      const actions = document.createElement('td');
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'danger-button';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm(`Remove ${subscriber.email} from the newsletter?`)) return;
+        try {
+          await request(`/admin/subscriptions/${subscriber.id}`, { method: 'DELETE' });
+          toast('Subscriber removed');
+          inbox.subscribers.page = 1;
+          loadSubscribers();
+        } catch (error) {
+          toast(error.message, true);
+        }
       });
-    } catch (error) {
-      toast(error.message, true);
-    }
+      actions.append(remove);
+      row.append(actions);
+      body.append(row);
+    });
+
+    $('moreSubscribers').hidden = state.page >= state.pages;
   }
 
-  async function loadMessages() {
-    const list = $('messageList');
+  async function loadSubscribers({ append = false } = {}) {
+    const state = inbox.subscribers;
     try {
-      const payload = await request('/admin/contact-messages');
-      const messages = payload.data || [];
-      list.innerHTML = '';
-      $('messageCount').textContent = `${messages.length} message${messages.length === 1 ? '' : 's'}`;
-      if (!messages.length) {
-        const empty = document.createElement('p');
-        empty.className = 'comment-admin-empty';
-        empty.textContent = 'No contact messages yet.';
-        list.append(empty);
-        return;
-      }
-      messages.forEach((message) => {
-        const item = document.createElement('li');
-        item.className = 'comment-admin-item';
-
-        const head = document.createElement('div');
-        head.className = 'comment-admin-head';
-        const who = document.createElement('span');
-        who.className = 'comment-admin-author';
-        who.textContent = `${message.name} <${message.email}> · ${message.subject}`;
-        const when = document.createElement('time');
-        when.className = 'comment-admin-time';
-        when.textContent = formatInboxDate(message.createdAt);
-        head.append(who, when);
-
-        const body = document.createElement('p');
-        body.className = 'comment-admin-body';
-        body.textContent = message.message;
-
-        const actions = document.createElement('div');
-        actions.className = 'comment-admin-actions';
-
-        const statusButton = document.createElement('button');
-        statusButton.type = 'button';
-        statusButton.className = 'ghost-button';
-        statusButton.textContent = message.status === 'new' ? 'Mark read' : 'Mark new';
-        statusButton.addEventListener('click', async () => {
-          const next = message.status === 'new' ? 'read' : 'new';
-          try {
-            await request(`/admin/contact-messages/${message.id}`, {
-              method: 'PATCH', body: JSON.stringify({ status: next })
-            });
-            toast(`Message marked ${next}`);
-            loadMessages();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'danger-button';
-        remove.textContent = 'Delete';
-        remove.addEventListener('click', async () => {
-          if (!window.confirm('Delete this message permanently?')) return;
-          try {
-            await request(`/admin/contact-messages/${message.id}`, { method: 'DELETE' });
-            toast('Message deleted');
-            loadMessages();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-
-        actions.append(statusButton, remove);
-        item.append(head, body, actions);
-        list.append(item);
-      });
+      const page = append ? state.page + 1 : 1;
+      const payload = await request(`/admin/subscriptions?page=${page}&limit=50`);
+      const items = payload.data || [];
+      state.page = payload.meta?.pagination?.page ?? page;
+      state.pages = payload.meta?.pagination?.total_pages ?? 1;
+      state.total = payload.meta?.pagination?.total ?? items.length;
+      state.items = append ? [...state.items, ...items] : items;
+      state.loaded = true;
+      renderSubscribers();
     } catch (error) {
       toast(error.message, true);
     }
   }
+
+  $('subscriberSearch').addEventListener('input', () => {
+    inbox.subscriberQuery = $('subscriberSearch').value.trim().toLowerCase();
+    renderSubscribers();
+  });
+  $('moreSubscribers').addEventListener('click', () => loadSubscribers({ append: true }));
+
+  /** Exports every subscriber (following the pages), not just the loaded ones. */
+  async function exportSubscribers() {
+    const button = $('exportSubscribers');
+    button.disabled = true;
+    try {
+      const rows = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const payload = await request(`/admin/subscriptions?page=${page}&limit=200`);
+        rows.push(...(payload.data || []));
+        pages = payload.meta?.pagination?.total_pages ?? 1;
+        page += 1;
+      } while (page <= pages && page <= 50);
+      const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+      const csv = ['Name,Email,Status,Subscribed']
+        .concat(rows.map((row) => [row.name, row.email, row.status, row.createdAt].map(escape).join(',')))
+        .join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `sholynk-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast(`Exported ${rows.length} subscriber${rows.length === 1 ? '' : 's'}`);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $('exportSubscribers').addEventListener('click', exportSubscribers);
+
+  function renderMessages() {
+    const list = $('messageList');
+    const state = inbox.messages;
+    list.innerHTML = '';
+    $('messageCount').textContent = state.total > state.items.length
+      ? `Showing ${state.items.length} of ${state.total} messages`
+      : `${state.total} message${state.total === 1 ? '' : 's'}`;
+
+    if (!state.items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'comment-admin-empty';
+      empty.textContent = 'No contact messages yet.';
+      list.append(empty);
+    }
+
+    state.items.forEach((message) => {
+      const item = document.createElement('li');
+      item.className = 'comment-admin-item';
+
+      const head = document.createElement('div');
+      head.className = 'comment-admin-head';
+      const who = document.createElement('span');
+      who.className = 'comment-admin-author';
+      who.textContent = `${message.name} <${message.email}> · ${message.subject}`;
+      const when = document.createElement('time');
+      when.className = 'comment-admin-time';
+      when.textContent = formatInboxDate(message.createdAt);
+      head.append(who, when);
+
+      const body = document.createElement('p');
+      body.className = 'comment-admin-body';
+      body.textContent = message.message;
+
+      const actions = document.createElement('div');
+      actions.className = 'comment-admin-actions';
+
+      const statusButton = document.createElement('button');
+      statusButton.type = 'button';
+      statusButton.className = 'ghost-button';
+      statusButton.textContent = message.status === 'new' ? 'Mark read' : 'Mark new';
+      statusButton.addEventListener('click', async () => {
+        const next = message.status === 'new' ? 'read' : 'new';
+        try {
+          await request(`/admin/contact-messages/${message.id}`, {
+            method: 'PATCH', body: JSON.stringify({ status: next })
+          });
+          toast(`Message marked ${next}`);
+          loadMessages();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'danger-button';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Delete this message permanently?')) return;
+        try {
+          await request(`/admin/contact-messages/${message.id}`, { method: 'DELETE' });
+          toast('Message deleted');
+          loadMessages();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+
+      actions.append(statusButton, remove);
+      item.append(head, body, actions);
+      list.append(item);
+    });
+
+    $('moreMessages').hidden = state.page >= state.pages;
+  }
+
+  async function loadMessages({ append = false } = {}) {
+    const state = inbox.messages;
+    try {
+      const page = append ? state.page + 1 : 1;
+      const payload = await request(`/admin/contact-messages?page=${page}&limit=50`);
+      const items = payload.data || [];
+      state.page = payload.meta?.pagination?.page ?? page;
+      state.pages = payload.meta?.pagination?.total_pages ?? 1;
+      state.total = payload.meta?.pagination?.total ?? items.length;
+      state.items = append ? [...state.items, ...items] : items;
+      state.loaded = true;
+      renderMessages();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  $('moreMessages').addEventListener('click', () => loadMessages({ append: true }));
 
   function loadInbox() {
     loadSubscribers();
     loadMessages();
   }
+
+  /* -------------------------------- system ------------------------------- */
+
+  /** Account/content counts, the audit trail and on-demand housekeeping. */
+  function renderSystemStats(stats) {
+    const list = $('systemStats');
+    list.innerHTML = '';
+    const users = stats.users || {};
+    const articles = stats.articles || {};
+    const entries = [
+      ['Accounts', users.total],
+      ['Verified', users.verified],
+      ['Editors', users.editors],
+      ['Admins', users.admins],
+      ['Pending verification', users.pending],
+      ['Suspended', users.suspended],
+      ['New this month', users.newThisMonth],
+      ['Published articles', articles.published],
+      ['Drafts', articles.draft],
+      ['Scheduled', articles.scheduled],
+      ['Awaiting review', articles.pending]
+    ];
+    entries.forEach(([label, value]) => {
+      const term = document.createElement('dt');
+      term.textContent = label;
+      const detail = document.createElement('dd');
+      detail.textContent = Number(value || 0).toLocaleString();
+      list.append(term, detail);
+    });
+  }
+
+  async function loadSystem() {
+    // Housekeeping is a write: roles that can read the audit trail but not the
+    // site settings see the snapshot without the maintenance button.
+    $('runMaintenance').hidden = !sessionPermissions.has('settings.write');
+    $('systemStatsStatus').textContent = 'Loading platform snapshot…';
+    $('auditCount').textContent = '';
+    try {
+      const [stats, audit] = await Promise.all([
+        request('/admin/system/stats'),
+        sessionPermissions.has('audit.read') ? request('/admin/system/audit?limit=100') : Promise.resolve({ data: [] })
+      ]);
+      renderSystemStats(stats.data);
+      $('systemStatsStatus').textContent = `Updated ${new Date().toLocaleTimeString()}.`;
+
+      const body = $('auditTableBody');
+      body.innerHTML = '';
+      const rows = audit.data || [];
+      $('auditCount').textContent = sessionPermissions.has('audit.read')
+        ? `Latest ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`
+        : 'Your role cannot read the audit trail.';
+      if (rows.length) {
+        rows.forEach((entry) => {
+          const row = document.createElement('tr');
+          const when = new Date(String(entry.created_at).replace(' ', 'T') + (/[Z+]|[+-]\d\d:?\d\d$/.test(String(entry.created_at)) ? '' : 'Z'));
+          const cells = [
+            Number.isNaN(when.valueOf()) ? entry.created_at : when.toLocaleString(),
+            entry.actor_role || entry.actor_user_id || 'system',
+            entry.action,
+            entry.entity_type ? `${entry.entity_type}${entry.entity_id ? ` #${entry.entity_id}` : ''}` : '',
+            entry.description
+          ];
+          cells.forEach((text) => {
+            const cell = document.createElement('td');
+            cell.textContent = String(text ?? '');
+            row.append(cell);
+          });
+          body.append(row);
+        });
+      } else {
+        emptyTableRow(body, 5, 'No audit entries to show.');
+      }
+    } catch (error) {
+      $('systemStatsStatus').textContent = error.message;
+      toast(error.message, true);
+    }
+  }
+
+  $('runMaintenance').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (typeof window.confirm === 'function'
+      && !window.confirm('Run housekeeping now? It expires sessions/tokens, prunes audit rows older than the retention window and publishes due scheduled posts.')) return;
+    button.disabled = true;
+    $('maintenanceStatus').textContent = 'Running housekeeping…';
+    try {
+      const { data } = await request('/admin/system/maintenance', { method: 'POST', body: '{}' });
+      $('maintenanceStatus').textContent = [
+        `${data.scheduled_published} scheduled post(s) published`,
+        `${data.sessions_deleted} session(s) cleared`,
+        `${data.tokens_deleted} token(s) purged`,
+        `${data.rate_limits_deleted} rate-limit window(s) cleared`,
+        `${data.audit_rows_deleted} audit row(s) pruned`
+      ].join(' · ');
+      await loadSystem();
+    } catch (error) {
+      $('maintenanceStatus').textContent = error.message;
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   let sensitiveResolve = null;
   function confirmSensitiveAction(method, path) {
@@ -1776,10 +2145,9 @@
   $('selfImageFile').addEventListener('change', async () => {
     const file = $('selfImageFile').files[0]; if (!file) return;
     const alt = $('selfImageAlt').value.trim() || `Photo of ${$('selfName').value.trim() || 'the author'}`;
-    const data = new FormData(); data.append('image', file); data.append('alt', alt);
     $('selfImageFile').disabled = true;
     try {
-      const result = await request('/admin/images', { method: 'POST', body: data });
+      const result = await uploadImage(file, alt);
       $('selfImage').value = result.data.url; $('selfImageAlt').value = alt;
       $('selfProfileStatus').textContent = 'Photo uploaded to your library. Save your profile to apply it.';
     } catch (error) { $('selfProfileStatus').textContent = error.message; }
@@ -1897,7 +2265,8 @@
     media: 'media.write',
     comments: 'engagement.moderate',
     inbox: 'inbox.read',
-    settings: 'settings.write'
+    settings: 'settings.write',
+    system: 'audit.read'
   };
 
   function tabVisible(panel) {
@@ -1939,7 +2308,10 @@
         // global `engagement.moderate` grant (the API scopes the query for them).
         const allowedForAuthor = panel === 'comments' && Boolean(currentAuthor);
         const denied = Boolean(required) && !sessionPermissions.has(required) && !allowedForAuthor;
-        if (denied) tab.hidden = true;
+        // The System tab ships hidden so it never flashes for roles that cannot
+        // read the audit trail; reveal it once the permission check passes.
+        if (panel === 'system') tab.hidden = denied;
+        else if (denied) tab.hidden = true;
         if (denied) tab.dataset.denied = '1'; else delete tab.dataset.denied;
       });
       $('accountAccessTab').hidden = !isOwner;
@@ -1983,6 +2355,7 @@
     if (!user) return;
     fillForm(null);
     markFormClean();
+    restoreAutosaveIfAny(null);
     loadArticles().catch((error) => toast(error.message, true));
     if (currentAuthor) { loadSelfProfile(); }
     else {

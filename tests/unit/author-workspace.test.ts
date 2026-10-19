@@ -85,7 +85,8 @@ describe('article ownership and author publishing', () => {
   it('defaults new author content to draft and can edit, unpublish and delete only own articles', async () => {
     const created = await data(await call('/admin/articles', 'POST', { title: 'New draft', category: 'Science' }));
     expect(created.status).toBe('draft');
-    expect((await data(await call(`/admin/articles/${a.id}`, 'PUT', { status: 'published', title: 'Updated Alice' }))).status).toBe('published');
+    // Publishing now requires a body (a bodyless live article has nothing to read).
+    expect((await data(await call(`/admin/articles/${a.id}`, 'PUT', { status: 'published', title: 'Updated Alice', body: 'Updated Alice body' }))).status).toBe('published');
     expect((await data(await call(`/admin/articles/${a.id}`, 'PATCH', { status: 'draft' }))).status).toBe('draft');
     for (const method of ['PATCH', 'PUT', 'DELETE']) expect((await call(`/admin/articles/${b.id}`, method, method === 'DELETE' ? undefined : { title: 'Stolen' })).status).toBe(404);
     expect((await articles.getById(db, b.id))!.title).toBe('Bob private draft');

@@ -25,12 +25,14 @@ import {
   loginSchema,
   permissionSetForRole,
   refineArticlePayload,
+  normalizeScheduledAt,
   roleAtLeast,
   roleHasPermission,
   subscribeSchema,
   commentSchema,
   settingsSchema,
   articleInputSchema,
+  articleUpdateSchema,
 } from '@sholynk/shared';
 
 const ROOT = path.resolve(process.cwd());
@@ -190,6 +192,18 @@ describe('validation schemas', () => {
     expect(folded.relatedSlugs).toEqual(['good-slug']);
     expect(articleInputSchema.safeParse({ ...base, relatedSlugs: ['not a slug'] }).success).toBe(false);
   });
+
+  it('leaves untouched fields out of a partial update', () => {
+    // `.partial()` keeps inner `.default()`s, which would make a title-only
+    // PATCH carry `body: ''` and erase the article body when merged.
+    const parsed = articleUpdateSchema.parse({ title: 'Only the title' }) as Record<string, unknown>;
+    expect(parsed.title).toBe('Only the title');
+    for (const field of ['body', 'description', 'author', 'submitterEmail', 'reviewNotes', 'img', 'alt']) {
+      expect(field in parsed, `${field} must stay absent`).toBe(false);
+    }
+    expect(articleUpdateSchema.parse({ body: 'Kept' }).body).toBe('Kept');
+    expect(articleInputSchema.parse({ title: 'A story', category: 'AI' }).body).toBe('');
+  });
 });
 
 describe('the editorial rules engine (refineArticlePayload)', () => {
@@ -200,11 +214,31 @@ describe('the editorial rules engine (refineArticlePayload)', () => {
     expect(refineArticlePayload({ img: 'assets/x.jpg', alt: 'A description' })).toEqual([]);
   });
 
-  it('requires a time when scheduling', () => {
+  it('requires a time and a body when scheduling', () => {
     expect(refineArticlePayload({ status: 'scheduled' })).toContain(
       'scheduledAt is required when status is scheduled',
     );
-    expect(refineArticlePayload({ status: 'scheduled', scheduledAt: '2026-11-01T09:00' })).toEqual([]);
+    expect(refineArticlePayload({ status: 'scheduled', scheduledAt: '2026-11-01T09:00', body: 'Body' })).toEqual([]);
+  });
+
+  it('refuses to publish an article with no body (its public URL would 404)', () => {
+    expect(refineArticlePayload({ status: 'published', body: '' })).toContain(
+      'article body is required before publishing',
+    );
+    expect(refineArticlePayload({ status: 'published', body: 'A real body' })).toEqual([]);
+    // Drafts may legitimately start empty.
+    expect(refineArticlePayload({ status: 'draft', body: '' })).toEqual([]);
+  });
+
+  it('normalises scheduled times to one UTC shape', () => {
+    expect(normalizeScheduledAt('2026-11-01T09:00')).toBe('2026-11-01T09:00:00.000Z');
+    expect(normalizeScheduledAt('2026-11-01 09:00:00')).toBe('2026-11-01T09:00:00.000Z');
+    expect(normalizeScheduledAt('2026-11-01T09:00:00.000Z')).toBe('2026-11-01T09:00:00.000Z');
+    expect(normalizeScheduledAt('2026-11-01T09:00+01:00')).toBe('2026-11-01T08:00:00.000Z');
+    expect(normalizeScheduledAt('2026-11-01')).toBe('2026-11-01');
+    expect(normalizeScheduledAt('')).toBe('');
+    const parsed = articleInputSchema.parse({ title: 'T', category: 'C', scheduledAt: '2026-11-01T09:00+01:00' });
+    expect(parsed.scheduledAt).toBe('2026-11-01T08:00:00.000Z');
   });
 
   it('holds submissions to the review bar', () => {

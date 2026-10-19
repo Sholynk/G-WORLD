@@ -108,14 +108,17 @@ by a cheap D1 "activity signature" poll every 5 s inside the stream, a 25 s keep
 and a self-close at ~55 s that the browser's `EventSource` reconnects through (`retry: 5000`).
 A dropped or duplicated nudge is harmless by design.
 
-## Cron (03:17 UTC nightly)
+## Cron (`*/15` publish tick + `17 3 * * *` nightly)
 
-1. publishes `scheduled` articles whose time has come,
-2. re-attributes articles orphaned by a deleted author to the house author,
-3. purges expired sessions, consumed tokens and stale rate-limit windows,
-4. prunes audit rows past the retention window (730 d production / 30 d dev).
+Every 15 minutes the handler publishes `scheduled` articles whose time has come, so an
+editor's chosen minute is honoured within a quarter of an hour. The nightly run adds:
 
-`POST /api/v1/admin/system/maintenance` runs the identical work on demand.
+1. re-attribution of articles orphaned by a deleted author to the house author,
+2. purging expired sessions, consumed tokens and stale rate-limit windows,
+3. pruning audit rows past the retention window (730 d production / 30 d dev).
+
+`POST /api/v1/admin/system/maintenance` runs the identical work on demand, and the
+dashboard's System tab reads `GET /admin/system/stats` + `/admin/system/audit`.
 
 ## Media uploads
 

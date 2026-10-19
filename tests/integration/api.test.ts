@@ -284,6 +284,57 @@ describe.skipIf(!reachable)('session auth and the admin boundary', () => {
     expect(error.message).toBe('Email or password is incorrect');
   });
 
+  it('pages the inbox and reports totals the dashboard can show', async () => {
+    const jar = new Jar();
+    await call('/auth/login', { method: 'POST', body: DEMO_ADMIN, jar });
+
+    const subscribers = await call('/admin/subscriptions?page=1&limit=2', { jar });
+    expect(subscribers.status).toBe(200);
+    const subscriberBody = (await subscribers.json()) as {
+      data: unknown[];
+      meta?: { pagination?: { page: number; per_page: number; total: number; total_pages: number } };
+    };
+    expect(subscriberBody.data.length).toBeLessThanOrEqual(2);
+    const pagination = subscriberBody.meta?.pagination;
+    expect(pagination).toBeTruthy();
+    expect(pagination!.per_page).toBe(2);
+    expect(pagination!.total).toBeGreaterThanOrEqual(subscriberBody.data.length);
+    expect(pagination!.total_pages).toBeGreaterThanOrEqual(1);
+
+    const messages = await call('/admin/contact-messages?limit=1', { jar });
+    expect(messages.status).toBe(200);
+    const messageBody = (await messages.json()) as { meta?: { pagination?: { total: number } } };
+    expect(typeof messageBody.meta?.pagination?.total).toBe('number');
+
+    const tooBig = await call('/admin/subscriptions?limit=500', { jar });
+    expect(tooBig.status).toBe(422);
+
+    await call('/auth/logout', { method: 'POST', jar, csrf: jar.value('sk_csrf') });
+  });
+
+  it('serves the system snapshot, audit trail and maintenance tally', async () => {
+    const jar = new Jar();
+    await call('/auth/login', { method: 'POST', body: DEMO_ADMIN, jar });
+
+    const stats = await dataOf<{ users: { total: number }; articles: { published: number } }>(
+      await call('/admin/system/stats', { jar }),
+    );
+    expect(stats.users.total).toBeGreaterThanOrEqual(1);
+    expect(stats.articles.published).toBeGreaterThanOrEqual(56);
+
+    const audit = await dataOf<Array<{ action: string; created_at: string }>>(
+      await call('/admin/system/audit?limit=5', { jar }),
+    );
+    expect(Array.isArray(audit)).toBe(true);
+    expect(audit.length).toBeLessThanOrEqual(5);
+    for (const entry of audit) {
+      expect(typeof entry.action).toBe('string');
+      expect(Number.isNaN(Date.parse(entry.created_at))).toBe(false);
+    }
+
+    await call('/auth/logout', { method: 'POST', jar, csrf: jar.value('sk_csrf') });
+  });
+
   it('guards the admin subtree for anonymous callers', async () => {
     expect((await call('/admin/analytics/overview')).status).toBe(401);
     expect((await call('/admin/comments')).status).toBe(401);

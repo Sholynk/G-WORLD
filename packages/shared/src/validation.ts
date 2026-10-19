@@ -26,6 +26,41 @@ import {
 } from './status.js';
 
 /* -------------------------------------------------------------------------- */
+/* Scheduling                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Normalises a scheduled publishing time to a UTC instant.
+ *
+ * The dashboard sends UTC (`datetime-local` values are converted in the
+ * browser), but API clients are free to send anything the schema accepts:
+ *
+ *   "2026-11-01T09:00:00.000Z"  → unchanged (explicit zone)
+ *   "2026-11-01T09:00+01:00"    → "2026-11-01T08:00:00.000Z"
+ *   "2026-11-01T09:00"          → "2026-11-01T09:00:00.000Z" (naive = UTC)
+ *   "2026-11-01"                → unchanged (a date, midnight UTC to SQLite)
+ *
+ * Storing one shape means the cron comparison (`datetime(scheduled_at) <=
+ * datetime('now')`) and every reader agree on the instant, instead of relying
+ * on the server's local timezone.
+ */
+export function normalizeScheduledAt(value: string): string {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  if (hasZone) {
+    const parsed = Date.parse(text);
+    return Number.isNaN(parsed) ? text : new Date(parsed).toISOString();
+  }
+  const naive = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2}))?$/.exec(text);
+  if (naive) {
+    const parsed = new Date(`${naive[1]}T${naive[2]}:${naive[3] ?? '00'}Z`);
+    if (!Number.isNaN(parsed.valueOf())) return parsed.toISOString();
+  }
+  return text;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Primitives                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -229,7 +264,8 @@ export const articleInputSchema = z.object({
     .trim()
     .max(60)
     .optional()
-    .refine((value) => !value || isValidDate(value), 'scheduledAt must be a valid date and time'),
+    .refine((value) => !value || isValidDate(value), 'scheduledAt must be a valid date and time')
+    .transform((value) => (value ? normalizeScheduledAt(value) : value)),
   reviewNotes: z.string().trim().max(4000).optional().default(''),
   heroOrder: z
     .union([z.literal(''), z.coerce.number().int().min(0).max(999)])
@@ -251,7 +287,35 @@ export const articleInputSchema = z.object({
   sources: z.array(articleSourceSchema).max(50).optional(),
 });
 
-export const articleUpdateSchema = articleInputSchema.partial();
+/**
+ * Updates accept an `expectedUpdatedAt` stamp. When present and stale, the API
+ * refuses the write (409) instead of silently overwriting a colleague's edit.
+ */
+/**
+ * Fields that carry a `.default()` in the create schema must lose it here.
+ *
+ * `.partial()` only wraps each field in `ZodOptional`; an inner default still
+ * fires, so a title-only PATCH would come back with `body: ''`, `author: ''`
+ * and every other defaulted field empty — and the update route merges that over
+ * the stored row, erasing the article body. Declaring them as plain optionals
+ * keeps absent fields absent and lets the route keep the stored value.
+ */
+const untouched = <T extends z.ZodType>(schema: T) => schema.optional();
+
+export const articleUpdateSchema = articleInputSchema.partial().extend({
+  subcategory: untouched(z.string().trim().max(120)),
+  contentType: z.enum(CONTENT_TYPES).optional(),
+  description: untouched(z.string().trim().max(LIMITS.ARTICLE_DESCRIPTION_MAX)),
+  hook: untouched(z.string().trim().max(1000)),
+  directAnswer: untouched(z.string().trim().max(2000)),
+  body: untouched(z.string().max(LIMITS.ARTICLE_BODY_MAX)),
+  img: untouched(z.string().trim().max(2048)),
+  alt: untouched(z.string().trim().max(500)),
+  author: untouched(z.string().trim().max(LIMITS.AUTHOR_NAME_MAX)),
+  submitterEmail: z.union([z.literal(''), emailSchema]).optional(),
+  reviewNotes: untouched(z.string().trim().max(4000)),
+  expectedUpdatedAt: z.string().trim().max(40).optional(),
+});
 
 /**
  * Cross-field editorial rules, applied to the *merged* article (the incoming
@@ -268,6 +332,10 @@ export function refineArticlePayload(article: Record<string, unknown>): string[]
   }
   if (article.status === 'scheduled' && !str(article.scheduledAt)) {
     errors.push('scheduledAt is required when status is scheduled');
+  }
+  // A published article with no body renders a 404 on its own public URL.
+  if ((article.status === 'published' || article.status === 'scheduled') && !str(article.body)) {
+    errors.push('article body is required before publishing');
   }
   if (article.relatedSlugs && Array.isArray(article.relatedSlugs)) {
     const bad = (article.relatedSlugs as unknown[]).some(

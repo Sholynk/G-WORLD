@@ -24,7 +24,7 @@ import * as authorsRepo from '../../db/repositories/authors.js';
 import { articleInputSchema, articleUpdateSchema, refineArticlePayload, articleSourceSchema } from '@sholynk/shared';
 import { parseJson } from '../../middleware/validate.js';
 import { requireScopedPermission as requirePermission, authorScope, assertResourceOwner } from '../../middleware/author-scope.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { audit } from '../../services/audit.js';
 import { sendEmail, TEMPLATES } from '../../lib/mailer/index.js';
@@ -153,10 +153,18 @@ for (const method of ['put', 'patch'] as const) {
     const existing = await articlesRepo.getById(db, articleId);
     if (!existing) throw notFound('Article not found');
 
-    await applyApprovalPolicy(c, payload, existing);
-    assertEditorialRules({ ...existing, ...payload });
+    // Optimistic concurrency: the dashboard echoes the `updatedAt` it loaded, so
+    // a second editor saving the same article is told to reload instead of
+    // silently overwriting the first save.
+    const { expectedUpdatedAt, ...changes } = payload;
+    if (expectedUpdatedAt && expectedUpdatedAt !== existing.updatedAt) {
+      throw conflict('This article was changed by someone else after you opened it. Reload to see their version before saving.');
+    }
 
-    const updated = await articlesRepo.update(db, articleId, payload);
+    await applyApprovalPolicy(c, changes, existing);
+    assertEditorialRules({ ...existing, ...changes });
+
+    const updated = await articlesRepo.update(db, articleId, changes);
     if (!updated) throw notFound('Article not found');
 
     let data: ArticleDto & { reviewNotice?: string } = updated;
