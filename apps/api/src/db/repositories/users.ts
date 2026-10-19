@@ -59,6 +59,7 @@ export interface CreateUserInput {
   roleId: string;
   status: AccountStatus;
   termsAcceptedAt?: string | null;
+  authorApplication?: boolean;
 }
 
 export interface CreateProfileInput {
@@ -121,6 +122,8 @@ export async function createUser(
   profile: CreateProfileInput = {},
 ): Promise<CreateUserResult> {
   const userId = newId(ID_PREFIXES.user);
+  const requestedAuthorName = String(profile.displayName ?? profile.fullName ?? '').trim();
+  const authorName = requestedAuthorName.length >= 2 ? requestedAuthorName.slice(0, 80) : 'Author';
   // `user_profiles.user_id` is the primary key and a foreign key onto
   // `users.id`, so the profile row is keyed by the user id.
   const now = new Date().toISOString();
@@ -159,6 +162,12 @@ export async function createUser(
         now,
       ],
     ),
+    ...(input.authorApplication ? [
+      db.prepare(`INSERT INTO authors (slug, name, role) VALUES (?, ?, 'Author')`,
+        [`author-${userId.replaceAll('_', '-').toLowerCase()}`, authorName]),
+      db.prepare(`INSERT INTO author_applications (user_id, author_id)
+        SELECT ?, id FROM authors WHERE slug = ?`, [userId, `author-${userId.replaceAll('_', '-').toLowerCase()}`]),
+    ] : []),
   ]);
 
   return { userId };

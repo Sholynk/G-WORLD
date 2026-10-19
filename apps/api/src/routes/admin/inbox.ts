@@ -15,9 +15,11 @@ import type { AppEnv, AppContext } from '../../env.js';
 import { createDb } from '../../db/client.js';
 import * as engagementRepo from '../../db/repositories/engagement.js';
 import * as formsRepo from '../../db/repositories/forms.js';
-import { limitQuerySchema, messageStatusSchema } from '@sholynk/shared';
+import { buildPaginationMeta, limitQuerySchema, messageStatusSchema } from '@sholynk/shared';
+import { z } from 'zod';
 import { parseJson, parseQuery } from '../../middleware/validate.js';
 import { requirePermission } from '../../middleware/auth.js';
+import { requireScopedPermission, authorScope } from '../../middleware/author-scope.js';
 import { notFound } from '../../lib/errors.js';
 import { AUDIT_ACTIONS } from '../../lib/audit.js';
 import { audit } from '../../services/audit.js';
@@ -36,16 +38,22 @@ function numericId(c: AppContext, label: string): number {
 
 /* ------------------------------- moderation -------------------------------- */
 
-adminModerationRoutes.get('/comments', requirePermission('engagement.moderate'), async (c) => {
+adminModerationRoutes.get('/comments', requireScopedPermission('engagement.moderate'), async (c) => {
   const query = parseQuery(c, limitQuerySchema);
   const db = dbFrom(c);
-  return ok(c, await engagementRepo.listAllComments(db, query.limit));
+  const ownerUserId = (await authorScope(c))?.userId;
+  const [items, total] = await Promise.all([
+    engagementRepo.listAllComments(db, query.limit, ownerUserId),
+    engagementRepo.countAllComments(db, ownerUserId),
+  ]);
+  // `total` lets the dashboard say "showing the latest 200 of 1,431".
+  return ok(c, items, { meta: { total } });
 });
 
-adminModerationRoutes.delete('/comments/:id', requirePermission('engagement.moderate'), async (c) => {
+adminModerationRoutes.delete('/comments/:id', requireScopedPermission('engagement.moderate'), async (c) => {
   const id = numericId(c, 'Comment not found');
   const db = dbFrom(c);
-  if (!(await engagementRepo.removeComment(db, id))) throw notFound('Comment not found');
+  if (!(await engagementRepo.removeComment(db, id, (await authorScope(c))?.userId))) throw notFound('Comment not found');
   await audit(c, {
     action: AUDIT_ACTIONS.commentDeleted,
     entityType: 'comment',
@@ -57,9 +65,19 @@ adminModerationRoutes.delete('/comments/:id', requirePermission('engagement.mode
 
 /* ---------------------------------- inbox ----------------------------------- */
 
+const inboxPageSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
 adminInboxRoutes.get('/subscriptions', requirePermission('inbox.read'), async (c) => {
+  const { page, limit } = parseQuery(c, inboxPageSchema);
   const db = dbFrom(c);
-  return ok(c, await formsRepo.listSubscribers(db));
+  const [items, total] = await Promise.all([
+    formsRepo.listSubscribers(db, limit, (page - 1) * limit),
+    formsRepo.countSubscribers(db),
+  ]);
+  return ok(c, items, { pagination: buildPaginationMeta(page, limit, total) });
 });
 
 adminInboxRoutes.delete('/subscriptions/:id', requirePermission('inbox.write'), async (c) => {
@@ -76,8 +94,13 @@ adminInboxRoutes.delete('/subscriptions/:id', requirePermission('inbox.write'), 
 });
 
 adminInboxRoutes.get('/contact-messages', requirePermission('inbox.read'), async (c) => {
+  const { page, limit } = parseQuery(c, inboxPageSchema);
   const db = dbFrom(c);
-  return ok(c, await formsRepo.listContactMessages(db));
+  const [items, total] = await Promise.all([
+    formsRepo.listContactMessages(db, limit, (page - 1) * limit),
+    formsRepo.countContactMessages(db),
+  ]);
+  return ok(c, items, { pagination: buildPaginationMeta(page, limit, total) });
 });
 
 adminInboxRoutes.patch('/contact-messages/:id', requirePermission('inbox.write'), async (c) => {

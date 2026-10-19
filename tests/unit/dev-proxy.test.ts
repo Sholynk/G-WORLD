@@ -12,9 +12,10 @@
  * asks the proxy for the same resource.
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createServer, type Server } from 'node:http';
+import { createServer, get, type Server } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import path from 'node:path';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const UPSTREAM_PORT = 8797;
@@ -23,6 +24,7 @@ const ROOT = path.resolve(process.cwd());
 
 let upstream: Server;
 let proxy: ChildProcess;
+let sibling: string;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -41,9 +43,17 @@ async function waitForPort(port: number, timeoutMs = 10_000) {
 }
 
 beforeAll(async () => {
+  sibling = mkdtempSync(path.join(ROOT, 'apps/web/public-validation-'));
+  writeFileSync(path.join(sibling, 'probe.txt'), 'Not a public asset');
   // A gzip-encoded upstream, exactly like the worker answers.
   upstream = createServer((request, response) => {
-    const body = gzipSync(JSON.stringify({ success: true, data: { path: request.url } }));
+    if (request.url === '/api/v1/events') {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.write('event: ready\ndata: {}\n\n');
+      return;
+    }
+    const data = request.url === '/api/v1/origin' ? { origin: request.headers.origin } : { path: request.url };
+    const body = gzipSync(JSON.stringify({ success: true, data }));
     response.writeHead(200, {
       'content-type': 'application/json',
       'content-encoding': 'gzip',
@@ -70,10 +80,48 @@ beforeAll(async () => {
 
 afterAll(() => {
   proxy?.kill();
+  upstream?.closeAllConnections();
   upstream?.close();
+  if (sibling) rmSync(sibling, { recursive: true, force: true });
 });
 
 describe('the dev server proxy', () => {
+  it('does not serve sibling directories sharing the public prefix', async () => {
+    const response = await fetch(`http://127.0.0.1:${PROXY_PORT}/..%2f${path.basename(sibling)}/probe.txt`);
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain('Not a public asset');
+  });
+
+  it('maps same-host preview origins but preserves cross-origin rejection', async () => {
+    for (const [host, origin, expected] of [
+      [`127.0.0.1:${PROXY_PORT}`, `http://127.0.0.1:${PROXY_PORT}`, 'http://localhost:5173'],
+      ['5173-preview.e2b.app', 'https://5173-preview.e2b.app', 'http://localhost:5173'],
+      [`127.0.0.1:${PROXY_PORT}`, 'https://attacker.example', 'https://attacker.example'],
+      [`127.0.0.1:${PROXY_PORT}`, 'null', 'null'],
+    ]) {
+      // Node fetch intentionally replaces Host; use raw HTTP to emulate the
+      // preview reverse proxy forwarding its actual public Host header.
+      const body = await new Promise<string>((resolve, reject) => {
+        get({ hostname: '127.0.0.1', port: PROXY_PORT, path: '/api/v1/origin', headers: { host, origin } }, (response) => {
+          let text = ''; response.setEncoding('utf8');
+          response.on('data', (chunk) => { text += chunk; });
+          response.on('end', () => resolve(text));
+          response.on('error', reject);
+        }).on('error', reject);
+      });
+      expect(JSON.parse(body).data.origin).toBe(expected);
+    }
+  });
+
+  it('streams SSE without waiting for the upstream response to end', async () => {
+    const response = await fetch(`http://127.0.0.1:${PROXY_PORT}/api/v1/events`, { signal: AbortSignal.timeout(2000) });
+    expect(response.headers.get('content-type')).toBe('text/event-stream');
+    const reader = response.body!.getReader();
+    const first = await reader.read();
+    expect(new TextDecoder().decode(first.value)).toContain('event: ready');
+    await reader.cancel();
+  });
+
   it('delivers a gzipped upstream response as readable JSON', async () => {
     const response = await fetch(`http://127.0.0.1:${PROXY_PORT}/api/v1/departments`);
 

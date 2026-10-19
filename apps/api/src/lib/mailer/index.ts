@@ -33,6 +33,8 @@ export interface SendResult {
 export interface SendOptions {
   userId?: string | null;
   content: EmailContent;
+  /** Never persist/log setup or recovery links, even with the console provider. */
+  sensitive?: boolean;
 }
 
 async function sendViaResend(
@@ -61,8 +63,7 @@ async function sendViaResend(
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      return { ok: false, error: `provider responded ${response.status}: ${body.slice(0, 300)}` };
+      return { ok: false, error: `provider responded ${response.status}` };
     }
 
     const payload = (await response.json().catch(() => null)) as { id?: string } | null;
@@ -87,10 +88,15 @@ export async function sendEmail(
     userId: options.userId ?? null,
     toEmail,
     subject: options.content.subject,
-    bodyText: options.content.text,
+    bodyText: options.sensitive ? '[Sensitive email body omitted]' : options.content.text,
     template: options.content.template,
     provider: config.email.provider,
   });
+
+  if (options.sensitive && config.email.provider === 'console') {
+    await emailRepo.markFailed(db, messageId, 'Sensitive owner emails require a real email provider');
+    return { queued: true, messageId, provider: 'console', delivered: false };
+  }
 
   if (config.email.provider === 'console') {
     await emailRepo.markSent(db, messageId, 'logged');
@@ -110,13 +116,14 @@ export async function sendEmail(
     return { queued: true, messageId, provider: 'resend', delivered: true };
   }
 
-  await emailRepo.markFailed(db, messageId, result.error ?? 'unknown error');
+  const deliveryError = options.sensitive ? 'Sensitive owner email delivery failed' : result.error ?? 'unknown error';
+  await emailRepo.markFailed(db, messageId, deliveryError);
   logger.error('email delivery failed', {
     to: toEmail,
     template: options.content.template,
-    error: result.error,
+    error: deliveryError,
   });
-  return { queued: true, messageId, provider: 'resend', delivered: false, error: result.error };
+  return { queued: true, messageId, provider: 'resend', delivered: false, error: deliveryError };
 }
 
 export { TEMPLATES } from './templates.js';

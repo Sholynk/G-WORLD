@@ -15,17 +15,24 @@
  */
 import { Hono } from 'hono';
 import type { AppEnv } from '../../env.js';
+import { authorBoundary } from '../../middleware/author-scope.js';
+import { authorWorkspaceRoutes } from './author-workspace.js';
+import { requireSensitiveOwnerConfirmation } from '../../middleware/owner-confirmation.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { adminArticleRoutes } from './articles.js';
 import { adminAuthorRoutes, adminSettingsRoutes } from './authors.js';
 import { adminMediaRoutes } from './media.js';
 import { adminInboxRoutes, adminModerationRoutes } from './inbox.js';
 import { adminAnalyticsRoutes } from './analytics.js';
+import { adminAccountRoutes } from './accounts.js';
 import { adminSystemRoutes } from './system.js';
 
 export const adminRoutes = new Hono<AppEnv>();
 
 adminRoutes.use('*', requireAuth());
+adminRoutes.use('*', authorBoundary);
+
+adminRoutes.use('*', requireSensitiveOwnerConfirmation);
 
 adminRoutes.route('/', adminArticleRoutes);
 adminRoutes.route('/', adminAuthorRoutes);
@@ -35,3 +42,7 @@ adminRoutes.route('/', adminModerationRoutes);
 adminRoutes.route('/', adminInboxRoutes);
 adminRoutes.route('/', adminAnalyticsRoutes);
 adminRoutes.route('/', adminSystemRoutes);
+
+adminRoutes.route('/', adminAccountRoutes);
+
+adminRoutes.route('/', authorWorkspaceRoutes);

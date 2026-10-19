@@ -143,16 +143,25 @@ export async function listComments(db: Db, slug: string, limit?: number): Promis
 }
 
 /** Full comment history across every article, newest first — the admin record. */
-export async function listAllComments(db: Db, limit?: number): Promise<AdminCommentDto[]> {
+/** How many comments exist (for the author, scoped to their articles). */
+export async function countAllComments(db: Db, ownerUserId?: string): Promise<number> {
+  const sql = `SELECT COUNT(*) AS total FROM comments c
+    LEFT JOIN articles a ON a.slug = c.article_slug
+    ${ownerUserId ? 'WHERE a.owner_user_id = ?' : ''}`;
+  return db.count(sql, ownerUserId ? [ownerUserId] : []);
+}
+
+export async function listAllComments(db: Db, limit?: number, ownerUserId?: string): Promise<AdminCommentDto[]> {
   const sql = `
     SELECT c.*, a.title AS article_title
     FROM comments c
     LEFT JOIN articles a ON a.slug = c.article_slug
+    ${ownerUserId ? 'WHERE a.owner_user_id = ?' : ''}
     ORDER BY c.id DESC
   `;
   const rows = Number.isFinite(limit)
-    ? await db.all<CommentRow>(`${sql} LIMIT ?`, [Number(limit)])
-    : await db.all<CommentRow>(sql);
+    ? await db.all<CommentRow>(`${sql} LIMIT ?`, [...(ownerUserId ? [ownerUserId] : []), Number(limit)])
+    : await db.all<CommentRow>(sql, ownerUserId ? [ownerUserId] : []);
   return rows.map((row) => ({
     id: Number(row.id),
     slug: String(row.article_slug ?? ''),
@@ -213,8 +222,8 @@ export async function addComment(
   return dto;
 }
 
-export async function removeComment(db: Db, id: number): Promise<boolean> {
-  const changes = await db.changes('DELETE FROM comments WHERE id = ?', [Number(id)]);
+export async function removeComment(db: Db, id: number, ownerUserId?: string): Promise<boolean> {
+  const changes = await db.changes(`DELETE FROM comments WHERE id = ?${ownerUserId ? ' AND article_slug IN (SELECT slug FROM articles WHERE owner_user_id = ?)' : ''}`, [Number(id), ...(ownerUserId ? [ownerUserId] : [])]);
   return changes > 0;
 }
 

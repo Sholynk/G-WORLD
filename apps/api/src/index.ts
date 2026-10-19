@@ -21,6 +21,9 @@ import { getConfig } from './env.js';
 
 const app = buildApp();
 
+/** The nightly housekeeping cron (the other trigger only publishes due posts). */
+const NIGHTLY_CRON = '17 3 * * *';
+
 export default {
   async fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
@@ -30,16 +33,27 @@ export default {
     const logger = createLogger({ cron: event.cron, source: 'scheduled' });
     const config = getConfig(env);
     const db = createDb(env.DB);
+    // Two crons share this handler: the frequent publish tick and the nightly
+    // housekeeping run (wrangler.jsonc → triggers.crons).
+    const nightly = NIGHTLY_CRON === event.cron;
 
     const work = async () => {
       const articlesRepo = await import('./db/repositories/articles.js');
+
+      // Publishing is time-sensitive: an editor picks 09:00 and expects 09:00,
+      // so this runs on the 15-minute trigger as well as at night.
+      const published = await articlesRepo.publishDueScheduled(db);
+      if (!nightly) {
+        logger.info('scheduled publish tick complete', { scheduled_articles_published: published });
+        return;
+      }
+
       const sessionsRepo = await import('./db/repositories/sessions.js');
       const tokensRepo = await import('./db/repositories/tokens.js');
       const rateLimitRepo = await import('./db/repositories/rateLimit.js');
       const auditRepo = await import('./db/repositories/audit.js');
 
-      const [published, attributed, sessions, tokens, limits, auditRows] = await Promise.all([
-        articlesRepo.publishDueScheduled(db),
+      const [attributed, sessions, tokens, limits, auditRows] = await Promise.all([
         articlesRepo.attributeOrphanedArticles(db),
         sessionsRepo.deleteExpiredSessions(db, 30),
         tokensRepo.purgeStaleTokens(db, 7),

@@ -2,7 +2,8 @@
    editorial session (sk_session cookie) — there is no admin token any more. */
 (() => {
   const API = '/api/v1';
-  const state = { articles: [], selectedId: null, images: [], authors: [], selectedAuthorId: null };
+  let currentAuthor = null;
+  const state = { articles: [], articlesTotal: 0, selectedId: null, images: [], authors: [], selectedAuthorId: null };
 
   const $ = (id) => document.getElementById(id);
 
@@ -35,6 +36,10 @@
       const csrf = readCookie('sk_csrf');
       if (csrf) headers['X-CSRF-Token'] = csrf;
     }
+    const sensitive = method === 'DELETE'
+      || (['PUT', 'PATCH'].includes(method) && path === '/admin/settings')
+      || (method === 'POST' && ['/admin/system/maintenance', '/auth/change-password'].includes(path));
+    if (isOwner && sensitive) headers['X-Owner-Confirmation'] = await confirmSensitiveAction(method, path);
     const response = await fetch(`${API}${path}`, { ...options, method, headers, credentials: 'same-origin' });
     if (response.status === 401 && !path.startsWith('/auth/')) {
       goToLogin();
@@ -54,12 +59,61 @@
 
   /* ------------------------------- tabs --------------------------------- */
 
-  document.querySelectorAll('.tab').forEach((tab) => {
+  const TABS = [...document.querySelectorAll('.tab')];
+  const PANELS = [...document.querySelectorAll('.panel')];
+
+  // Panels are labelled by their tab, so assistive technology announces
+  // "Articles, tab panel" instead of an anonymous region.
+  PANELS.forEach((panel) => {
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', `tab-${panel.id.replace(/^panel-/, '')}`);
+    panel.tabIndex = -1;
+  });
+
+  /** Keeps the tablist's ARIA state in step with what is on screen. */
+  function paintTabState(selected) {
+    TABS.forEach((tab) => {
+      const active = tab === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.setAttribute('tabindex', active ? '0' : '-1');
+    });
+  }
+
+  /** Arrow/Home/End movement inside the tablist, per the WAI-ARIA tabs pattern. */
+  function moveTabFocus(tab, offset) {
+    const visible = TABS.filter((candidate) => !candidate.hidden);
+    const index = visible.indexOf(tab);
+    if (index === -1) return;
+    const next = visible[(index + offset + visible.length) % visible.length];
+    next.focus();
+    next.click();
+  }
+
+  TABS.forEach((tab) => {
+    if (!tab.id) tab.id = `tab-${tab.dataset.panel}`;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', `panel-${tab.dataset.panel}`);
+    tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
+    tab.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') { event.preventDefault(); moveTabFocus(tab, 1); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); moveTabFocus(tab, -1); }
+      if (event.key === 'Home') { event.preventDefault(); moveTabFocus(tab, -TABS.length); }
+      if (event.key === 'End') { event.preventDefault(); moveTabFocus(tab, TABS.length); }
+    });
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((other) => other.classList.toggle('active', other === tab));
-      document.querySelectorAll('.panel').forEach((panel) => {
-        panel.hidden = panel.id !== `panel-${tab.dataset.panel}`;
+      paintTabState(tab);
+      PANELS.forEach((panel) => {
+        const visible = panel.id === `panel-${tab.dataset.panel}`;
+        panel.hidden = !visible;
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', tab.id || `tab-${tab.dataset.panel}`);
+        panel.tabIndex = -1;
       });
+      // Deep links (#articles, #inbox …) let a reload land back on the same panel.
+      if (window.location.hash !== `#${tab.dataset.panel}`) {
+        window.history.replaceState(null, '', `#${tab.dataset.panel}`);
+      }
       if (tab.dataset.panel === 'dashboard') {
         loadDashboard();
         connectDashboardStream();
@@ -67,11 +121,15 @@
         // Only hold the live stream open while the dashboard is on screen.
         disconnectDashboardStream();
       }
+      if (tab.dataset.panel === 'accounts') loadAccounts();
+      if (tab.dataset.panel === 'profile') loadSelfProfile();
+      if (tab.dataset.panel === 'author-analytics') loadSelfAnalytics();
       if (tab.dataset.panel === 'authors') loadAuthors();
       if (tab.dataset.panel === 'media') loadImages();
       if (tab.dataset.panel === 'comments') loadComments();
       if (tab.dataset.panel === 'inbox') loadInbox();
       if (tab.dataset.panel === 'settings') loadSettings();
+      if (tab.dataset.panel === 'system') loadSystem();
     });
   });
 
@@ -88,7 +146,11 @@
       return matchesStatus && (!query || haystack.includes(query));
     });
 
-    $('articleCount').textContent = `${rows.length} of ${state.articles.length} articles`;
+    // The API caps a page at 500 rows; say so instead of silently hiding older work.
+    const total = state.articlesTotal ?? state.articles.length;
+    $('articleCount').textContent = total > state.articles.length
+      ? `${rows.length} of ${state.articles.length} loaded (${total} total — refine your search)`
+      : `${rows.length} of ${state.articles.length} articles`;
     list.innerHTML = '';
 
     rows.forEach((article) => {
@@ -133,14 +195,20 @@
       seoDescription: '', tags: [], keyTakeaways: [], relatedSlugs: [], faqs: [], sources: []
     };
 
+    if (currentAuthor) {
+      values.author = currentAuthor.name; values.authorSlug = currentAuthor.slug;
+      if (!article) values.status = 'draft';
+    }
     $('articleId').value = article?.id || '';
     $('formTitle').textContent = article ? `Editing: ${article.title}` : 'New article';
     ['title', 'category', 'subcategory', 'contentType', 'slug', 'description', 'hook',
       'directAnswer', 'img', 'alt', 'body', 'author', 'authorSlug', 'submitterEmail', 'date',
-      'readingTime', 'status', 'scheduledAt', 'reviewNotes', 'externalLink', 'canonicalUrl',
+      'readingTime', 'status', 'reviewNotes', 'externalLink', 'canonicalUrl',
       'seoTitle', 'seoDescription'].forEach((key) => {
       if ($(key)) $(key).value = values[key] ?? '';
     });
+    // Stored as UTC, edited in the local clock.
+    $('scheduledAt').value = utcToLocalInput(values.scheduledAt);
     ['tags', 'keyTakeaways', 'relatedSlugs'].forEach((key) => {
       $(key).value = Array.isArray(values[key]) ? values[key].join('\n') : '';
     });
@@ -184,7 +252,10 @@
       scheduled: 'Schedules publishing at the date/time you set (requires approval on this CMS).',
       published: 'Publishes immediately. Only editors-in-chief should use this.'
     };
-    help.textContent = msgs[status] || '';
+    const authorMessages = { draft: 'Only you and the website owner can access this draft.',
+      published: 'Publish your article immediately.', scheduled: 'Publish automatically at the scheduled time while your account is active.',
+      pending: 'This article is awaiting review. You may publish your own article when it is ready.' };
+    help.textContent = (currentAuthor ? authorMessages[status] : msgs[status]) || '';
   }
   $('status')?.addEventListener('change', () => { setSubmitButtonLabel(); updateStatusHelp(); });
 
@@ -254,16 +325,159 @@
     return slug !== expected;
   }
 
+  /* --------------------------- scheduling -------------------------------- */
+
+  // `datetime-local` is a wall-clock value with no zone. The API stores one UTC
+  // instant (that is what the cron compares against), so the conversion lives
+  // here and the field shows the editor's own clock.
+  const localTimeZone = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time'; }
+    catch { return 'local time'; }
+  })();
+
+  function localInputToUtc(value) {
+    if (!value) return '';
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString();
+  }
+
+  function utcToLocalInput(value) {
+    if (!value) return '';
+    const text = String(value).trim();
+    // Stored rows are UTC ISO strings; older rows may be "YYYY-MM-DD HH:MM:SS".
+    const parsed = new Date(/[Z+]|[+-]\d{2}:?\d{2}$/.test(text) ? text : `${text.replace(' ', 'T')}Z`);
+    if (Number.isNaN(parsed.valueOf())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`
+      + `T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  }
+
+  if ($('scheduledAtHint')) {
+    $('scheduledAtHint').textContent = `Your local time (${localTimeZone}). Posts go live within 15 minutes of this time.`;
+  }
+
+  /* ----------------------------- autosave -------------------------------- */
+
+  // Restores work after a crash, a closed tab or an accidental reload. The
+  // snapshot lives in localStorage under one key per article ("new" for the
+  // unsaved form) and is cleared on every successful save or delete.
+  const AUTOSAVE_PREFIX = 'sholynk.admin.draft.';
+  const AUTOSAVE_DELAY = 1200;
+  let autosaveTimer = null;
+
+  const autosaveKey = () => `${AUTOSAVE_PREFIX}${$('articleId').value || 'new'}`;
+
+  function readAutosave(key) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  function writeAutosave() {
+    if (!isFormDirty()) return;
+    const key = autosaveKey();
+    const snapshot = {};
+    for (const id of FORM_FIELDS) snapshot[id] = $(id)?.value ?? '';
+    snapshot.featured = Boolean($('featured')?.checked);
+    snapshot.hero = Boolean($('hero')?.checked);
+    snapshot.savedAt = new Date().toISOString();
+    try {
+      window.localStorage.setItem(key, JSON.stringify(snapshot));
+      const note = $('autosaveNote');
+      if (note) note.textContent = `Draft autosaved at ${new Date().toLocaleTimeString()}.`;
+    } catch { /* storage full or disabled: the guard still protects the tab */ }
+  }
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(writeAutosave, AUTOSAVE_DELAY);
+  }
+
+  function clearAutosave(key = autosaveKey()) {
+    clearTimeout(autosaveTimer);
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    const note = $('autosaveNote');
+    if (note) note.textContent = '';
+  }
+
+  /** Offers to restore a snapshot left behind by an earlier session. */
+  function restoreAutosaveIfAny(article) {
+    const key = `${AUTOSAVE_PREFIX}${article?.id ?? 'new'}`;
+    const snapshot = readAutosave(key);
+    if (!snapshot) return;
+    const when = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : 'earlier';
+    const label = snapshot.title?.trim() || 'Untitled article';
+    if (typeof window.confirm === 'function'
+      && !window.confirm(`An unsaved draft of "${label}" from ${when} was found. Restore it?`)) {
+      clearAutosave(key);
+      return;
+    }
+    for (const id of FORM_FIELDS) if ($(id) && snapshot[id] !== undefined) $(id).value = snapshot[id];
+    $('featured').checked = Boolean(snapshot.featured);
+    $('hero').checked = Boolean(snapshot.hero);
+    updateImagePreview();
+    setSubmitButtonLabel();
+    updateStatusHelp();
+    toast('Restored your unsaved draft');
+  }
+
+  $('articleForm').addEventListener('input', scheduleAutosave);
+  $('articleForm').addEventListener('change', scheduleAutosave);
+
+  /* ------------------------- unsaved-change guard ------------------------ */
+
+  // The form is the only place in the dashboard where a stray click can destroy
+  // work. A snapshot of every editable field is captured after each fill/save,
+  // so leaving a damaged form can ask first instead of discarding silently.
+  const FORM_FIELDS = ['articleId', 'title', 'category', 'subcategory', 'contentType', 'slug',
+    'description', 'hook', 'directAnswer', 'img', 'alt', 'body', 'author', 'authorSlug',
+    'submitterEmail', 'date', 'readingTime', 'status', 'scheduledAt', 'reviewNotes',
+    'heroOrder', 'externalLink', 'canonicalUrl', 'seoTitle', 'seoDescription', 'tags',
+    'keyTakeaways', 'relatedSlugs', 'faqs', 'sources'];
+  let formBaseline = '';
+
+  function formSnapshot() {
+    return JSON.stringify([
+      ...FORM_FIELDS.map((id) => $(id)?.value ?? ''),
+      Boolean($('featured')?.checked),
+      Boolean($('hero')?.checked)
+    ]);
+  }
+
+  function markFormClean() { formBaseline = formSnapshot(); }
+  function isFormDirty() { return formSnapshot() !== formBaseline; }
+
+  /** True when the window has unsaved edits and the user agrees to discard them. */
+  function confirmDiscard() {
+    if (!isFormDirty()) return true;
+    if (typeof window.confirm !== 'function') return true;
+    const label = $('title')?.value.trim() || 'this article';
+    return window.confirm(`Discard unsaved changes to "${label}"?`);
+  }
+
+  window.addEventListener('beforeunload', (event) => {
+    if (!isFormDirty()) return;
+    event.preventDefault();
+    // Browsers show their own wording; assigning returnValue is the portable trigger.
+    event.returnValue = '';
+  });
+
   function selectArticle(id) {
+    if (id !== state.selectedId && !confirmDiscard()) return;
     state.selectedId = id;
-    fillForm(state.articles.find((article) => article.id === id) || null);
+    const article = state.articles.find((item) => item.id === id) || null;
+    fillForm(article);
+    markFormClean();
+    restoreAutosaveIfAny(article);
     renderList();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function loadArticles() {
-    const payload = await request('/articles?status=all');
+    const payload = await request('/articles?status=all&fields=full&limit=500');
     state.articles = payload.data;
+    state.articlesTotal = payload.meta?.pagination?.total ?? state.articles.length;
     const options = $('categoryOptions');
     options.innerHTML = '';
     [...new Set(state.articles.map((article) => article.category))].forEach((category) => {
@@ -277,8 +491,11 @@
   $('articleSearch').addEventListener('input', renderList);
   $('statusFilter').addEventListener('change', renderList);
   $('newArticle').addEventListener('click', () => {
+    if (!confirmDiscard()) return;
     state.selectedId = null;
     fillForm(null);
+    markFormClean();
+    restoreAutosaveIfAny(null);
     renderList();
     $('title').focus();
   });
@@ -316,7 +533,11 @@
   function validateForSubmission(payload, { isNew }) {
     const errors = [];
     const body = String(payload.body || '').trim();
-    if (payload.status === 'pending') {
+    // The review queue and the public site share one quality bar: a published
+    // story with a thin description, no tags or no body is just as broken as a
+    // submission, and a bodyless "published" article 404s on its own URL.
+    const gated = ['pending', 'published', 'scheduled'].includes(payload.status);
+    if (gated) {
       if (payload.title.trim().length < 6) errors.push('Title is required (min 6 characters).');
       if (!payload.category.trim()) errors.push('Category is required.');
       if (body.length < 200) errors.push(`Article body is too short (${body.length} chars). Add at least 200 characters.`);
@@ -338,7 +559,20 @@
     return errors;
   }
 
+  // One save at a time: pressing the button twice (or Enter plus a click) used
+  // to POST the same draft twice and create duplicate articles.
+  let articleSaving = false;
+
+  function setArticleBusy(busy) {
+    for (const id of ['submitBtn', 'saveDraftBtn', 'deleteArticle']) {
+      const button = $(id);
+      if (button) button.disabled = busy;
+    }
+    $('articleForm')?.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
   async function saveArticle({ forceStatus } = {}) {
+    if (articleSaving) return null;
     const id = $('articleId').value;
     let structured;
     try {
@@ -372,7 +606,8 @@
       date: $('date').value,
       readingTime: $('readingTime').value.trim(),
       status: forceStatus || $('status').value,
-      scheduledAt: $('scheduledAt').value,
+      // One UTC instant, converted from the editor's local clock.
+      scheduledAt: localInputToUtc($('scheduledAt').value),
       reviewNotes: $('reviewNotes').value,
       heroOrder: $('heroOrder').value,
       externalLink: $('externalLink').value.trim(),
@@ -392,10 +627,28 @@
       return null;
     }
 
+    // Unpublishing a live article removes its public page: never do that silently.
+    const previous = state.articles.find((item) => String(item.id) === String(id));
+    if (previous && previous.status === 'published' && payload.status !== 'published'
+      && typeof window.confirm === 'function'
+      && !window.confirm(`"${previous.title}" is live. Changing it to "${payload.status}" removes its public page. Continue?`)) {
+      return null;
+    }
+
+    // Optimistic concurrency: tell the API which version this edit started from.
+    if (id && previous?.updatedAt) payload.expectedUpdatedAt = previous.updatedAt;
+
+    articleSaving = true;
+    setArticleBusy(true);
     try {
       const result = id
         ? await request(`/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await request('/admin/articles', { method: 'POST', body: JSON.stringify(payload) });
+      // The server now holds these values, so the form is clean before the
+      // reselect below runs (which would otherwise prompt to discard).
+      markFormClean();
+      clearAutosave();
+      if (!id) clearAutosave(`${AUTOSAVE_PREFIX}new`);
       await loadArticles();
       selectArticle(result.data.id);
       if (result.data.reviewNotice) {
@@ -412,6 +665,11 @@
       // Server may return additional validation details.
       toast(error.message, true);
       return null;
+    } finally {
+      articleSaving = false;
+      setArticleBusy(false);
+      // A failed save deliberately leaves the form dirty, so the guard below
+      // still protects the user's edits.
     }
   }
 
@@ -428,27 +686,40 @@
     const id = $('articleId').value;
     if (!id) return;
     if (!window.confirm('Delete this article permanently?')) return;
+    setArticleBusy(true);
     try {
       await request(`/admin/articles/${id}`, { method: 'DELETE' });
+      const removedKey = `${AUTOSAVE_PREFIX}${id}`;
       state.selectedId = null;
       await loadArticles();
       fillForm(null);
+      markFormClean();
+      clearAutosave(removedKey);
       toast('Article deleted');
     } catch (error) {
       toast(error.message, true);
+    } finally {
+      setArticleBusy(false);
     }
   });
 
   $('previewArticle').addEventListener('click', () => {
     const article = state.articles.find((item) => item.id === Number($('articleId').value));
     if (!article) return;
-    if (article.status !== 'published') {
-      toast('Save as published before opening the public preview.', true);
+    if (article.externalLink) {
+      window.open(article.externalLink, '_blank', 'noopener');
       return;
     }
-    const destination = article.externalLink
-      || `/articles/${encodeURIComponent(article.slug)}/`;
-    window.open(destination, '_blank', 'noopener');
+    if (article.status !== 'published') {
+      // Drafts are rendered by the authenticated preview route, so the real
+      // layout can be checked before publishing. Unsaved edits are not part of
+      // it — save (or save a draft) first to see them.
+      const origin = encodeURIComponent(window.location.origin);
+      window.open(`${API}/admin/articles/${article.id}/preview?origin=${origin}`, '_blank', 'noopener');
+      if (isFormDirty()) toast('Preview shows the saved version — save to include your edits.');
+      return;
+    }
+    window.open(`/articles/${encodeURIComponent(article.slug)}/`, '_blank', 'noopener');
   });
 
   const SNIPPETS = {
@@ -608,10 +879,7 @@
     if (!file) return;
     const alt = $('authorImageAlt').value.trim() || `Photo of ${$('authorName').value.trim() || 'the author'}`;
     try {
-      const form = new FormData();
-      form.append('image', file);
-      form.append('alt', alt);
-      const response = await request('/admin/images', { method: 'POST', body: form });
+      const response = await uploadImage(file, alt);
       $('authorImage').value = response.data.url;
       if (!$('authorImageAlt').value.trim()) $('authorImageAlt').value = alt;
       updateAuthorImagePreview();
@@ -752,6 +1020,53 @@
     }
   }
 
+  /**
+   * Shrinks a large photo in the browser before it is uploaded.
+   *
+   * Editorial images are routinely several thousand pixels wide and 3–8 MB;
+   * the public cards never need more than ~2400px. Re-encoding saves upload
+   * time, R2 storage and reader bandwidth. Anything the browser cannot decode
+   * (or an in-flight failure) falls back to the original file, so this can only
+   * ever make the upload smaller — never fail it.
+   */
+  const IMAGE_MAX_EDGE = 2400;
+  const IMAGE_OPTIMISE_ABOVE = 1.5 * 1024 * 1024;
+
+  async function optimiseImage(file) {
+    if (!file || file.size < IMAGE_OPTIMISE_ABOVE || !/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+    if (typeof window.createImageBitmap !== 'function' || typeof document.createElement('canvas').toBlob !== 'function') return file;
+    try {
+      const bitmap = await window.createImageBitmap(file);
+      const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) return file;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+      bitmap.close?.();
+      if (!blob || blob.size >= file.size) return file;
+      const name = file.name.replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+      return new File([blob], name, { type: 'image/jpeg' });
+    } catch {
+      return file;
+    }
+  }
+
+  async function uploadImage(file, alt, button) {
+    if (button) button.disabled = true;
+    try {
+      const optimised = await optimiseImage(file);
+      if (optimised !== file) toast(`Optimised ${(file.size / 1048576).toFixed(1)}MB → ${(optimised.size / 1048576).toFixed(1)}MB`);
+      const form = new FormData();
+      form.append('image', optimised);
+      form.append('alt', alt);
+      return await request('/admin/images', { method: 'POST', body: form });
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   $('uploadForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const file = $('imageFile').files[0];
@@ -759,11 +1074,8 @@
     if (!file) return toast('Choose an image file first', true);
     if (!alt) return toast('Alt text is required for accessibility', true);
 
-    const form = new FormData();
-    form.append('image', file);
-    form.append('alt', alt);
     try {
-      await request('/images', { method: 'POST', body: form });
+      await uploadImage(file, alt, event.target.querySelector('[type="submit"]'));
       $('uploadForm').reset();
       loadImages();
       toast('Image uploaded');
@@ -788,8 +1100,11 @@
     try {
       const payload = await request('/admin/comments?limit=200');
       const comments = payload.data || [];
+      const total = payload.meta?.total ?? comments.length;
       list.innerHTML = '';
-      $('commentCount').textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'} in the history`;
+      $('commentCount').textContent = total > comments.length
+        ? `Showing the latest ${comments.length} of ${total} comments`
+        : `${total} comment${total === 1 ? '' : 's'} in the history`;
       if (!comments.length) {
         const empty = document.createElement('p');
         empty.className = 'comment-admin-empty';
@@ -1316,6 +1631,7 @@
   }
 
   async function loadDashboard() {
+    if (currentAuthor) return;
     // A burst of reader activity can fire several change events at once.
     // Collapse them: run one refresh, and queue at most one more behind it.
     if (dashboardLoading) {
@@ -1372,7 +1688,7 @@
    * established the dashboard falls back to polling rather than going stale.
    */
   function connectDashboardStream() {
-    if (dashboardStream || typeof window.EventSource === 'undefined') return;
+    if (currentAuthor || dashboardStream || typeof window.EventSource === 'undefined') return;
     // The session cookie authenticates the stream (EventSource sends cookies
     // same-origin); no token ever travels in the URL.
     const url = `${API}/admin/analytics/stream`;
@@ -1437,131 +1753,540 @@
     table.append(row);
   }
 
-  async function loadSubscribers() {
+  /**
+   * Inbox pages.
+   *
+   * The API returns 50 rows per page with a pagination envelope, so a list with
+   * thousands of subscribers never has to be rendered (or downloaded) at once.
+   */
+  const inbox = {
+    subscribers: { page: 1, items: [], total: 0, pages: 1, loaded: false },
+    messages: { page: 1, items: [], total: 0, pages: 1, loaded: false },
+    subscriberQuery: ''
+  };
+
+  function matchesQuery(value, query) {
+    return !query || String(value ?? '').toLowerCase().includes(query);
+  }
+
+  function renderSubscribers() {
     const body = $('subscriberTableBody');
-    try {
-      const payload = await request('/admin/subscriptions');
-      const subscribers = payload.data || [];
-      body.innerHTML = '';
-      $('subscriberCount').textContent = `${subscribers.length} subscriber${subscribers.length === 1 ? '' : 's'}`;
-      if (!subscribers.length) {
-        emptyTableRow(body, 5, 'No subscribers yet. Signups from the footer form appear here.');
-        return;
-      }
-      subscribers.forEach((subscriber) => {
-        const row = document.createElement('tr');
-        const cells = [subscriber.name || '(no name)', subscriber.email, subscriber.status, formatInboxDate(subscriber.createdAt)];
-        cells.forEach((text) => {
+    const state = inbox.subscribers;
+    const rows = state.items.filter((subscriber) =>
+      matchesQuery(`${subscriber.name} ${subscriber.email}`, inbox.subscriberQuery));
+    body.innerHTML = '';
+
+    const shown = state.items.length;
+    $('subscriberCount').textContent = state.total > shown
+      ? `Showing ${shown} of ${state.total} subscribers${inbox.subscriberQuery ? ` (${rows.length} matching this search)` : ''}`
+      : `${state.total} subscriber${state.total === 1 ? '' : 's'}${inbox.subscriberQuery ? ` (${rows.length} matching this search)` : ''}`;
+
+    if (!state.items.length) {
+      emptyTableRow(body, 5, 'No subscribers yet. Signups from the footer form appear here.');
+    } else if (!rows.length) {
+      emptyTableRow(body, 5, 'No subscribers match this search.');
+    }
+
+    rows.forEach((subscriber) => {
+      const row = document.createElement('tr');
+      [subscriber.name || '(no name)', subscriber.email, subscriber.status, formatInboxDate(subscriber.createdAt)]
+        .forEach((text) => {
           const cell = document.createElement('td');
           cell.textContent = text;
           row.append(cell);
         });
-        const actions = document.createElement('td');
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'danger-button';
-        remove.textContent = 'Delete';
-        remove.addEventListener('click', async () => {
-          if (!window.confirm(`Remove ${subscriber.email} from the newsletter?`)) return;
-          try {
-            await request(`/admin/subscriptions/${subscriber.id}`, { method: 'DELETE' });
-            toast('Subscriber removed');
-            loadSubscribers();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-        actions.append(remove);
-        row.append(actions);
-        body.append(row);
+      const actions = document.createElement('td');
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'danger-button';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm(`Remove ${subscriber.email} from the newsletter?`)) return;
+        try {
+          await request(`/admin/subscriptions/${subscriber.id}`, { method: 'DELETE' });
+          toast('Subscriber removed');
+          inbox.subscribers.page = 1;
+          loadSubscribers();
+        } catch (error) {
+          toast(error.message, true);
+        }
       });
-    } catch (error) {
-      toast(error.message, true);
-    }
+      actions.append(remove);
+      row.append(actions);
+      body.append(row);
+    });
+
+    $('moreSubscribers').hidden = state.page >= state.pages;
   }
 
-  async function loadMessages() {
-    const list = $('messageList');
+  async function loadSubscribers({ append = false } = {}) {
+    const state = inbox.subscribers;
     try {
-      const payload = await request('/admin/contact-messages');
-      const messages = payload.data || [];
-      list.innerHTML = '';
-      $('messageCount').textContent = `${messages.length} message${messages.length === 1 ? '' : 's'}`;
-      if (!messages.length) {
-        const empty = document.createElement('p');
-        empty.className = 'comment-admin-empty';
-        empty.textContent = 'No contact messages yet.';
-        list.append(empty);
-        return;
-      }
-      messages.forEach((message) => {
-        const item = document.createElement('li');
-        item.className = 'comment-admin-item';
-
-        const head = document.createElement('div');
-        head.className = 'comment-admin-head';
-        const who = document.createElement('span');
-        who.className = 'comment-admin-author';
-        who.textContent = `${message.name} <${message.email}> · ${message.subject}`;
-        const when = document.createElement('time');
-        when.className = 'comment-admin-time';
-        when.textContent = formatInboxDate(message.createdAt);
-        head.append(who, when);
-
-        const body = document.createElement('p');
-        body.className = 'comment-admin-body';
-        body.textContent = message.message;
-
-        const actions = document.createElement('div');
-        actions.className = 'comment-admin-actions';
-
-        const statusButton = document.createElement('button');
-        statusButton.type = 'button';
-        statusButton.className = 'ghost-button';
-        statusButton.textContent = message.status === 'new' ? 'Mark read' : 'Mark new';
-        statusButton.addEventListener('click', async () => {
-          const next = message.status === 'new' ? 'read' : 'new';
-          try {
-            await request(`/admin/contact-messages/${message.id}`, {
-              method: 'PATCH', body: JSON.stringify({ status: next })
-            });
-            toast(`Message marked ${next}`);
-            loadMessages();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'danger-button';
-        remove.textContent = 'Delete';
-        remove.addEventListener('click', async () => {
-          if (!window.confirm('Delete this message permanently?')) return;
-          try {
-            await request(`/admin/contact-messages/${message.id}`, { method: 'DELETE' });
-            toast('Message deleted');
-            loadMessages();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        });
-
-        actions.append(statusButton, remove);
-        item.append(head, body, actions);
-        list.append(item);
-      });
+      const page = append ? state.page + 1 : 1;
+      const payload = await request(`/admin/subscriptions?page=${page}&limit=50`);
+      const items = payload.data || [];
+      state.page = payload.meta?.pagination?.page ?? page;
+      state.pages = payload.meta?.pagination?.total_pages ?? 1;
+      state.total = payload.meta?.pagination?.total ?? items.length;
+      state.items = append ? [...state.items, ...items] : items;
+      state.loaded = true;
+      renderSubscribers();
     } catch (error) {
       toast(error.message, true);
     }
   }
+
+  $('subscriberSearch').addEventListener('input', () => {
+    inbox.subscriberQuery = $('subscriberSearch').value.trim().toLowerCase();
+    renderSubscribers();
+  });
+  $('moreSubscribers').addEventListener('click', () => loadSubscribers({ append: true }));
+
+  /** Exports every subscriber (following the pages), not just the loaded ones. */
+  async function exportSubscribers() {
+    const button = $('exportSubscribers');
+    button.disabled = true;
+    try {
+      const rows = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const payload = await request(`/admin/subscriptions?page=${page}&limit=200`);
+        rows.push(...(payload.data || []));
+        pages = payload.meta?.pagination?.total_pages ?? 1;
+        page += 1;
+      } while (page <= pages && page <= 50);
+      const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+      const csv = ['Name,Email,Status,Subscribed']
+        .concat(rows.map((row) => [row.name, row.email, row.status, row.createdAt].map(escape).join(',')))
+        .join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `sholynk-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast(`Exported ${rows.length} subscriber${rows.length === 1 ? '' : 's'}`);
+    } catch (error) {
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $('exportSubscribers').addEventListener('click', exportSubscribers);
+
+  function renderMessages() {
+    const list = $('messageList');
+    const state = inbox.messages;
+    list.innerHTML = '';
+    $('messageCount').textContent = state.total > state.items.length
+      ? `Showing ${state.items.length} of ${state.total} messages`
+      : `${state.total} message${state.total === 1 ? '' : 's'}`;
+
+    if (!state.items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'comment-admin-empty';
+      empty.textContent = 'No contact messages yet.';
+      list.append(empty);
+    }
+
+    state.items.forEach((message) => {
+      const item = document.createElement('li');
+      item.className = 'comment-admin-item';
+
+      const head = document.createElement('div');
+      head.className = 'comment-admin-head';
+      const who = document.createElement('span');
+      who.className = 'comment-admin-author';
+      who.textContent = `${message.name} <${message.email}> · ${message.subject}`;
+      const when = document.createElement('time');
+      when.className = 'comment-admin-time';
+      when.textContent = formatInboxDate(message.createdAt);
+      head.append(who, when);
+
+      const body = document.createElement('p');
+      body.className = 'comment-admin-body';
+      body.textContent = message.message;
+
+      const actions = document.createElement('div');
+      actions.className = 'comment-admin-actions';
+
+      const statusButton = document.createElement('button');
+      statusButton.type = 'button';
+      statusButton.className = 'ghost-button';
+      statusButton.textContent = message.status === 'new' ? 'Mark read' : 'Mark new';
+      statusButton.addEventListener('click', async () => {
+        const next = message.status === 'new' ? 'read' : 'new';
+        try {
+          await request(`/admin/contact-messages/${message.id}`, {
+            method: 'PATCH', body: JSON.stringify({ status: next })
+          });
+          toast(`Message marked ${next}`);
+          loadMessages();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'danger-button';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Delete this message permanently?')) return;
+        try {
+          await request(`/admin/contact-messages/${message.id}`, { method: 'DELETE' });
+          toast('Message deleted');
+          loadMessages();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+
+      actions.append(statusButton, remove);
+      item.append(head, body, actions);
+      list.append(item);
+    });
+
+    $('moreMessages').hidden = state.page >= state.pages;
+  }
+
+  async function loadMessages({ append = false } = {}) {
+    const state = inbox.messages;
+    try {
+      const page = append ? state.page + 1 : 1;
+      const payload = await request(`/admin/contact-messages?page=${page}&limit=50`);
+      const items = payload.data || [];
+      state.page = payload.meta?.pagination?.page ?? page;
+      state.pages = payload.meta?.pagination?.total_pages ?? 1;
+      state.total = payload.meta?.pagination?.total ?? items.length;
+      state.items = append ? [...state.items, ...items] : items;
+      state.loaded = true;
+      renderMessages();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  $('moreMessages').addEventListener('click', () => loadMessages({ append: true }));
 
   function loadInbox() {
     loadSubscribers();
     loadMessages();
   }
 
+  /* -------------------------------- system ------------------------------- */
+
+  /** Account/content counts, the audit trail and on-demand housekeeping. */
+  function renderSystemStats(stats) {
+    const list = $('systemStats');
+    list.innerHTML = '';
+    const users = stats.users || {};
+    const articles = stats.articles || {};
+    const entries = [
+      ['Accounts', users.total],
+      ['Verified', users.verified],
+      ['Editors', users.editors],
+      ['Admins', users.admins],
+      ['Pending verification', users.pending],
+      ['Suspended', users.suspended],
+      ['New this month', users.newThisMonth],
+      ['Published articles', articles.published],
+      ['Drafts', articles.draft],
+      ['Scheduled', articles.scheduled],
+      ['Awaiting review', articles.pending]
+    ];
+    entries.forEach(([label, value]) => {
+      const term = document.createElement('dt');
+      term.textContent = label;
+      const detail = document.createElement('dd');
+      detail.textContent = Number(value || 0).toLocaleString();
+      list.append(term, detail);
+    });
+  }
+
+  async function loadSystem() {
+    // Housekeeping is a write: roles that can read the audit trail but not the
+    // site settings see the snapshot without the maintenance button.
+    $('runMaintenance').hidden = !sessionPermissions.has('settings.write');
+    $('systemStatsStatus').textContent = 'Loading platform snapshot…';
+    $('auditCount').textContent = '';
+    try {
+      const [stats, audit] = await Promise.all([
+        request('/admin/system/stats'),
+        sessionPermissions.has('audit.read') ? request('/admin/system/audit?limit=100') : Promise.resolve({ data: [] })
+      ]);
+      renderSystemStats(stats.data);
+      $('systemStatsStatus').textContent = `Updated ${new Date().toLocaleTimeString()}.`;
+
+      const body = $('auditTableBody');
+      body.innerHTML = '';
+      const rows = audit.data || [];
+      $('auditCount').textContent = sessionPermissions.has('audit.read')
+        ? `Latest ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`
+        : 'Your role cannot read the audit trail.';
+      if (rows.length) {
+        rows.forEach((entry) => {
+          const row = document.createElement('tr');
+          const when = new Date(String(entry.created_at).replace(' ', 'T') + (/[Z+]|[+-]\d\d:?\d\d$/.test(String(entry.created_at)) ? '' : 'Z'));
+          const cells = [
+            Number.isNaN(when.valueOf()) ? entry.created_at : when.toLocaleString(),
+            entry.actor_role || entry.actor_user_id || 'system',
+            entry.action,
+            entry.entity_type ? `${entry.entity_type}${entry.entity_id ? ` #${entry.entity_id}` : ''}` : '',
+            entry.description
+          ];
+          cells.forEach((text) => {
+            const cell = document.createElement('td');
+            cell.textContent = String(text ?? '');
+            row.append(cell);
+          });
+          body.append(row);
+        });
+      } else {
+        emptyTableRow(body, 5, 'No audit entries to show.');
+      }
+    } catch (error) {
+      $('systemStatsStatus').textContent = error.message;
+      toast(error.message, true);
+    }
+  }
+
+  $('runMaintenance').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (typeof window.confirm === 'function'
+      && !window.confirm('Run housekeeping now? It expires sessions/tokens, prunes audit rows older than the retention window and publishes due scheduled posts.')) return;
+    button.disabled = true;
+    $('maintenanceStatus').textContent = 'Running housekeeping…';
+    try {
+      const { data } = await request('/admin/system/maintenance', { method: 'POST', body: '{}' });
+      $('maintenanceStatus').textContent = [
+        `${data.scheduled_published} scheduled post(s) published`,
+        `${data.sessions_deleted} session(s) cleared`,
+        `${data.tokens_deleted} token(s) purged`,
+        `${data.rate_limits_deleted} rate-limit window(s) cleared`,
+        `${data.audit_rows_deleted} audit row(s) pruned`
+      ].join(' · ');
+      await loadSystem();
+    } catch (error) {
+      $('maintenanceStatus').textContent = error.message;
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  let sensitiveResolve = null;
+  function confirmSensitiveAction(method, path) {
+    if (sensitiveResolve) return Promise.reject(new Error('Finish the current confirmation first.'));
+    const noun = path.startsWith('/admin/articles/') ? 'article' : path.startsWith('/admin/images/') ? 'image'
+      : path.startsWith('/admin/authors/') ? 'author profile' : 'record';
+    $('sensitiveConfirmationDescription').textContent = method === 'DELETE' ? `Permanently delete this ${noun}?`
+      : path === '/admin/settings' ? 'Save changes to site metadata?' : 'Confirm this sensitive owner action?';
+    $('sensitiveConfirmationCode').value = '';
+    $('sensitiveConfirmation').showModal();
+    return new Promise((resolve, reject) => {
+      sensitiveResolve = (code) => code ? resolve(code) : reject(new Error('Action cancelled. Nothing was changed.'));
+    });
+  }
+  $('sensitiveConfirmationForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const finish = sensitiveResolve; sensitiveResolve = null;
+    const code = $('sensitiveConfirmationCode').value;
+    $('sensitiveConfirmationCode').value = '';
+    $('sensitiveConfirmation').close();
+    finish?.(code);
+  });
+  $('cancelSensitiveConfirmation').addEventListener('click', () => $('sensitiveConfirmation').close());
+  $('sensitiveConfirmation').addEventListener('close', () => {
+    const finish = sensitiveResolve; sensitiveResolve = null;
+    $('sensitiveConfirmationCode').value = ''; finish?.(null);
+  });
+  $('recoverOwnerCode').addEventListener('click', async (event) => {
+    event.target.disabled = true;
+    try { toast((await request('/auth/owner/code/request', { method: 'POST', body: '{}' })).data.message); }
+    catch (error) { toast(error.message, true); }
+    finally { event.target.disabled = false; }
+  });
+
+  /* ----------------------- author self-service --------------------------- */
+  const socialInputs = { x: 'selfSocialX', linkedin: 'selfSocialLinkedin', github: 'selfSocialGithub', instagram: 'selfSocialInstagram', youtube: 'selfSocialYoutube' };
+  let selfProfile = null;
+  let selfAnalyticsPage = 1;
+  async function loadSelfProfile() {
+    if (!currentAuthor) return;
+    const status = $('selfProfileStatus'); status.textContent = 'Loading your profile…';
+    try {
+      selfProfile = (await request('/admin/author/profile')).data;
+      const fields = { name: 'selfName', bio: 'selfBio', image: 'selfImage', imageAlt: 'selfImageAlt', profileUrl: 'selfProfileUrl' };
+      Object.entries(fields).forEach(([key, id]) => { $(id).value = selfProfile[key] || ''; });
+      Object.entries(socialInputs).forEach(([key, id]) => { $(id).value = selfProfile.socialLinks?.[key] || ''; });
+      currentAuthor.name = selfProfile.name; currentAuthor.slug = selfProfile.slug;
+      $('author').value = selfProfile.name; $('authorSlug').value = selfProfile.slug;
+      status.textContent = 'Your public profile is ready to edit.';
+    } catch (error) { status.textContent = error.message; }
+  }
+  $('selfProfileForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    const socialLinks = { ...(selfProfile?.socialLinks || {}) };
+    Object.entries(socialInputs).forEach(([key, id]) => { socialLinks[key] = $(id).value.trim(); });
+    try {
+      const payload = { name: $('selfName').value.trim(), bio: $('selfBio').value.trim(), image: $('selfImage').value.trim(),
+        imageAlt: $('selfImageAlt').value.trim(), profileUrl: $('selfProfileUrl').value.trim(), socialLinks };
+      selfProfile = (await request('/admin/author/profile', { method: 'PATCH', body: JSON.stringify(payload) })).data;
+      currentAuthor.name = selfProfile.name;
+      $('sessionUser').textContent = selfProfile.name; $('author').value = selfProfile.name;
+      $('selfProfileStatus').textContent = 'Your profile and article bylines have been updated.';
+      await loadArticles();
+    } catch (error) { $('selfProfileStatus').textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  $('selfImageFile').addEventListener('change', async () => {
+    const file = $('selfImageFile').files[0]; if (!file) return;
+    const alt = $('selfImageAlt').value.trim() || `Photo of ${$('selfName').value.trim() || 'the author'}`;
+    $('selfImageFile').disabled = true;
+    try {
+      const result = await uploadImage(file, alt);
+      $('selfImage').value = result.data.url; $('selfImageAlt').value = alt;
+      $('selfProfileStatus').textContent = 'Photo uploaded to your library. Save your profile to apply it.';
+    } catch (error) { $('selfProfileStatus').textContent = error.message; }
+    finally { $('selfImageFile').value = ''; $('selfImageFile').disabled = false; }
+  });
+  async function loadSelfAnalytics() {
+    if (!currentAuthor) return;
+    $('selfAnalyticsStatus').textContent = 'Loading your article analytics…';
+    try {
+      const data = (await request(`/admin/author/analytics?days=${$('selfAnalyticsDays').value}&page=${selfAnalyticsPage}`)).data;
+      const totals = $('selfAnalyticsTotals'); totals.replaceChildren();
+      const labels = { articles: 'Articles', published: 'Published', drafts: 'Drafts', views: 'Reads', comments: 'Comments', reactions: 'Reactions' };
+      Object.entries(labels).forEach(([key, label]) => {
+        const card = document.createElement('div'); card.className = 'author-metric';
+        const number = document.createElement('strong'); number.textContent = Number(data.totals[key] || 0).toLocaleString();
+        const caption = document.createElement('span'); caption.textContent = label; card.append(number, caption); totals.append(card);
+      });
+      const rows = $('selfAnalyticsRows'); rows.replaceChildren();
+      data.items.forEach((article) => {
+        const row = document.createElement('tr');
+        [article.title, article.status, article.views, article.comments, article.reactions].forEach((value) => {
+          const cell = document.createElement('td'); cell.textContent = String(value); row.append(cell);
+        }); rows.append(row);
+      });
+      $('selfAnalyticsStatus').textContent = data.items.length ? 'Only your articles are included.' : 'No articles on this page yet.';
+      $('selfAnalyticsPage').textContent = `Page ${selfAnalyticsPage}`;
+      $('previousSelfAnalytics').disabled = selfAnalyticsPage === 1;
+      $('nextSelfAnalytics').disabled = selfAnalyticsPage * 50 >= data.totals.articles;
+    } catch (error) { $('selfAnalyticsStatus').textContent = error.message; }
+  }
+  $('refreshSelfAnalytics').addEventListener('click', loadSelfAnalytics);
+  $('selfAnalyticsDays').addEventListener('change', () => { selfAnalyticsPage = 1; loadSelfAnalytics(); });
+  $('previousSelfAnalytics').addEventListener('click', () => { selfAnalyticsPage = Math.max(1, selfAnalyticsPage - 1); loadSelfAnalytics(); });
+  $('nextSelfAnalytics').addEventListener('click', () => { selfAnalyticsPage++; loadSelfAnalytics(); });
+
+  /* -------------------------- owner account access ----------------------- */
+  let accountPage = 1;
+  let accountAction = null;
+  let isOwner = false;
+  async function loadAccounts() {
+    if (!isOwner) return;
+    const status = $('accountAccessStatus');
+    status.textContent = 'Loading author accounts…';
+    try {
+      const response = await request(`/admin/accounts?page=${accountPage}`);
+      const items = response.data.items;
+      $('pendingAccountCount').textContent = response.data.pending ? `(${response.data.pending} pending)` : '';
+      const list = $('accountAccessList');
+      list.replaceChildren();
+      status.textContent = items.length ? 'Review applications and manage access below.' : 'No applications on this page.';
+      $('previousAccounts').disabled = accountPage === 1;
+      $('nextAccounts').disabled = items.length < 50;
+      $('accountPage').textContent = `Page ${accountPage}`;
+      items.forEach((account) => {
+        const item = document.createElement('li');
+        const summary = document.createElement('p');
+        summary.textContent = `${account.display_name || 'Author'} · ${account.email} · ${account.review_status} · ${account.account_status} · ${account.email_verified_at ? 'Email verified' : 'Email not verified'}`;
+        item.append(summary);
+        let actions = [];
+        if (account.review_status === 'pending') actions = ['approve', 'decline'];
+        if (account.review_status === 'approved' && account.account_status === 'active') actions = ['suspend'];
+        if (account.review_status === 'approved' && account.account_status === 'suspended') actions = ['restore'];
+        actions.forEach((action) => {
+          const button = document.createElement('button');
+          button.type = 'button'; button.className = 'ghost-button';
+          button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+          button.disabled = action === 'approve' && !account.email_verified_at;
+          button.addEventListener('click', () => {
+            accountAction = { userId: account.user_id, action };
+            $('accountConfirmationDescription').textContent = `${button.textContent} ${account.email}?`;
+            $('accountConfirmationCode').value = '';
+            $('accountConfirmationError').textContent = '';
+            $('accountConfirmation').showModal();
+          });
+          item.append(button);
+        });
+        list.append(item);
+      });
+    } catch (error) { status.textContent = error.message; }
+  }
+  $('refreshAccounts').addEventListener('click', () => loadAccounts());
+  $('previousAccounts').addEventListener('click', () => { accountPage = Math.max(1, accountPage - 1); loadAccounts(); });
+  $('nextAccounts').addEventListener('click', () => { accountPage++; loadAccounts(); });
+  $('cancelAccountConfirmation').addEventListener('click', () => $('accountConfirmation').close());
+  $('accountConfirmation').addEventListener('close', () => { accountAction = null; $('accountConfirmationCode').value = ''; });
+  $('accountConfirmationForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!accountAction) return;
+    const action = accountAction;
+    const button = event.target.querySelector('[type="submit"]');
+    button.disabled = true;
+    const code = $('accountConfirmationCode').value;
+    $('accountConfirmationCode').value = '';
+    try {
+      const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
+        method: 'POST', body: JSON.stringify({ action: action.action, confirmation_code: code })
+      });
+      $('accountConfirmation').close();
+      toast(result.data.email_delivered ? 'Account updated and email sent.' : 'Account updated. Email delivery needs attention.');
+      await loadAccounts();
+    } catch (error) { $('accountConfirmationError').textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+
   /* -------------------------------- boot -------------------------------- */
+
+  // Navigation is capability-driven: a contributing editor only holds
+  // `article.submit` + `media.write`, so a tab whose data they cannot read is
+  // hidden rather than left to fail with a 403 toast when opened.
+  const sessionPermissions = new Set();
+  const TAB_PERMISSIONS = {
+    dashboard: 'analytics.read',
+    articles: 'article.submit',
+    authors: 'author.write',
+    media: 'media.write',
+    comments: 'engagement.moderate',
+    inbox: 'inbox.read',
+    settings: 'settings.write',
+    system: 'audit.read'
+  };
+
+  function tabVisible(panel) {
+    const tab = document.querySelector(`.tab[data-panel="${panel}"]`);
+    return Boolean(tab && !tab.hidden);
+  }
+
+  /**
+   * Chooses the opening panel: a `#panel` deep link when this session may open
+   * it, otherwise the current tab if it survived the capability gate, otherwise
+   * the first permitted tab (owners get Dashboard, editors get Articles).
+   */
+  function activateFirstVisibleTab() {
+    const wanted = window.location.hash.replace('#', '');
+    const linked = wanted ? document.querySelector(`.tab[data-panel="${wanted}"]`) : null;
+    if (linked && !linked.hidden) { linked.click(); return; }
+    const active = document.querySelector('.tab.active');
+    if (active && !active.hidden) return;
+    document.querySelector('.tab:not([hidden])')?.click();
+  }
 
   async function bootSession() {
     try {
@@ -1571,6 +2296,45 @@
       const user = payload.data?.user;
       $('sessionUser').textContent = user?.display_name || user?.full_name || user?.email || 'Signed in';
       $('sessionState').hidden = false;
+      sessionPermissions.clear();
+      for (const permission of payload.data?.permissions ?? []) sessionPermissions.add(permission);
+      const capabilities = await request('/admin/accounts/capabilities');
+      currentAuthor = capabilities.data.author || null;
+      isOwner = capabilities.data.owner === true;
+      document.querySelectorAll('.tab').forEach((tab) => {
+        const panel = tab.dataset.panel;
+        const required = TAB_PERMISSIONS[panel];
+        // Approved authors moderate comments on their own articles without the
+        // global `engagement.moderate` grant (the API scopes the query for them).
+        const allowedForAuthor = panel === 'comments' && Boolean(currentAuthor);
+        const denied = Boolean(required) && !sessionPermissions.has(required) && !allowedForAuthor;
+        // The System tab ships hidden so it never flashes for roles that cannot
+        // read the audit trail; reveal it once the permission check passes.
+        if (panel === 'system') tab.hidden = denied;
+        else if (denied) tab.hidden = true;
+        if (denied) tab.dataset.denied = '1'; else delete tab.dataset.denied;
+      });
+      $('accountAccessTab').hidden = !isOwner;
+      if (isOwner) loadAccounts();
+      if (currentAuthor) {
+        $('workspaceLabel').textContent = 'Author workspace';
+        document.title = 'My author workspace — Sholynk Tech';
+        const allowed = new Set(['articles', 'media', 'comments', 'profile', 'author-analytics']);
+        document.querySelectorAll('.tab').forEach((tab) => {
+          // Never re-show a tab the permission gate removed; author-only panels
+          // are hidden in the markup and revealed here.
+          tab.hidden = tab.dataset.denied === '1' || !allowed.has(tab.dataset.panel);
+          if (['articles', 'media', 'comments'].includes(tab.dataset.panel)) tab.textContent = `My ${tab.dataset.panel}`;
+        });
+        ['author', 'authorSlug', 'submitterEmail'].forEach((id) => { $(id).readOnly = true; });
+        ['featured', 'hero'].forEach((id) => { $(id).disabled = true; $(id).closest('label').hidden = true; });
+        $('heroOrder').disabled = true; $('heroOrder').closest('.field').hidden = true;
+        document.querySelector('.tab[data-panel="articles"]').click();
+      }
+      activateFirstVisibleTab();
+      $('adminMain').hidden = false;
+      $('adminNavigation').hidden = false;
+      $('adminLoading').hidden = true;
       return user;
     } catch (error) {
       goToLogin();
@@ -1590,9 +2354,13 @@
   bootSession().then((user) => {
     if (!user) return;
     fillForm(null);
+    markFormClean();
+    restoreAutosaveIfAny(null);
     loadArticles().catch((error) => toast(error.message, true));
-    loadAuthors();
-    loadDashboard();
-    connectDashboardStream();
+    if (currentAuthor) { loadSelfProfile(); }
+    else {
+      if (tabVisible('authors')) loadAuthors();
+      if (tabVisible('dashboard')) { loadDashboard(); connectDashboardStream(); }
+    }
   });
 })();

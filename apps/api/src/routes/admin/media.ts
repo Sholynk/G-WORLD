@@ -13,7 +13,7 @@ import { createDb } from '../../db/client.js';
 import * as mediaRepo from '../../db/repositories/media.js';
 import { imageAltSchema } from '@sholynk/shared';
 import { parseJson } from '../../middleware/validate.js';
-import { requirePermission } from '../../middleware/auth.js';
+import { requireScopedPermission as requirePermission, assertResourceOwner } from '../../middleware/author-scope.js';
 import { rateLimit } from '../../middleware/rate-limit.js';
 import { badRequest, dependencyUnavailable, notFound } from '../../lib/errors.js';
 import { MAX_UPLOAD_BYTES, storedFilename, validateImageUpload } from '../../lib/image-check.js';
@@ -104,6 +104,7 @@ adminMediaRoutes.post('/images', requirePermission('media.write'), rateLimit('up
   const db = dbFrom(c);
   const record = await mediaRepo.create(db, {
     filename,
+    ownerUserId: c.get('auth')!.userId,
     alt: String(body['alt'] ?? '').trim().slice(0, 500),
     mimeType: check.mime,
     sizeBytes: file.size,
@@ -126,6 +127,7 @@ adminMediaRoutes.patch('/images/:id', requirePermission('media.write'), async (c
   if (!Number.isFinite(id) || id <= 0) throw notFound('Image not found');
   const payload = await parseJson(c, imageAltSchema);
   const db = dbFrom(c);
+  await assertResourceOwner(c, 'images', id);
   const updated = await mediaRepo.updateAlt(db, id, payload.alt);
   if (!updated) throw notFound('Image not found');
   return ok(c, updated);
@@ -135,6 +137,7 @@ adminMediaRoutes.delete('/images/:id', requirePermission('media.write'), async (
   const id = Number.parseInt(c.req.param('id') ?? '', 10);
   if (!Number.isFinite(id) || id <= 0) throw notFound('Image not found');
   const db = dbFrom(c);
+  await assertResourceOwner(c, 'images', id);
   const removed = await mediaRepo.remove(db, id);
   if (!removed) throw notFound('Image not found');
 

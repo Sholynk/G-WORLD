@@ -40,6 +40,7 @@ export interface RenderableArticle {
   relatedSlugs?: string[];
   tags?: string[];
   body: string;
+  hasBody?: boolean;
   img: string;
   alt: string;
   author: string;
@@ -76,6 +77,7 @@ export interface RenderableAuthor {
   image?: string;
   imageAlt?: string;
   profileUrl?: string;
+  socialLinks?: Record<string, string>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,10 +128,12 @@ export function renderAuthorCard(author: ResolvedAuthor, variant: 'rail' | 'inli
   const link = author.profileUrl
     ? `<a class="article-author-link" href="${escapeHtml(author.id)}" target="_blank" rel="noopener noreferrer">View full profile <i class="fas fa-arrow-right" aria-hidden="true"></i></a>`
     : '';
+  const social = Object.entries(author.socialLinks || {}).filter(([, url]) => /^https:\/\//i.test(url))
+    .map(([label, url]) => `<a class="article-author-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`).join(' ');
   const classes = ['article-author-card', `article-author-card--${variant}`].join(' ');
   return `<aside class="${classes}" aria-label="About ${escapeHtml(author.name || 'the author')}">${media}<div class="article-author-body"><p class="eyebrow">Written by</p><h3>${escapeHtml(
     author.name || 'Sholynk Editorial',
-  )}</h3>${bio}${link}</div></aside>`;
+  )}</h3>${bio}${link}${social ? `<nav aria-label="Author social links">${social}</nav>` : ''}</div></aside>`;
 }
 
 /**
@@ -194,13 +198,13 @@ export function relatedFor(article: RenderableArticle, allArticles: RenderableAr
     .map((slug) => bySlug.get(slug))
     .filter(
       (item): item is RenderableArticle =>
-        Boolean(item) && Boolean(item!.body || /^https?:\/\//i.test(item!.externalLink || '')),
+        Boolean(item) && Boolean(item!.hasBody || item!.body || /^https?:\/\//i.test(item!.externalLink || '')),
     );
   for (const item of allArticles) {
     if (chosen.length >= 4) break;
     if (
       item.slug !== article.slug &&
-      item.body &&
+      (item.hasBody || Boolean(item.body)) &&
       !item.externalLink &&
       item.category === article.category &&
       !chosen.some((entry) => entry.slug === item.slug)
@@ -258,8 +262,9 @@ export function resolveAuthor(
 ): ResolvedAuthor {
   const entity = (authors || []).find((author) => author.slug === article.authorSlug) ?? ({} as RenderableAuthor);
   const slug = entity.slug || article.authorSlug || 'oluwashola-busari';
-  const profileUrl = absoluteUrl(entity.profileUrl || 'about.html', origin);
-  const id = profileUrl.includes('#') ? profileUrl : `${profileUrl}#${encodeURIComponent(slug)}`;
+  const profileUrl = entity.profileUrl || !entity.slug ? absoluteUrl(entity.profileUrl || 'about.html', origin) : '';
+  const id = profileUrl ? (profileUrl.includes('#') ? profileUrl : `${profileUrl}#${encodeURIComponent(slug)}`)
+    : `${absoluteUrl('/', origin)}#author-${encodeURIComponent(slug)}`;
   return {
     ...entity,
     slug,
@@ -291,7 +296,7 @@ export function schemaFor(
         '@type': 'Person',
         '@id': author.id,
         name: author.name,
-        url: author.profileUrl,
+        url: author.profileUrl || undefined,
         jobTitle: author.role || undefined,
         description: author.bio || undefined,
         image: author.image ? absoluteUrl(author.image, origin) : undefined,
@@ -375,7 +380,7 @@ export function renderHead(
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&amp;display=swap" rel="stylesheet" />
     <link href="${SITE_ROOT_PREFIX}styles.css" rel="stylesheet" />
     <script type="application/ld+json">${safeJson(schemaFor(article, canonical, author, origin))}</script>
   </head>`;
@@ -467,6 +472,12 @@ export interface RenderArticlePageInput {
   articles?: RenderableArticle[];
   authors?: RenderableAuthor[];
   origin: string;
+  /**
+   * Editorial preview: render an unpublished draft through the public shell so
+   * an author can see the real layout before publishing. Only the authenticated
+   * `/admin/articles/:id/preview` route sets this; public document routes never do.
+   */
+  allowUnpublished?: boolean;
 }
 
 /**
@@ -478,8 +489,9 @@ export function renderArticlePage({
   articles = [],
   authors = [],
   origin,
+  allowUnpublished = false,
 }: RenderArticlePageInput): string | null {
-  if (!article || article.status !== 'published' || !article.body || article.externalLink) return null;
+  if (!article || (!allowUnpublished && article.status !== 'published') || !article.body || article.externalLink) return null;
   if (!/^https?:\/\//i.test(origin || '')) throw new Error('A valid public origin is required');
 
   const canonical = article.canonicalUrl || siteUrl(`/articles/${encodeURIComponent(article.slug)}/`, origin);

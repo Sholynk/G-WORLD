@@ -10,9 +10,72 @@
   function nextDestination() {
     const next = new URLSearchParams(window.location.search).get('next') || '/admin/';
     // Only same-origin paths may be used as a redirect target.
-    if (!next.startsWith('/') || next.startsWith('//')) return '/admin/';
-    return next;
+    const target = new URL(next, window.location.origin);
+    if (!next.startsWith('/') || target.origin !== window.location.origin) return '/admin/';
+    return `${target.pathname}${target.search}${target.hash}`;
   }
+
+  const registerForm = document.getElementById('registerForm');
+  const registerStatus = document.getElementById('registerStatus');
+  function setMode(register) {
+    form.hidden = register;
+    registerForm.hidden = !register;
+    document.getElementById('showLogin').setAttribute('aria-pressed', String(!register));
+    document.getElementById('showRegister').setAttribute('aria-pressed', String(register));
+    document.getElementById('login-title').textContent = register ? 'Become an author' : 'Editorial sign in';
+  }
+  document.getElementById('showLogin').addEventListener('click', () => setMode(false));
+  document.getElementById('showRegister').addEventListener('click', () => setMode(true));
+
+  async function authPost(path, body) {
+    const response = await fetch(`${API}/auth/${path}`, {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      const messages = (payload.error?.details || []).map((item) => item.message);
+      throw new Error([payload.error?.message, ...messages].filter(Boolean).join(' — ') || 'Please try again.');
+    }
+    return payload.data;
+  }
+  registerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    registerStatus.classList.remove('is-error');
+    const password = document.getElementById('registerPassword');
+    const confirm = document.getElementById('registerConfirm');
+    if (password.value !== confirm.value) {
+      registerStatus.classList.add('is-error');
+      registerStatus.textContent = 'The passwords do not match.';
+      return;
+    }
+    const button = registerForm.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      const data = await authPost('register', {
+        email: document.getElementById('registerEmail').value.trim(), password: password.value,
+        display_name: document.getElementById('registerName').value.trim(),
+        accepted_terms: document.getElementById('acceptedTerms').checked
+      });
+      password.value = ''; confirm.value = '';
+      registerStatus.textContent = data.email_delivered
+        ? 'Application submitted. Check your inbox to verify your email. The owner must approve your application before you can sign in.'
+        : 'Application saved. The verification email could not be delivered yet. Try Resend verification email later.';
+    } catch (error) {
+      registerStatus.classList.add('is-error'); registerStatus.textContent = error.message;
+    } finally { button.disabled = false; }
+  });
+  document.getElementById('resendVerification').addEventListener('click', async (event) => {
+    const email = document.getElementById('registerEmail');
+    if (!email.reportValidity()) return;
+    event.target.disabled = true;
+    try {
+      const data = await authPost('resend-verification', { email: email.value.trim() });
+      registerStatus.classList.remove('is-error'); registerStatus.textContent = data.message;
+    } catch (error) {
+      registerStatus.classList.add('is-error'); registerStatus.textContent = error.message;
+    } finally { event.target.disabled = false; }
+  });
 
   // Already signed in? Skip the form.
   fetch(`${API}/auth/me`, { credentials: 'same-origin' })

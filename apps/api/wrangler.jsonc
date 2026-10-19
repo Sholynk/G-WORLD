@@ -54,10 +54,13 @@
     }
   ],
 
-  // Cron: housekeeping every night at 03:17 UTC (expired sessions, tokens,
-  // rate-limit windows, audit retention) plus scheduled-article publishing.
+  // Cron: scheduled articles are published every 15 minutes, so a post goes
+  // live close to the time an editor chose instead of waiting for the nightly
+  // run. Housekeeping (expired sessions, tokens, rate-limit windows, audit
+  // retention) still runs once a night at 03:17 UTC — src/index.ts branches on
+  // `event.cron`.
   "triggers": {
-    "crons": ["17 3 * * *"]
+    "crons": ["*/15 * * * *", "17 3 * * *"]
   },
 
   // Non-secret configuration. Secrets never live in this file.
@@ -116,7 +119,7 @@
         }
       ],
       "triggers": {
-        "crons": ["17 3 * * *"]
+        "crons": ["*/15 * * * *", "17 3 * * *"]
       },
       "vars": {
         "ENVIRONMENT": "production",

@@ -109,8 +109,8 @@ publicSeoRoutes.get('/seo/sitemap.xml', async (c) => {
     (page) => ({ loc: new URL(page.path, `${origin}/`).href, ...page }),
   );
 
-  for (const article of await articlesRepo.list(db, { status: 'published' })) {
-    if (!article.body || article.externalLink) continue;
+  for (const article of await articlesRepo.list(db, { status: 'published' }, 'summary')) {
+    if (!article.hasBody || article.externalLink) continue;
     const changed = article.updatedAt || article.date;
     const lastmod =
       changed && !Number.isNaN(new Date(changed).valueOf())
@@ -219,14 +219,14 @@ publicSeoRoutes.get('/render/articles/:slug', async (c) => {
   }
 
   const [articles, authors] = await Promise.all([
-    articlesRepo.list(db, { status: 'published' }),
+    articlesRepo.list(db, { status: 'published' }, 'summary'),
     authorsRepo.list(db),
   ]);
   const html = renderArticlePage({ article, articles, authors, origin });
   if (!html) {
     return c.body('Article not found', 404, { 'Content-Type': 'text/plain; charset=utf-8' });
   }
-  return documentResponse(c, html, 'text/html; charset=utf-8', 'no-cache');
+  return documentResponse(c, html, 'text/html; charset=utf-8', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
 });
 
 /**
