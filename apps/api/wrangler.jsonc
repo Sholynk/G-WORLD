@@ -137,7 +137,7 @@
         "EMAIL_PROVIDER": "resend",
         "EMAIL_FROM": "Sholynk Tech <onboarding@resend.dev>",
         "EDITOR_EMAIL": "seun33154@gmail.com",
-        "ENABLE_REGISTRATION": "true",
+        "ENABLE_REGISTRATION": "false",
         "ENABLE_DEV_ROUTES": "false",
         "PASSWORD_ITERATIONS": "100000",
         "SESSION_TTL_HOURS": "336"
