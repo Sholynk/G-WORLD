@@ -7,9 +7,9 @@
  * to a signed-in editorial account (the legacy CMS enforced the same rule with
  * its admin token).
  *
- * The DTO shapes match the legacy `/api` contract (camelCase, `body` included
- * in lists) because the ported homepage, article renderer and admin dashboard
- * read them unchanged.
+ * List DTOs are camelCase. Published collections default to a `summary` payload
+ * (no body/FAQ/source blobs, plus `hasBody`) so the homepage stays cheap;
+ * editorial lists and `fields=full` still return the complete article.
  */
 import { Hono } from 'hono';
 import type { AppEnv, AppContext } from '../../env.js';
@@ -19,7 +19,7 @@ import * as articlesRepo from '../../db/repositories/articles.js';
 import * as authorsRepo from '../../db/repositories/authors.js';
 import * as settingsRepo from '../../db/repositories/settings.js';
 import * as mediaRepo from '../../db/repositories/media.js';
-import { articleListQuerySchema, idOrSlugParamSchema } from '@sholynk/shared';
+import { articleListQuerySchema, idOrSlugParamSchema, LIMITS } from '@sholynk/shared';
 import { parseQuery, parseParam } from '../../middleware/validate.js';
 import { accountSuspended, notFound, unauthenticated } from '../../lib/errors.js';
 import { ok } from '../helpers.js';
@@ -51,26 +51,33 @@ publicContentRoutes.get('/articles', async (c) => {
 
   const db = dbFrom(c);
   const scope = await authorScope(c);
+  const limit = query.limit ?? LIMITS.LIST_LIMIT_DEFAULT;
+  const offset = query.offset ?? 0;
   const filters = {
     ownerUserId: query.status !== 'published' ? scope?.userId : undefined,
     category: query.category,
     q: query.q,
     status: query.status === 'all' ? undefined : query.status,
-    limit: query.limit,
-    offset: query.offset,
+    limit,
+    offset,
     hero: query.hero === true ? true : undefined,
   };
+  const mode =
+    query.fields ?? (query.status === 'published' ? 'summary' : 'full');
   const [items, total] = await Promise.all([
-    articlesRepo.list(db, filters),
+    articlesRepo.list(db, filters, mode),
     articlesRepo.count(db, filters),
   ]);
 
-  const page = query.limit ? Math.floor((query.offset ?? 0) / query.limit) + 1 : 1;
-  const totalPages = query.limit ? Math.max(1, Math.ceil(total / query.limit)) : 1;
+  const page = Math.floor(offset / limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  if (query.status === 'published') {
+    c.header('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
+  }
   return ok(c, query.status === 'published' ? items.map(publicArticle) : items, {
     pagination: {
       page,
-      per_page: query.limit ?? total,
+      per_page: limit,
       total,
       total_pages: totalPages,
       has_next: page < totalPages,
@@ -81,6 +88,7 @@ publicContentRoutes.get('/articles', async (c) => {
 
 publicContentRoutes.get('/articles/categories', async (c) => {
   const db = dbFrom(c);
+  c.header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
   // Category discovery never exposes private draft metadata.
   return ok(c, await articlesRepo.categories(db, 'published'));
 });
@@ -97,6 +105,9 @@ publicContentRoutes.get('/articles/:idOrSlug', async (c) => {
   if (article.status !== 'published') {
     assertEditorialSession(c);
     await assertResourceOwner(c, 'articles', article.id);
+  }
+  if (article.status === 'published') {
+    c.header('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
   }
   return ok(c, article.status === 'published' ? publicArticle(article) : article);
 });
@@ -118,6 +129,7 @@ publicContentRoutes.get('/articles/:id/sources', async (c) => {
 
 publicContentRoutes.get('/authors', async (c) => {
   const db = dbFrom(c);
+  c.header('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
   return ok(c, await authorsRepo.list(db));
 });
 
@@ -133,6 +145,7 @@ publicContentRoutes.get('/authors/:idOrSlug', async (c) => {
 
 publicContentRoutes.get('/settings', async (c) => {
   const db = dbFrom(c);
+  c.header('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
   return ok(c, await settingsRepo.all(db));
 });
 

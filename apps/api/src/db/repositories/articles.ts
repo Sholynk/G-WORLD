@@ -78,6 +78,8 @@ export interface ArticleDto {
   seoTitle: string | null;
   seoDescription: string | null;
   sources: ArticleSourceDto[];
+  /** True when the article has a non-empty body. List summaries omit the body bytes. */
+  hasBody: boolean;
   link: string;
   cleanLink: string;
   createdAt: string;
@@ -150,12 +152,30 @@ export async function sourcesForArticle(db: Db, articleId: number): Promise<Arti
  * Maps a row to the public/admin DTO. `sources` may be supplied by the caller
  * (list queries batch them) or are fetched per article by the wrappers below.
  */
-export function toApi(row: ArticleRow, sources: ArticleSourceDto[] = []): ArticleDto {
+export type ArticleListMode = 'summary' | 'full';
+
+const LIST_SUMMARY_COLUMNS = `id, slug, title, category, subcategory, tags_json, content_type,
+  description, hook, direct_answer, related_slugs_json, img, alt, author, author_slug,
+  published_at, reading_time, featured, status, scheduled_at, submitted_at, hero, hero_order,
+  external_link, canonical_url, seo_title, seo_description, created_at, updated_at,
+  CASE WHEN length(trim(body)) > 0 THEN 1 ELSE 0 END AS has_body`;
+
+export function toApi(
+  row: ArticleRow,
+  sources: ArticleSourceDto[] = [],
+  mode: ArticleListMode = 'full',
+): ArticleDto {
   const str = (key: string): string => String((row as Record<string, SqlValue>)[key] ?? '');
   const num = (key: string): number | null => {
     const value = (row as Record<string, SqlValue>)[key];
     return value === null || value === undefined || value === '' ? null : Number(value);
   };
+  const summary = mode === 'summary';
+  const body = summary ? '' : str('body');
+  const hasBody =
+    row.has_body !== undefined && row.has_body !== null
+      ? Boolean(Number(row.has_body))
+      : Boolean(str('body').trim());
   const link = row.external_link ? String(row.external_link) : `articles/${encodeURIComponent(str('slug'))}/`;
   return {
     id: Number(row.id),
@@ -167,11 +187,11 @@ export function toApi(row: ArticleRow, sources: ArticleSourceDto[] = []): Articl
     contentType: str('content_type') || 'article',
     description: str('description'),
     hook: str('hook'),
-    directAnswer: str('direct_answer'),
-    keyTakeaways: parseJsonList<string>(row.key_takeaways_json),
-    faqs: parseJsonList<{ question: string; answer: string }>(row.faqs_json),
+    directAnswer: summary ? '' : str('direct_answer'),
+    keyTakeaways: summary ? [] : parseJsonList<string>(row.key_takeaways_json),
+    faqs: summary ? [] : parseJsonList<{ question: string; answer: string }>(row.faqs_json),
     relatedSlugs: parseJsonList<string>(row.related_slugs_json),
-    body: str('body'),
+    body,
     img: str('img'),
     alt: str('alt'),
     author: str('author'),
@@ -181,16 +201,17 @@ export function toApi(row: ArticleRow, sources: ArticleSourceDto[] = []): Articl
     featured: Boolean(row.featured),
     status: str('status'),
     scheduledAt: (row.scheduled_at as string | null) ?? null,
-    reviewNotes: str('review_notes'),
+    reviewNotes: summary ? '' : str('review_notes'),
     submittedAt: (row.submitted_at as string | null) ?? null,
-    submitterEmail: str('submitter_email'),
+    submitterEmail: summary ? '' : str('submitter_email'),
     hero: Boolean(row.hero),
     heroOrder: num('hero_order'),
     externalLink: (row.external_link as string | null) ?? null,
     canonicalUrl: (row.canonical_url as string | null) ?? null,
     seoTitle: (row.seo_title as string | null) ?? null,
     seoDescription: (row.seo_description as string | null) ?? null,
-    sources,
+    sources: summary ? [] : sources,
+    hasBody,
     // Full articles use the clean route rendered live by the edge.
     link,
     cleanLink: link,
@@ -242,15 +263,21 @@ function whereFor(filters: ArticleListFilters): { clause: string; params: SqlVal
 }
 
 const LIST_ORDER =
-  ' ORDER BY featured DESC, hero_order IS NULL, hero_order ASC, date(published_at) DESC, id DESC';
+  ' ORDER BY featured DESC, hero_order IS NULL, hero_order ASC, published_at DESC, id DESC';
 
 /**
  * Article list in the legacy order (featured first, then hero placement, then
- * newest). Sources are batched in one extra query instead of N+1.
+ * newest). Sources are batched in one extra query instead of N+1. `summary`
+ * skips body/FAQ/source blobs for card and sitemap reads.
  */
-export async function list(db: Db, filters: ArticleListFilters = {}): Promise<ArticleDto[]> {
+export async function list(
+  db: Db,
+  filters: ArticleListFilters = {},
+  mode: ArticleListMode = 'full',
+): Promise<ArticleDto[]> {
   const { clause, params } = whereFor(filters);
-  let sql = `SELECT * FROM articles${clause}${LIST_ORDER}`;
+  const columns = mode === 'summary' ? LIST_SUMMARY_COLUMNS : '*';
+  let sql = `SELECT ${columns} FROM articles${clause}${LIST_ORDER}`;
   const listParams = [...params];
   if (Number.isFinite(filters.limit)) {
     sql += ' LIMIT ?';
@@ -262,6 +289,10 @@ export async function list(db: Db, filters: ArticleListFilters = {}): Promise<Ar
   }
   const rows = await db.all<ArticleRow>(sql, listParams);
   if (!rows.length) return [];
+
+  if (mode === 'summary') {
+    return rows.map((row) => toApi(row, [], 'summary'));
+  }
 
   const ids = rows.map((row) => Number(row.id));
   const sourceRows = await db.all<SourceRow>(

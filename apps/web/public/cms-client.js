@@ -15,8 +15,6 @@
  */
 window.SholynkCMS = (() => {
   const API_BASE = window.SHOLYNK_CONFIG?.apiBaseUrl || '/api/v1';
-  let availability = null;
-  let availabilityPromise = null;
 
   function siteRoot() {
     return new URL('/', window.location.href).href;
@@ -81,51 +79,21 @@ window.SholynkCMS = (() => {
     return payload;
   }
 
-  async function isApiAvailable() {
-    if (availability !== null) return availability;
-    if (!availabilityPromise) {
-      availabilityPromise = fetch(resolvePath(`${API_BASE}/health`), {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
-      })
-        .then(async (response) => {
-          if (!response.ok) return false;
-          const payload = await response.json();
-          return payload.success === true;
-        })
-        .catch(() => false)
-        .then((available) => {
-          availability = available;
-          availabilityPromise = null;
-          return available;
-        });
-    }
-    return availabilityPromise;
-  }
-
-  function refreshApiAvailability() {
-    availability = null;
-    availabilityPromise = null;
-  }
-
   function normalize(article) {
     if (!article) return article;
     const slug = article.slug || String(article.id || '');
     return {
       ...article,
       slug,
+      hasBody: Boolean(article.hasBody || (article.body && String(article.body).trim())),
       link: article.externalLink || article.cleanLink || `articles/${encodeURIComponent(slug)}/`,
       cleanLink: article.externalLink || `articles/${encodeURIComponent(slug)}/`
     };
   }
 
-  async function requireApi() {
-    if (await isApiAvailable()) return;
-    throw new Error('The content service is unavailable. Please try again shortly.');
-  }
-
-  async function getArticles({ category, q, status = 'published', limit, offset, hero } = {}) {
-    await requireApi();
+  async function getArticles({
+    category, q, status = 'published', limit, offset, hero, fields
+  } = {}) {
     const params = new URLSearchParams();
     if (category && category !== 'All') params.set('category', category);
     if (q) params.set('q', q);
@@ -133,12 +101,14 @@ window.SholynkCMS = (() => {
     if (Number.isFinite(limit)) params.set('limit', String(limit));
     if (Number.isFinite(offset)) params.set('offset', String(offset));
     if (hero === true) params.set('hero', 'true');
+    if (fields) params.set('fields', fields);
     const payload = await apiRequest(`/articles${params.size ? `?${params}` : ''}`);
-    return (payload.data || []).map(normalize);
+    const items = (payload.data || []).map(normalize);
+    items.pagination = payload.meta?.pagination || null;
+    return items;
   }
 
   async function getArticle(slug) {
-    await requireApi();
     try {
       const payload = await apiRequest(`/articles/${encodeURIComponent(slug)}`);
       return normalize(payload.data);
@@ -149,26 +119,28 @@ window.SholynkCMS = (() => {
   }
 
   async function getAuthors() {
-    await requireApi();
     const payload = await apiRequest('/authors');
     return payload.data || [];
   }
 
   async function getSettings() {
-    await requireApi();
     const payload = await apiRequest('/settings');
     return payload.data || {};
+  }
+
+  async function getCategories() {
+    const payload = await apiRequest('/articles/categories');
+    return payload.data || [];
   }
 
   return {
     apiRequest,
     errorMessage,
-    isApiAvailable,
-    refreshApiAvailability,
     getArticles,
     getArticle,
     getAuthors,
     getSettings,
+    getCategories,
     resolvePath
   };
 })();
