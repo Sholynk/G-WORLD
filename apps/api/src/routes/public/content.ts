@@ -13,8 +13,8 @@
  */
 import { Hono } from 'hono';
 import type { AppEnv, AppContext } from '../../env.js';
-import { authorScope, assertResourceOwner } from '../../middleware/author-scope.js';
-import { createDb } from '../../db/client.js';
+import { authorScope } from '../../middleware/author-scope.js';
+import { createDb, type Db } from '../../db/client.js';
 import * as articlesRepo from '../../db/repositories/articles.js';
 import * as authorsRepo from '../../db/repositories/authors.js';
 import * as settingsRepo from '../../db/repositories/settings.js';
@@ -38,6 +38,30 @@ function assertEditorialSession(c: AppContext): void {
   if (auth.status === 'suspended' || auth.status === 'deactivated') throw accountSuspended();
 }
 
+/**
+ * Reading another account's unpublished work needs `article.read.any`.
+ *
+ * A session alone is not enough: a contributing editor (`article.submit` only)
+ * may only preview their own drafts, pending articles and scheduled pieces.
+ * Everyone else sees the same 404 a reader would get, so unpublished IDs and
+ * slugs do not leak either.
+ */
+function canReadAnyArticle(c: AppContext): boolean {
+  return c.get('auth')?.permissions.includes('article.read.any') === true;
+}
+
+async function assertCanReadPrivateArticle(c: AppContext, db: Db, articleId: number): Promise<void> {
+  assertEditorialSession(c);
+  if (canReadAnyArticle(c)) return;
+  const auth = c.get('auth');
+  // Ownership is not part of the public DTO, so resolve it from the row.
+  const owned = await db.first<{ owner_user_id: string | null }>(
+    'SELECT owner_user_id FROM articles WHERE id = ?',
+    [articleId],
+  );
+  if (!owned?.owner_user_id || owned.owner_user_id !== auth?.userId) throw notFound('Article not found');
+}
+
 const dbFrom = (c: AppContext) => createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
 
 /* --------------------------------- articles -------------------------------- */
@@ -46,15 +70,20 @@ publicContentRoutes.get('/articles', async (c) => {
   const query = parseQuery(c, articleListQuerySchema);
 
   // The public site only ever fetches status=published. Anything else (drafts,
-  // pending review, scheduled, all) requires a signed-in editorial account.
-  if (query.status !== 'published') assertEditorialSession(c);
+  // pending review, scheduled, all) requires a signed-in editorial account, and
+  // accounts without `article.read.any` only ever see their own submissions.
+  const privateQuery = query.status !== 'published';
+  if (privateQuery) {
+    assertEditorialSession(c);
+    // Resolving the author boundary makes a revoked approval fail closed.
+    await authorScope(c);
+  }
 
   const db = dbFrom(c);
-  const scope = await authorScope(c);
   const limit = query.limit ?? LIMITS.LIST_LIMIT_DEFAULT;
   const offset = query.offset ?? 0;
   const filters = {
-    ownerUserId: query.status !== 'published' ? scope?.userId : undefined,
+    ownerUserId: privateQuery && !canReadAnyArticle(c) ? c.get('auth')!.userId : undefined,
     category: query.category,
     q: query.q,
     status: query.status === 'all' ? undefined : query.status,
@@ -101,11 +130,9 @@ publicContentRoutes.get('/articles/:idOrSlug', async (c) => {
     : await articlesRepo.getBySlug(db, idOrSlug);
   if (!article) throw notFound('Article not found');
 
-  // Unpublished articles are an editorial preview: session required.
-  if (article.status !== 'published') {
-    assertEditorialSession(c);
-    await assertResourceOwner(c, 'articles', article.id);
-  }
+  // Unpublished articles are a private editorial preview: `article.read.any`,
+  // or the account that owns the record.
+  if (article.status !== 'published') await assertCanReadPrivateArticle(c, db, article.id);
   if (article.status === 'published') {
     c.header('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
   }
@@ -118,10 +145,7 @@ publicContentRoutes.get('/articles/:id/sources', async (c) => {
   const db = dbFrom(c);
   const article = await articlesRepo.getById(db, id);
   if (!article) throw notFound('Article not found');
-  if (article.status !== 'published') {
-    assertEditorialSession(c);
-    await assertResourceOwner(c, 'articles', article.id);
-  }
+  if (article.status !== 'published') await assertCanReadPrivateArticle(c, db, article.id);
   return ok(c, await articlesRepo.sourcesForArticle(db, article.id));
 });
 

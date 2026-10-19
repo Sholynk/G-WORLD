@@ -1756,6 +1756,32 @@
 
   /* -------------------------------- boot -------------------------------- */
 
+  // Navigation is capability-driven: a contributing editor only holds
+  // `article.submit` + `media.write`, so a tab whose data they cannot read is
+  // hidden rather than left to fail with a 403 toast when opened.
+  const sessionPermissions = new Set();
+  const TAB_PERMISSIONS = {
+    dashboard: 'analytics.read',
+    articles: 'article.submit',
+    authors: 'author.write',
+    media: 'media.write',
+    comments: 'engagement.moderate',
+    inbox: 'inbox.read',
+    settings: 'settings.write'
+  };
+
+  function tabVisible(panel) {
+    const tab = document.querySelector(`.tab[data-panel="${panel}"]`);
+    return Boolean(tab && !tab.hidden);
+  }
+
+  /** The dashboard is the default panel; fall back to the first tab this session may use. */
+  function activateFirstVisibleTab() {
+    const active = document.querySelector('.tab.active');
+    if (active && !active.hidden) return;
+    document.querySelector('.tab:not([hidden])')?.click();
+  }
+
   async function bootSession() {
     try {
       const response = await fetch(`${API}/auth/me`, { credentials: 'same-origin' });
@@ -1764,6 +1790,12 @@
       const user = payload.data?.user;
       $('sessionUser').textContent = user?.display_name || user?.full_name || user?.email || 'Signed in';
       $('sessionState').hidden = false;
+      sessionPermissions.clear();
+      for (const permission of payload.data?.permissions ?? []) sessionPermissions.add(permission);
+      document.querySelectorAll('.tab').forEach((tab) => {
+        const required = TAB_PERMISSIONS[tab.dataset.panel];
+        if (required && !sessionPermissions.has(required)) tab.hidden = true;
+      });
       const capabilities = await request('/admin/accounts/capabilities');
       currentAuthor = capabilities.data.author || null;
       isOwner = capabilities.data.owner === true;
@@ -1782,6 +1814,7 @@
         $('heroOrder').disabled = true; $('heroOrder').closest('.field').hidden = true;
         document.querySelector('.tab[data-panel="articles"]').click();
       }
+      activateFirstVisibleTab();
       $('adminMain').hidden = false;
       $('adminNavigation').hidden = false;
       $('adminLoading').hidden = true;
@@ -1806,6 +1839,9 @@
     fillForm(null);
     loadArticles().catch((error) => toast(error.message, true));
     if (currentAuthor) { loadSelfProfile(); }
-    else { loadAuthors(); loadDashboard(); connectDashboardStream(); }
+    else {
+      if (tabVisible('authors')) loadAuthors();
+      if (tabVisible('dashboard')) { loadDashboard(); connectDashboardStream(); }
+    }
   });
 })();
