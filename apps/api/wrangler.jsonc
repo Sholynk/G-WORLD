@@ -126,7 +126,7 @@
         // Open Graph metadata, robots.txt and sitemap.xml. Set this to the
         // production domain (e.g. https://sholynktech.com) once known; empty
         // means "derive from the incoming request host".
-        "SITE_URL": "",
+        "SITE_URL": "https://sholynk-tech.pages.dev",
         // Empty: the Pages proxy makes the frontend same-origin, so no
         // cross-origin request is ever allowed. Add exact origins here only if
         // you deliberately host the frontend elsewhere.
