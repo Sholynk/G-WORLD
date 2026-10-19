@@ -32,8 +32,8 @@
 
   <p id="adminLoading" role="status">Checking your session…</p>
   <noscript><p>JavaScript is required for the dashboard. <a href="/login.html">Login or register</a>.</p></noscript>
-  <nav class="admin-tabs" id="adminNavigation" aria-label="Sections" hidden>
-   <button class="tab active" type="button" data-panel="dashboard">Dashboard</button>
+  <nav class="admin-tabs" id="adminNavigation" role="tablist" aria-label="Sections" hidden>
+   <button class="tab active" type="button" role="tab" data-panel="dashboard">Dashboard</button>
    <button class="tab" type="button" data-panel="articles">Articles</button>
    <button class="tab" type="button" data-panel="author-analytics" hidden>My analytics</button>
    <button class="tab" type="button" data-panel="profile" hidden>My profile</button>
@@ -84,7 +84,7 @@
     <div class="form-head-actions"><button type="button" class="ghost-button" id="previousSelfAnalytics">Previous</button><span id="selfAnalyticsPage"></span><button type="button" class="ghost-button" id="nextSelfAnalytics">Next</button></div>
    </section>
    <!-- Dashboard -->
-   <section class="panel active" id="panel-dashboard" aria-label="Analytics dashboard">
+   <section class="panel active" id="panel-dashboard" role="tabpanel" aria-label="Analytics dashboard">
     <div class="dash-toolbar">
      <div>
       <h2>Editorial analytics</h2>

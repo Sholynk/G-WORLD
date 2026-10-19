@@ -3,7 +3,7 @@
 (() => {
   const API = '/api/v1';
   let currentAuthor = null;
-  const state = { articles: [], selectedId: null, images: [], authors: [], selectedAuthorId: null };
+  const state = { articles: [], articlesTotal: 0, selectedId: null, images: [], authors: [], selectedAuthorId: null };
 
   const $ = (id) => document.getElementById(id);
 
@@ -59,12 +59,61 @@
 
   /* ------------------------------- tabs --------------------------------- */
 
-  document.querySelectorAll('.tab').forEach((tab) => {
+  const TABS = [...document.querySelectorAll('.tab')];
+  const PANELS = [...document.querySelectorAll('.panel')];
+
+  // Panels are labelled by their tab, so assistive technology announces
+  // "Articles, tab panel" instead of an anonymous region.
+  PANELS.forEach((panel) => {
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', `tab-${panel.id.replace(/^panel-/, '')}`);
+    panel.tabIndex = -1;
+  });
+
+  /** Keeps the tablist's ARIA state in step with what is on screen. */
+  function paintTabState(selected) {
+    TABS.forEach((tab) => {
+      const active = tab === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.setAttribute('tabindex', active ? '0' : '-1');
+    });
+  }
+
+  /** Arrow/Home/End movement inside the tablist, per the WAI-ARIA tabs pattern. */
+  function moveTabFocus(tab, offset) {
+    const visible = TABS.filter((candidate) => !candidate.hidden);
+    const index = visible.indexOf(tab);
+    if (index === -1) return;
+    const next = visible[(index + offset + visible.length) % visible.length];
+    next.focus();
+    next.click();
+  }
+
+  TABS.forEach((tab) => {
+    if (!tab.id) tab.id = `tab-${tab.dataset.panel}`;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', `panel-${tab.dataset.panel}`);
+    tab.setAttribute('aria-selected', tab.classList.contains('active') ? 'true' : 'false');
+    tab.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') { event.preventDefault(); moveTabFocus(tab, 1); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); moveTabFocus(tab, -1); }
+      if (event.key === 'Home') { event.preventDefault(); moveTabFocus(tab, -TABS.length); }
+      if (event.key === 'End') { event.preventDefault(); moveTabFocus(tab, TABS.length); }
+    });
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((other) => other.classList.toggle('active', other === tab));
-      document.querySelectorAll('.panel').forEach((panel) => {
-        panel.hidden = panel.id !== `panel-${tab.dataset.panel}`;
+      paintTabState(tab);
+      PANELS.forEach((panel) => {
+        const visible = panel.id === `panel-${tab.dataset.panel}`;
+        panel.hidden = !visible;
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', tab.id || `tab-${tab.dataset.panel}`);
+        panel.tabIndex = -1;
       });
+      // Deep links (#articles, #inbox …) let a reload land back on the same panel.
+      if (window.location.hash !== `#${tab.dataset.panel}`) {
+        window.history.replaceState(null, '', `#${tab.dataset.panel}`);
+      }
       if (tab.dataset.panel === 'dashboard') {
         loadDashboard();
         connectDashboardStream();
@@ -96,7 +145,11 @@
       return matchesStatus && (!query || haystack.includes(query));
     });
 
-    $('articleCount').textContent = `${rows.length} of ${state.articles.length} articles`;
+    // The API caps a page at 500 rows; say so instead of silently hiding older work.
+    const total = state.articlesTotal ?? state.articles.length;
+    $('articleCount').textContent = total > state.articles.length
+      ? `${rows.length} of ${state.articles.length} loaded (${total} total — refine your search)`
+      : `${rows.length} of ${state.articles.length} articles`;
     list.innerHTML = '';
 
     rows.forEach((article) => {
@@ -269,9 +322,49 @@
     return slug !== expected;
   }
 
+  /* ------------------------- unsaved-change guard ------------------------ */
+
+  // The form is the only place in the dashboard where a stray click can destroy
+  // work. A snapshot of every editable field is captured after each fill/save,
+  // so leaving a damaged form can ask first instead of discarding silently.
+  const FORM_FIELDS = ['articleId', 'title', 'category', 'subcategory', 'contentType', 'slug',
+    'description', 'hook', 'directAnswer', 'img', 'alt', 'body', 'author', 'authorSlug',
+    'submitterEmail', 'date', 'readingTime', 'status', 'scheduledAt', 'reviewNotes',
+    'heroOrder', 'externalLink', 'canonicalUrl', 'seoTitle', 'seoDescription', 'tags',
+    'keyTakeaways', 'relatedSlugs', 'faqs', 'sources'];
+  let formBaseline = '';
+
+  function formSnapshot() {
+    return JSON.stringify([
+      ...FORM_FIELDS.map((id) => $(id)?.value ?? ''),
+      Boolean($('featured')?.checked),
+      Boolean($('hero')?.checked)
+    ]);
+  }
+
+  function markFormClean() { formBaseline = formSnapshot(); }
+  function isFormDirty() { return formSnapshot() !== formBaseline; }
+
+  /** True when the window has unsaved edits and the user agrees to discard them. */
+  function confirmDiscard() {
+    if (!isFormDirty()) return true;
+    if (typeof window.confirm !== 'function') return true;
+    const label = $('title')?.value.trim() || 'this article';
+    return window.confirm(`Discard unsaved changes to "${label}"?`);
+  }
+
+  window.addEventListener('beforeunload', (event) => {
+    if (!isFormDirty()) return;
+    event.preventDefault();
+    // Browsers show their own wording; assigning returnValue is the portable trigger.
+    event.returnValue = '';
+  });
+
   function selectArticle(id) {
+    if (id !== state.selectedId && !confirmDiscard()) return;
     state.selectedId = id;
     fillForm(state.articles.find((article) => article.id === id) || null);
+    markFormClean();
     renderList();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -279,6 +372,7 @@
   async function loadArticles() {
     const payload = await request('/articles?status=all&fields=full&limit=500');
     state.articles = payload.data;
+    state.articlesTotal = payload.meta?.pagination?.total ?? state.articles.length;
     const options = $('categoryOptions');
     options.innerHTML = '';
     [...new Set(state.articles.map((article) => article.category))].forEach((category) => {
@@ -292,8 +386,10 @@
   $('articleSearch').addEventListener('input', renderList);
   $('statusFilter').addEventListener('change', renderList);
   $('newArticle').addEventListener('click', () => {
+    if (!confirmDiscard()) return;
     state.selectedId = null;
     fillForm(null);
+    markFormClean();
     renderList();
     $('title').focus();
   });
@@ -353,7 +449,20 @@
     return errors;
   }
 
+  // One save at a time: pressing the button twice (or Enter plus a click) used
+  // to POST the same draft twice and create duplicate articles.
+  let articleSaving = false;
+
+  function setArticleBusy(busy) {
+    for (const id of ['submitBtn', 'saveDraftBtn', 'deleteArticle']) {
+      const button = $(id);
+      if (button) button.disabled = busy;
+    }
+    $('articleForm')?.setAttribute('aria-busy', busy ? 'true' : 'false');
+  }
+
   async function saveArticle({ forceStatus } = {}) {
+    if (articleSaving) return null;
     const id = $('articleId').value;
     let structured;
     try {
@@ -407,10 +516,15 @@
       return null;
     }
 
+    articleSaving = true;
+    setArticleBusy(true);
     try {
       const result = id
         ? await request(`/admin/articles/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await request('/admin/articles', { method: 'POST', body: JSON.stringify(payload) });
+      // The server now holds these values, so the form is clean before the
+      // reselect below runs (which would otherwise prompt to discard).
+      markFormClean();
       await loadArticles();
       selectArticle(result.data.id);
       if (result.data.reviewNotice) {
@@ -427,6 +541,11 @@
       // Server may return additional validation details.
       toast(error.message, true);
       return null;
+    } finally {
+      articleSaving = false;
+      setArticleBusy(false);
+      // A failed save deliberately leaves the form dirty, so the guard below
+      // still protects the user's edits.
     }
   }
 
@@ -443,27 +562,38 @@
     const id = $('articleId').value;
     if (!id) return;
     if (!window.confirm('Delete this article permanently?')) return;
+    setArticleBusy(true);
     try {
       await request(`/admin/articles/${id}`, { method: 'DELETE' });
       state.selectedId = null;
       await loadArticles();
       fillForm(null);
+      markFormClean();
       toast('Article deleted');
     } catch (error) {
       toast(error.message, true);
+    } finally {
+      setArticleBusy(false);
     }
   });
 
   $('previewArticle').addEventListener('click', () => {
     const article = state.articles.find((item) => item.id === Number($('articleId').value));
     if (!article) return;
-    if (article.status !== 'published') {
-      toast('Save as published before opening the public preview.', true);
+    if (article.externalLink) {
+      window.open(article.externalLink, '_blank', 'noopener');
       return;
     }
-    const destination = article.externalLink
-      || `/articles/${encodeURIComponent(article.slug)}/`;
-    window.open(destination, '_blank', 'noopener');
+    if (article.status !== 'published') {
+      // Drafts are rendered by the authenticated preview route, so the real
+      // layout can be checked before publishing. Unsaved edits are not part of
+      // it — save (or save a draft) first to see them.
+      const origin = encodeURIComponent(window.location.origin);
+      window.open(`${API}/admin/articles/${article.id}/preview?origin=${origin}`, '_blank', 'noopener');
+      if (isFormDirty()) toast('Preview shows the saved version — save to include your edits.');
+      return;
+    }
+    window.open(`/articles/${encodeURIComponent(article.slug)}/`, '_blank', 'noopener');
   });
 
   const SNIPPETS = {
@@ -1775,8 +1905,15 @@
     return Boolean(tab && !tab.hidden);
   }
 
-  /** The dashboard is the default panel; fall back to the first tab this session may use. */
+  /**
+   * Chooses the opening panel: a `#panel` deep link when this session may open
+   * it, otherwise the current tab if it survived the capability gate, otherwise
+   * the first permitted tab (owners get Dashboard, editors get Articles).
+   */
   function activateFirstVisibleTab() {
+    const wanted = window.location.hash.replace('#', '');
+    const linked = wanted ? document.querySelector(`.tab[data-panel="${wanted}"]`) : null;
+    if (linked && !linked.hidden) { linked.click(); return; }
     const active = document.querySelector('.tab.active');
     if (active && !active.hidden) return;
     document.querySelector('.tab:not([hidden])')?.click();
@@ -1792,13 +1929,19 @@
       $('sessionState').hidden = false;
       sessionPermissions.clear();
       for (const permission of payload.data?.permissions ?? []) sessionPermissions.add(permission);
-      document.querySelectorAll('.tab').forEach((tab) => {
-        const required = TAB_PERMISSIONS[tab.dataset.panel];
-        if (required && !sessionPermissions.has(required)) tab.hidden = true;
-      });
       const capabilities = await request('/admin/accounts/capabilities');
       currentAuthor = capabilities.data.author || null;
       isOwner = capabilities.data.owner === true;
+      document.querySelectorAll('.tab').forEach((tab) => {
+        const panel = tab.dataset.panel;
+        const required = TAB_PERMISSIONS[panel];
+        // Approved authors moderate comments on their own articles without the
+        // global `engagement.moderate` grant (the API scopes the query for them).
+        const allowedForAuthor = panel === 'comments' && Boolean(currentAuthor);
+        const denied = Boolean(required) && !sessionPermissions.has(required) && !allowedForAuthor;
+        if (denied) tab.hidden = true;
+        if (denied) tab.dataset.denied = '1'; else delete tab.dataset.denied;
+      });
       $('accountAccessTab').hidden = !isOwner;
       if (isOwner) loadAccounts();
       if (currentAuthor) {
@@ -1806,7 +1949,9 @@
         document.title = 'My author workspace — Sholynk Tech';
         const allowed = new Set(['articles', 'media', 'comments', 'profile', 'author-analytics']);
         document.querySelectorAll('.tab').forEach((tab) => {
-          tab.hidden = !allowed.has(tab.dataset.panel);
+          // Never re-show a tab the permission gate removed; author-only panels
+          // are hidden in the markup and revealed here.
+          tab.hidden = tab.dataset.denied === '1' || !allowed.has(tab.dataset.panel);
           if (['articles', 'media', 'comments'].includes(tab.dataset.panel)) tab.textContent = `My ${tab.dataset.panel}`;
         });
         ['author', 'authorSlug', 'submitterEmail'].forEach((id) => { $(id).readOnly = true; });
@@ -1837,6 +1982,7 @@
   bootSession().then((user) => {
     if (!user) return;
     fillForm(null);
+    markFormClean();
     loadArticles().catch((error) => toast(error.message, true));
     if (currentAuthor) { loadSelfProfile(); }
     else {

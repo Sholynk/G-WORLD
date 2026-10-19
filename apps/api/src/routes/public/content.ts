@@ -14,53 +14,20 @@
 import { Hono } from 'hono';
 import type { AppEnv, AppContext } from '../../env.js';
 import { authorScope } from '../../middleware/author-scope.js';
-import { createDb, type Db } from '../../db/client.js';
+import { createDb } from '../../db/client.js';
 import * as articlesRepo from '../../db/repositories/articles.js';
 import * as authorsRepo from '../../db/repositories/authors.js';
 import * as settingsRepo from '../../db/repositories/settings.js';
 import * as mediaRepo from '../../db/repositories/media.js';
 import { articleListQuerySchema, idOrSlugParamSchema, LIMITS } from '@sholynk/shared';
 import { parseQuery, parseParam } from '../../middleware/validate.js';
-import { accountSuspended, notFound, unauthenticated } from '../../lib/errors.js';
+import { notFound } from '../../lib/errors.js';
+import { assertEditorialSession, assertCanReadPrivateArticle, canReadAnyArticle } from '../../lib/article-visibility.js';
 import { ok } from '../helpers.js';
 
 export const publicContentRoutes = new Hono<AppEnv>();
 // Editorial contact details and review notes are not public article metadata.
 const publicArticle = (article: articlesRepo.ArticleDto) => ({ ...article, submitterEmail: '', reviewNotes: '' });
-
-/**
- * Inline session guard for endpoints that are public for published content but
- * editorial-only otherwise (the legacy `requireAdmin` fall-through branches).
- */
-function assertEditorialSession(c: AppContext): void {
-  const auth = c.get('auth');
-  if (!auth) throw unauthenticated();
-  if (auth.status === 'suspended' || auth.status === 'deactivated') throw accountSuspended();
-}
-
-/**
- * Reading another account's unpublished work needs `article.read.any`.
- *
- * A session alone is not enough: a contributing editor (`article.submit` only)
- * may only preview their own drafts, pending articles and scheduled pieces.
- * Everyone else sees the same 404 a reader would get, so unpublished IDs and
- * slugs do not leak either.
- */
-function canReadAnyArticle(c: AppContext): boolean {
-  return c.get('auth')?.permissions.includes('article.read.any') === true;
-}
-
-async function assertCanReadPrivateArticle(c: AppContext, db: Db, articleId: number): Promise<void> {
-  assertEditorialSession(c);
-  if (canReadAnyArticle(c)) return;
-  const auth = c.get('auth');
-  // Ownership is not part of the public DTO, so resolve it from the row.
-  const owned = await db.first<{ owner_user_id: string | null }>(
-    'SELECT owner_user_id FROM articles WHERE id = ?',
-    [articleId],
-  );
-  if (!owned?.owner_user_id || owned.owner_user_id !== auth?.userId) throw notFound('Article not found');
-}
 
 const dbFrom = (c: AppContext) => createDb(c.env.DB, c.get('logger')?.debug.bind(c.get('logger')));
 

@@ -145,3 +145,58 @@ describe('unpublished article reads', () => {
     expect((await call(`/articles/${ownerDraft.slug}`, null)).status).toBe(401);
   });
 });
+
+describe('draft preview rendering', () => {
+  it('renders an author\'s own draft through the public shell, uncached and unindexed', async () => {
+    const response = await call(`/admin/articles/${ownerDraft.id}/preview?origin=https://publication.example`, 'owner');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(response.headers.get('cache-control')).toBe('no-store, private');
+    expect(response.headers.get('x-robots-tag')).toContain('noindex');
+    const html = await response.text();
+    expect(html).toContain('Owner private pending draft');
+    expect(html).toContain('Private planning notes');
+  });
+
+  it('refuses another account\'s draft and anonymous callers', async () => {
+    expect((await call(`/admin/articles/${ownerDraft.id}/preview`, 'editor')).status).toBe(404);
+    expect((await call(`/admin/articles/${ownerDraft.id}/preview`, null)).status).toBe(401);
+  });
+
+  it('explains a bodyless draft instead of rendering an empty page', async () => {
+    const empty = await articles.create(db, {
+      title: 'Draft with no body', category: 'AI', status: 'draft',
+    }, identities.owner!.id);
+    const response = await call(`/admin/articles/${empty.id}/preview`, 'owner');
+    expect(response.status).toBe(422);
+  });
+});
+
+describe('unpublished article mutations', () => {
+  it('refuses to edit or delete another account\'s draft', async () => {
+    for (const method of ['PUT', 'PATCH']) {
+      const response = await call(`/admin/articles/${ownerDraft.id}`, 'editor', method, { title: 'Stolen title' });
+      expect(response.status, method).toBe(404);
+    }
+    // Deletion needs `article.write`, which a contributing editor does not hold.
+    expect((await call(`/admin/articles/${ownerDraft.id}`, 'editor', 'DELETE')).status).toBe(403);
+    expect((await articles.getById(db, ownerDraft.id))!.title).toBe('Owner private pending draft');
+
+    const source = await articles.addSource(db, ownerDraft.id, { title: 'Private', url: 'https://example.test/s' });
+    expect((await call(`/admin/articles/${ownerDraft.id}/sources`, 'editor', 'POST', { title: 'x', url: 'https://example.test' })).status).toBe(404);
+    expect((await call(`/admin/articles/${ownerDraft.id}/sources/${source!.id}`, 'editor', 'DELETE')).status).toBe(404);
+  });
+
+  it('still lets an editor edit their own submission', async () => {
+    const created = (await payload(await call('/admin/articles', 'editor', 'POST', {
+      title: 'Editor own draft', category: 'AI', status: 'draft', body: 'Own body',
+    }))).data as { id: number };
+
+    const updated = await call(`/admin/articles/${created.id}`, 'editor', 'PATCH', { title: 'Editor renamed draft' });
+    expect(updated.status).toBe(200);
+    expect((await payload(updated)).data).toMatchObject({ title: 'Editor renamed draft' });
+
+    // Editors still cannot delete: that stays with `article.write` holders.
+    expect((await call(`/admin/articles/${created.id}`, 'editor', 'DELETE')).status).toBe(403);
+  });
+});

@@ -81,6 +81,13 @@ requestContext → onError(envelope) → security(CORS+CSRF) → resolveAuth →
   `analytics.read`, `audit.read`; super admins add account/role management. An editor asking for
   `status: "published"` is silently redirected into the **submit-for-review** queue (`pending` +
   a `submissions` row + an email to `EDITOR_EMAIL`), exactly like the legacy approval mode.
+- **Unpublished reads** need `article.read.any` *or* ownership of the row. A signed-in account
+  without that permission only ever sees its own drafts (list, detail, sources, preview); anyone
+  else gets the same 404 as an unknown id/slug, so private titles, review notes and submitter
+  emails cannot leak through the content API (`apps/api/src/lib/article-visibility.ts`).
+- **`GET /admin/articles/:id/preview`** renders a draft through the public article shell so it can
+  be checked before publishing. It follows the same visibility rule, is owner/author scoped, and
+  answers `Cache-Control: no-store` with `X-Robots-Tag: noindex`.
 - **Auth.** Opaque session tokens (SHA-256 at rest), `sk_session` HttpOnly cookie + `sk_csrf`
   double-submit, PBKDF2-SHA256 passwords with transparent rehash, lockouts, IP+account rate
   limits, audit trail, single-use email tokens, Resend/console mailer. Registration is disabled
