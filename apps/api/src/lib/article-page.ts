@@ -40,6 +40,7 @@ export interface RenderableArticle {
   relatedSlugs?: string[];
   tags?: string[];
   body: string;
+  hasBody?: boolean;
   img: string;
   alt: string;
   author: string;
@@ -197,13 +198,13 @@ export function relatedFor(article: RenderableArticle, allArticles: RenderableAr
     .map((slug) => bySlug.get(slug))
     .filter(
       (item): item is RenderableArticle =>
-        Boolean(item) && Boolean(item!.body || /^https?:\/\//i.test(item!.externalLink || '')),
+        Boolean(item) && Boolean(item!.hasBody || item!.body || /^https?:\/\//i.test(item!.externalLink || '')),
     );
   for (const item of allArticles) {
     if (chosen.length >= 4) break;
     if (
       item.slug !== article.slug &&
-      item.body &&
+      (item.hasBody || Boolean(item.body)) &&
       !item.externalLink &&
       item.category === article.category &&
       !chosen.some((entry) => entry.slug === item.slug)
@@ -379,7 +380,7 @@ export function renderHead(
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&amp;display=swap" rel="stylesheet" />
     <link href="${SITE_ROOT_PREFIX}styles.css" rel="stylesheet" />
     <script type="application/ld+json">${safeJson(schemaFor(article, canonical, author, origin))}</script>
   </head>`;

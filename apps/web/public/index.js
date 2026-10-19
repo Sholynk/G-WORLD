@@ -4,7 +4,7 @@
   // Populated from the CMS before first render.
   let heroSlides = [];
   let articles = [];
-  let allArticles = [];
+  let categories = ['All'];
   let contentRequestId = 0;
 
   const state = {
@@ -13,6 +13,7 @@
     isPaused: false,
     currentPage: 1,
     cardsPerPage: 10,
+    totalArticles: 0,
     query: '',
     category: 'All',
     observer: null
@@ -56,7 +57,7 @@
 
 
   function getArticleHeroSlidesForCategory(category) {
-    return allArticles
+    return articles
       .filter((article) => article.category === category)
       .slice(0, 5)
       .map(toHeroSlide);
@@ -68,7 +69,7 @@
       if (articleSlides.length) return articleSlides;
     }
 
-    return (heroArticles.length ? heroArticles : allArticles.slice(0, 4)).map(toHeroSlide);
+    return (heroArticles.length ? heroArticles : articles.slice(0, 4)).map(toHeroSlide);
   }
 
   function initHero() {
@@ -205,7 +206,7 @@
   }
 
   function getCategories() {
-    return ['All', ...Array.from(new Set(allArticles.map((article) => article.category)))];
+    return categories;
   }
 
   function initCategoryFilters() {
@@ -338,7 +339,7 @@
   }
 
   function createCard(article, index) {
-    const hasLongForm = Boolean(article.body && article.body.trim());
+    const hasLongForm = Boolean(article.hasBody || (article.body && article.body.trim()));
     const hasExternalArticle = /^https?:\/\//i.test(article.externalLink || '');
     const hasDestination = hasLongForm || hasExternalArticle;
     const card = document.createElement(hasDestination ? 'a' : 'article');
@@ -431,11 +432,10 @@
     if (!cardsContainer) return;
 
     const filteredArticles = getFilteredArticles();
-    const totalPages = Math.max(1, Math.ceil(filteredArticles.length / state.cardsPerPage));
+    const totalPages = Math.max(1, Math.ceil(state.totalArticles / state.cardsPerPage));
     state.currentPage = Math.min(state.currentPage, totalPages);
 
-    const start = (state.currentPage - 1) * state.cardsPerPage;
-    const pageArticles = filteredArticles.slice(start, start + state.cardsPerPage);
+    const pageArticles = filteredArticles;
 
     cardsContainer.innerHTML = '';
     if (!pageArticles.length) {
@@ -453,7 +453,7 @@
       cardsContainer.append(fragment);
     }
 
-    updateResultsCount(filteredArticles.length);
+    updateResultsCount(state.totalArticles);
     renderPagination(totalPages);
     observeCards();
     balanceMosaic();
@@ -485,7 +485,7 @@
       if (page === state.currentPage) button.setAttribute('aria-current', 'page');
       button.addEventListener('click', () => {
         state.currentPage = page;
-        renderCards();
+        refreshArticles({ preservePage: true });
         selectors.cardsContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       paginationNumbers.append(button);
@@ -512,17 +512,21 @@
     cards.forEach((card) => state.observer.observe(card));
   }
 
-  async function refreshArticles() {
+  async function refreshArticles({ preservePage = false } = {}) {
+    if (!preservePage) state.currentPage = 1;
     const requestId = ++contentRequestId;
     selectors.cardsContainer?.setAttribute('aria-busy', 'true');
     try {
       const next = await window.SholynkCMS.getArticles({
         status: 'published',
         category: state.category === 'All' ? undefined : state.category,
-        q: state.query.trim() || undefined
+        q: state.query.trim() || undefined,
+        limit: state.cardsPerPage,
+        offset: (state.currentPage - 1) * state.cardsPerPage
       });
       if (requestId !== contentRequestId) return;
       articles = next;
+      state.totalArticles = next.pagination?.total ?? next.length;
       renderCards();
     } catch (error) {
       if (requestId !== contentRequestId) return;
@@ -561,16 +565,16 @@
     prevPageBtn?.addEventListener('click', () => {
       if (state.currentPage > 1) {
         state.currentPage -= 1;
-        renderCards();
+        refreshArticles({ preservePage: true });
         selectors.cardsContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
 
     nextPageBtn?.addEventListener('click', () => {
-      const totalPages = Math.max(1, Math.ceil(getFilteredArticles().length / state.cardsPerPage));
+      const totalPages = Math.max(1, Math.ceil(state.totalArticles / state.cardsPerPage));
       if (state.currentPage < totalPages) {
         state.currentPage += 1;
-        renderCards();
+        refreshArticles({ preservePage: true });
         selectors.cardsContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
@@ -609,18 +613,23 @@
 
   async function loadContent() {
     const requestedCategory = getRequestedCategory();
-    const allRequest = window.SholynkCMS.getArticles({ status: 'published' });
-    const [completeList, heroArticles, visibleArticles] = await Promise.all([
-      allRequest,
-      window.SholynkCMS.getArticles({ status: 'published', hero: true }),
-      requestedCategory
-        ? window.SholynkCMS.getArticles({ status: 'published', category: requestedCategory })
-        : allRequest
+    const [categoryList, heroArticles, visibleArticles] = await Promise.all([
+      window.SholynkCMS.getCategories(),
+      window.SholynkCMS.getArticles({ status: 'published', hero: true, limit: 8 }),
+      window.SholynkCMS.getArticles({
+        status: 'published',
+        category: requestedCategory || undefined,
+        limit: state.cardsPerPage,
+        offset: 0
+      })
     ]);
-    allArticles = completeList;
-    const knownCategory = requestedCategory
-      && completeList.some((article) => article.category === requestedCategory);
-    articles = knownCategory ? visibleArticles : completeList;
+    categories = ['All', ...categoryList.filter(Boolean)];
+    const knownCategory = Boolean(requestedCategory && categories.includes(requestedCategory));
+    if (knownCategory) state.category = requestedCategory;
+    articles = knownCategory || !requestedCategory
+      ? visibleArticles
+      : await window.SholynkCMS.getArticles({ status: 'published', limit: state.cardsPerPage, offset: 0 });
+    state.totalArticles = articles.pagination?.total ?? articles.length;
     heroSlides = buildHeroSlides(heroArticles, knownCategory ? requestedCategory : '');
   }
 

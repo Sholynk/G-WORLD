@@ -315,6 +315,7 @@ export const articleListQuerySchema = z.object({
     .string()
     .optional()
     .transform((value) => value === 'true' || value === '1'),
+  fields: z.enum(['summary', 'full']).optional(),
   limit: z.coerce.number().int().min(1).max(LIMITS.LIST_LIMIT_MAX).optional(),
   offset: z.coerce.number().int().min(0).max(100_000).optional(),
 });

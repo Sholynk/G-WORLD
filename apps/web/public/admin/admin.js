@@ -277,7 +277,7 @@
   }
 
   async function loadArticles() {
-    const payload = await request('/articles?status=all');
+    const payload = await request('/articles?status=all&fields=full&limit=500');
     state.articles = payload.data;
     const options = $('categoryOptions');
     options.innerHTML = '';
