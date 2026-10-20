@@ -64,14 +64,44 @@ wrangler d1 execute sholynk_tech --remote --env production \
 
 ## 4. Deploy the API worker
 
+**Migrations first, code second.** The worker is written against the latest schema; deploying it
+onto an older database is how the October 2026 login outage happened. Both routes below enforce
+that order.
+
+### From GitHub Actions (recommended)
+
+`.github/workflows/deploy-api.yml` — manual only, `main` only, confirmation-gated:
+
+1. **One-time setup.** Repository secrets (`Settings → Secrets and variables → Actions`):
+   `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit · D1: Edit · Account Settings: Read) and
+   `CLOUDFLARE_ACCOUNT_ID`.
+2. **Recommended.** `Settings → Environments → production` → required reviewers. That is the
+   approval gate; the typed `deploy-api` confirmation is the second one.
+3. `Actions → deploy-api → Run workflow`, type `deploy-api`, choose whether to apply pending
+   migrations.
+
+The run lists pending migrations, applies them (wrangler stops at the first failure and aborts the
+job), **refuses to deploy while any migration remains**, deploys `env.production`, then calls
+`/health/ready` and fails the run when the deployment is degraded. A publish is not a success.
+
+### From a laptop
+
 ```bash
-npm run check:config -- --strict       # refuses placeholders/dev-routes in production
-npm run deploy:production -w @sholynk/api
-curl https://sholynk-tech-api.<your-subdomain>.workers.dev/api/v1/health/ready
+npm run check:config -- --strict                 # refuses placeholders/dev-routes in production
+npm run db:migrate:remote -w @sholynk/api        # schema before code
+npm run deploy:api                               # strict gate + env.production
+npm run check:deploy                             # reads API_ORIGIN from apps/web/wrangler.toml
 ```
 
+> `npm run deploy:api` used to publish the **top-level** wrangler block, whose vars are
+> `ENVIRONMENT: "development"`, `EMAIL_PROVIDER: "console"` and `ENABLE_DEV_ROUTES: "true"` — it
+> would have exposed the `/auth/dev/*` token-printing routes. It now runs the strict configuration
+> gate and deploys `env.production`; `npm run deploy:production -w @sholynk/api` is the same thing
+> spelled out.
+
 `health/ready` must report `database.reachable`, `migrations_applied`, the article count and an
-empty `config_problems` array. Two cron triggers are registered by `wrangler.jsonc`
+empty `config_problems` array — `npm run check:deploy` asserts exactly that, and names the missing
+schema objects when it fails. Two cron triggers are registered by `wrangler.jsonc`
 automatically: `*/15 * * * *` publishes scheduled articles within 15 minutes of their
 time, and `17 3 * * *` adds the nightly housekeeping pass (re-attribution, expired
 sessions/tokens, rate-limit windows, audit retention).
@@ -116,15 +146,20 @@ until then canonicals are derived from the request origin, which is correct for 
 ```bash
 WEB_BASE_URL=https://sholynk-tech.pages.dev npm run test:web:reader   # pages + SSR + SEO (read-only)
 curl https://sholynk-tech.pages.dev/api/v1/health/ready               # proxy → worker → D1
+DEPLOY_BASE_URL=https://sholynk-tech.pages.dev npm run check:deploy   # exit 1 unless fully ready
 curl -I https://sholynk-tech.pages.dev/articles/the-rise-of-quantum-computing/
 ```
+
+`npm run check:deploy` reads the readiness body (which stays HTTP 200 when degraded) and exits
+non-zero on a missing schema object, an unreachable database or a configuration problem. It is
+the same check `deploy-api.yml` runs after every deploy.
 
 The admin mode of the web smoke test (`test:web:admin`) signs in with the **development** demo
 accounts; it is for local use, not production.
 
 ### "Something went wrong on our side" on the dashboard
 
-That sentence is the API's generic `INTERNAL_ERROR` (`apps/api/src/errors.ts`); it is what the
+That sentence is the API's generic `INTERNAL_ERROR` (`apps/api/src/lib/errors.ts`); it is what the
 dashboard shows when *any* admin endpoint answers 500. The public site can look completely
 healthy at the same time, because the two halves touch different tables:
 
