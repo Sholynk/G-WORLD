@@ -49,10 +49,17 @@
       const detail = await response.json().catch(() => ({}));
       const error = detail.error || {};
       const details = Array.isArray(error.details) ? error.details.map((item) => item.message) : [];
-      throw new Error(
-        [(typeof error === 'string' ? error : error.message), ...details].filter(Boolean).join(' - ')
-        || `HTTP ${response.status}`
+      const message = [(typeof error === 'string' ? error : error.message), ...details]
+        .filter(Boolean).join(' - ') || `HTTP ${response.status}`;
+      // A server fault is reported with its request id: that single value is
+      // what turns "something went wrong" into a log line you can go and read.
+      const requestId = detail.meta && detail.meta.request_id;
+      const failure = new Error(
+        response.status >= 500 && requestId ? `${message} (ref ${requestId})` : message,
       );
+      failure.status = response.status;
+      failure.requestId = requestId || null;
+      throw failure;
     }
     return response.status === 204 ? null : response.json();
   }
@@ -2288,10 +2295,31 @@
     document.querySelector('.tab:not([hidden])')?.click();
   }
 
+  /**
+   * Describes a bootstrap failure in the page itself.
+   *
+   * Only a 401 means "you are not signed in"; every other failure is a server
+   * or network problem, and bouncing to the login page would hide it (and send
+   * the visitor round a sign-in loop that looks like a broken login). The
+   * request id is printed because it is the key to the API's log entry.
+   */
+  function showBootFailure(error) {
+    const reference = error?.requestId ? ` (HTTP ${error.status} · ref ${error.requestId})` : '';
+    $('adminLoading').textContent =
+      `The dashboard could not load: ${error?.message || 'unknown error'}${reference}`;
+  }
+
   async function bootSession() {
     try {
       const response = await fetch(`${API}/auth/me`, { credentials: 'same-origin' });
-      if (!response.ok) throw new Error('unauthenticated');
+      if (response.status === 401) { goToLogin(); return null; }
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        const failure = new Error(detail?.error?.message || `HTTP ${response.status}`);
+        failure.status = response.status;
+        failure.requestId = detail?.meta?.request_id ?? null;
+        throw failure;
+      }
       const payload = await response.json();
       const user = payload.data?.user;
       $('sessionUser').textContent = user?.display_name || user?.full_name || user?.email || 'Signed in';
@@ -2337,7 +2365,7 @@
       $('adminLoading').hidden = true;
       return user;
     } catch (error) {
-      goToLogin();
+      showBootFailure(error);
       return null;
     }
   }

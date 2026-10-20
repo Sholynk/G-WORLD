@@ -122,6 +122,46 @@ curl -I https://sholynk-tech.pages.dev/articles/the-rise-of-quantum-computing/
 The admin mode of the web smoke test (`test:web:admin`) signs in with the **development** demo
 accounts; it is for local use, not production.
 
+### "Something went wrong on our side" on the dashboard
+
+That sentence is the API's generic `INTERNAL_ERROR` (`apps/api/src/errors.ts`); it is what the
+dashboard shows when *any* admin endpoint answers 500. The public site can look completely
+healthy at the same time, because the two halves touch different tables:
+
+| Request | Tables it needs |
+| ------- | --------------- |
+| every public page / public API route | 0001–0006 |
+| sign-in and **every** authenticated request | 0007–0010 (`owner_enrollment`, `site_owner`, `author_applications`, `articles.owner_user_id`, …) |
+
+`accessAllowed()` runs on login and on every session request, so a database migrated only
+through 0006 answers `POST /api/v1/auth/login` with a 500 (`D1_ERROR: no such table:
+owner_enrollment`) while `/`, `/articles/<slug>/` and `/api/v1/articles` keep working.
+
+Diagnose it in two commands:
+
+```bash
+# 1. what the live schema is missing (the endpoint now names each object)
+curl https://sholynk-tech.pages.dev/api/v1/health/ready
+#    status "degraded" + database.missing_schema: ["table owner_enrollment (0008_owner_setup.sql)", …]
+
+# 2. which migrations the remote database has actually had applied
+npx wrangler d1 migrations list sholynk_tech --remote --config apps/api/wrangler.jsonc
+```
+
+Repair it by applying the pending migrations (never by editing the schema by hand):
+
+```bash
+npm run db:migrate:remote
+curl https://sholynk-tech.pages.dev/api/v1/health/ready     # status must be "ready"
+```
+
+Locally the equivalent is `npm run db:reset:local -- --yes` (wipes and rebuilds
+`apps/api/.wrangler`), then restart `npm run dev` so the Worker reopens the new database.
+
+The dashboard prints the API's `request_id` (`ref req_…`) with any 5xx; the same id is in
+`wrangler tail` and in the Worker's logs. A 5xx during bootstrap is shown on the page rather than
+redirecting to sign-in, precisely so it cannot be mistaken for an expired session.
+
 ## 7. Email (Resend)
 
 1. Verify your sending domain at resend.com → set `EMAIL_FROM` to an address on it.
