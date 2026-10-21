@@ -38,21 +38,95 @@ healthRoutes.get('/health', (c) =>
   }),
 );
 
+/**
+ * Schema objects that later migrations add and that only the *authenticated*
+ * half of the API touches.
+ *
+ * This list exists because counting roles is not a migration check: a database
+ * migrated through 0006 looks perfectly healthy to every public route, while
+ * sign-in (`accessAllowed` → `owner_enrollment`) and the whole admin dashboard
+ * fail with `no such table`. That is a 500 that says nothing useful, so the
+ * readiness probe now names the missing objects instead.
+ */
+const REQUIRED_SCHEMA = {
+  tables: [
+    ['site_owner', '0007_author_access.sql'],
+    ['author_applications', '0007_author_access.sql'],
+    ['owner_enrollment', '0008_owner_setup.sql'],
+    ['owner_security_tokens', '0008_owner_setup.sql'],
+  ],
+  columns: [
+    ['articles', 'owner_user_id', '0009_author_workspace.sql'],
+    ['images', 'owner_user_id', '0009_author_workspace.sql'],
+    ['authors', 'social_links_json', '0009_author_workspace.sql'],
+  ],
+  triggers: [
+    ['articles_reserved_slug_insert', '0010_reserved_article_urls.sql'],
+    ['articles_reserved_slug_update', '0010_reserved_article_urls.sql'],
+  ],
+} as const;
+
+/** Objects in REQUIRED_SCHEMA that the live database does not have. */
+async function missingSchema(db: ReturnType<typeof createDb>): Promise<string[]> {
+  const tables = new Set(
+    (await db.all<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type = 'table'
+        AND name IN (${REQUIRED_SCHEMA.tables.map(() => '?').join(',')})`,
+      REQUIRED_SCHEMA.tables.map(([name]) => name),
+    )).map((row) => row.name),
+  );
+  const columns = new Map<string, Set<string>>();
+  for (const table of new Set(REQUIRED_SCHEMA.columns.map(([name]) => name))) {
+    const rows = await db.all<{ name: string }>(`SELECT name FROM pragma_table_info(?)`, [table]);
+    columns.set(table, new Set(rows.map((row) => row.name)));
+  }
+  const triggers = new Set(
+    (await db.all<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type = 'trigger'
+        AND name IN (${REQUIRED_SCHEMA.triggers.map(() => '?').join(',')})`,
+      REQUIRED_SCHEMA.triggers.map(([name]) => name),
+    )).map((row) => row.name),
+  );
+
+  const missing: string[] = [];
+  for (const [name, migration] of REQUIRED_SCHEMA.tables) {
+    if (!tables.has(name)) missing.push(`table ${name} (${migration})`);
+  }
+  for (const [table, column, migration] of REQUIRED_SCHEMA.columns) {
+    if (!columns.get(table)?.has(column)) missing.push(`column ${table}.${column} (${migration})`);
+  }
+  for (const [name, migration] of REQUIRED_SCHEMA.triggers) {
+    if (!triggers.has(name)) missing.push(`trigger ${name} (${migration})`);
+  }
+  return missing;
+}
+
 healthRoutes.get('/health/ready', async (c) => {
   const config = c.get('config');
   const problems = findConfigProblems(config, c.env);
 
-  let database: { reachable: boolean; migrations_applied: boolean; articles?: number; error?: string };
+  let database: {
+    reachable: boolean;
+    migrations_applied: boolean;
+    articles?: number;
+    missing_schema?: string[];
+    error?: string;
+  };
   try {
     const db = createDb(c.env.DB);
-    const [roles, articles] = await Promise.all([
+    const [roles, articles, missing] = await Promise.all([
       db.first<{ total: number }>(`SELECT COUNT(*) AS total FROM roles`),
       db.first<{ total: number }>(`SELECT COUNT(*) AS total FROM articles`),
+      missingSchema(db),
     ]);
     database = {
       reachable: true,
-      migrations_applied: Number(roles?.total ?? 0) >= 4,
+      // Reference data (0006) *and* the owner/author schema (0007–0010): the
+      // dashboard cannot sign in without the latter, even though every public
+      // page works.
+      migrations_applied: Number(roles?.total ?? 0) >= 4 && missing.length === 0,
       articles: Number(articles?.total ?? 0),
+      ...(missing.length ? { missing_schema: missing } : {}),
     };
   } catch (error) {
     database = {

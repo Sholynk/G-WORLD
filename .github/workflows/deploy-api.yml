@@ -1,0 +1,161 @@
+# Sholynk Tech — gated production deploy for the API worker.
+#
+# Manual only. Nothing here runs on a push: a workflow that can rewrite the
+# production schema must be started by a person who means it.
+#
+# Why it exists
+# -------------
+# In October 2026 the production D1 database sat four migrations behind the
+# deployed worker. Every public page worked, `/health` said "ok", and the admin
+# dashboard could not sign in — `POST /auth/login` read `owner_enrollment`,
+# which did not exist yet, and returned a generic 500. Nothing in the deploy
+# path compared the two, because there was no deploy path: the worker was
+# pushed by hand and the schema was never applied.
+#
+# Two more traps this file closes:
+#
+#   1. `npm run deploy:api` used to publish the *top-level* wrangler block,
+#      whose vars are `ENVIRONMENT: "development"`, `EMAIL_PROVIDER: "console"`
+#      and `ENABLE_DEV_ROUTES: "true"` — i.e. it would have exposed the
+#      `/auth/dev/*` token-printing routes to the internet. The production
+#      environment block is the only thing deployed here.
+#   2. A publish is not a success. The last step calls `/health/ready` and
+#      fails the run when the database is unreachable, behind on migrations,
+#      or missing required objects (it names them).
+#
+# Before the first run
+# --------------------
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN    Workers Scripts: Edit · D1: Edit · Account Settings: Read
+#   CLOUDFLARE_ACCOUNT_ID   the account that owns the sholynk_tech database
+#
+# Recommended: attach the `production` environment (Settings → Environments) with
+# required reviewers. That is the approval gate; the typed confirmation below is
+# the second, so a mis-click cannot migrate a database on its own.
+
+name: deploy-api
+
+run-name: deploy-api · ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type deploy-api to confirm a production migration and deploy
+        required: true
+        type: string
+      migrations:
+        description: Apply pending D1 migrations before deploying
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+# Never cancel a release halfway: interrupting `migrations apply` or `deploy`
+# leaves the running system in a state nobody chose.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: migrate, deploy, verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Runs before the install so a mistyped confirmation costs seconds, not a
+      # minute of npm. Both values arrive through the environment: interpolating
+      # `inputs.*` straight into a shell script is a command-injection vector.
+      - name: Confirmation gate
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_NAME" != "main" ]; then
+            echo "::error::Production deploys run from main only; this run is on '$REF_NAME'."
+            exit 1
+          fi
+          if [ "$CONFIRM" != "deploy-api" ]; then
+            echo "::error::Type exactly 'deploy-api' in the confirm input, then run again."
+            exit 1
+          fi
+          echo "Deploying $(git rev-parse --short HEAD) from $REF_NAME."
+
+      - name: Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies (npm ci)
+        run: npm ci --progress=false
+
+      # Refuses placeholders, committed secrets, dev routes in the production
+      # block, and a migration directory that does not match the config.
+      - name: Configuration gate (strict)
+        run: npm run check:config -- --strict
+
+      - name: Pending migrations (read-only)
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations list sholynk_tech --remote --env production \
+            --config apps/api/wrangler.jsonc
+
+      # Wrangler's SQLite driver applies files in filename order and stops at the
+      # first failure, so a failed apply aborts the job before anything deploys.
+      # Every migration shipped since 0001 is written to be safe to re-run.
+      - name: Apply pending migrations
+        if: ${{ inputs.migrations }}
+        run: npm run db:migrate:remote -w @sholynk/api
+
+      # The gate that would have caught the October 2026 incident: never ship
+      # code onto a schema it was not written against.
+      - name: Refuse to deploy onto an outdated schema
+        run: |
+          set -euo pipefail
+          output="$(npx wrangler d1 migrations list sholynk_tech --remote --env production \
+            --config apps/api/wrangler.jsonc 2>&1)"
+          echo "$output"
+          if ! grep -q "No migrations to apply" <<<"$output"; then
+            echo "::error::Migrations are still pending. Re-run with 'Apply pending D1 migrations' enabled."
+            exit 1
+          fi
+
+      - name: Deploy the API worker (production environment)
+        run: npm run deploy:production -w @sholynk/api
+
+      # The worker answering is not the same as the worker working. This reads
+      # the readiness body (which stays HTTP 200 when degraded) and turns a
+      # half-migrated or misconfigured deployment into a red run.
+      - name: Verify the deployment is serving
+        run: node scripts/check-deployment.mjs --attempts 10 --delay-ms 6000
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### deploy-api"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Commit | \`$(git rev-parse --short HEAD)\` |"
+            echo "| Ref | \`${{ github.ref_name }}\` |"
+            echo "| Migrations applied this run | \`${{ inputs.migrations }}\` |"
+            echo "| Triggered by | @${{ github.actor }} |"
+            echo ""
+            echo "Rollback: \`npx wrangler deployments list --config apps/api/wrangler.jsonc --env production\`,"
+            echo "then \`npx wrangler rollback <id> --config apps/api/wrangler.jsonc --env production\`."
+            echo "A rollback of the worker does **not** roll the database back."
+          } >> "$GITHUB_STEP_SUMMARY"

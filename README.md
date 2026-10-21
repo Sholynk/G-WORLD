@@ -66,9 +66,15 @@ npm run test:smoke          # destructive end-to-end API pass (needs `npm run de
 npm run test:web            # page-level pass against the dev server (reader + admin)
 npm run build:web           # the Pages deployment gate (runs in CI and on Cloudflare)
 npm run db:reset:local      # wipe → migrate → seed the local D1
-npm run deploy:api          # wrangler deploy (production env)
+npm run db:migrate:remote   # apply pending migrations to the production D1
+npm run deploy:api          # strict gate + wrangler deploy (production env)
+npm run check:deploy        # exit 1 unless the deployment is actually ready
 npm run deploy:web          # wrangler pages deploy
 ```
+
+Production releases also run from GitHub: **Actions → deploy-api** (manual, `main` only,
+confirmation-gated, migrations before code, readiness verified afterwards). See
+[docs/06-deployment.md](docs/06-deployment.md) §4.
 
 ## Cloudflare resources (created once, by you)
 

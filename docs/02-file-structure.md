@@ -14,7 +14,9 @@ it asserts the paths listed here actually exist, so documentation drift fails th
 ├── .env.example                  # root tooling variables (names, public URLs)
 ├── .dev.vars.example             # copy of apps/api/.dev.vars.example
 │
-├── .github/workflows/ci.yml      # npm ci → verify → build:web
+├── .github/workflows/
+│   ├── ci.yml                    # npm ci → verify → build:web → browser checks
+│   └── deploy-api.yml            # manual only: migrate D1 → deploy worker → verify readiness
 │
 ├── database/
 │   ├── migrations/               # D1 schema, applied in order, never edited once shipped
@@ -23,7 +25,11 @@ it asserts the paths listed here actually exist, so documentation drift fails th
 │   │   ├── 0003_editorial_content.sql      # articles, authors, article_sources, settings, images, redirects, submissions
 │   │   ├── 0004_reader_engagement.sql      # reactions, comments, subscribers, messages, article_views
 │   │   ├── 0005_triggers_and_indexes.sql   # updated_at triggers
-│   │   └── 0006_reference_data.sql         # role/permission catalogue (mirror of packages/shared/src/roles.ts)
+│   │   ├── 0006_reference_data.sql         # role/permission catalogue (mirror of packages/shared/src/roles.ts)
+│   │   ├── 0007_author_access.sql          # site_owner, author_applications, owner-protection triggers
+│   │   ├── 0008_owner_setup.sql            # owner_enrollment, owner_security_tokens (one-hour setup/code links)
+│   │   ├── 0009_author_workspace.sql       # per-author ownership columns + immutability triggers
+│   │   └── 0010_reserved_article_urls.sql  # reserved-slug triggers (sign-in, reset, admin… are not stories)
 │   └── seeds/                    # development fixtures — idempotent, never run in production
 │       ├── 001_demo_users.sql    # admin@sholynk.test / editor@sholynk.test (public passwords!)
 │       └── 003_content.sql       # the migrated publication: 56 articles, 6 long-form stories,
@@ -122,6 +128,7 @@ it asserts the paths listed here actually exist, so documentation drift fails th
 │   ├── check-config.mjs          # placeholders, secrets, coherence — strict on deploy
 │   ├── check-lockfile.mjs        # `npm ci` would succeed here
 │   ├── check-structure.mjs       # this document, enforced
+│   ├── check-deployment.mjs      # reads /health/ready; exits 1 when the deploy is degraded
 │   ├── typecheck-web.mjs         # Pages Functions tsc + browser scripts node --check
 │   ├── smoke-test.mjs            # destructive end-to-end API pass
 │   └── smoke-web.mjs             # page-level pass (reader/admin modes)

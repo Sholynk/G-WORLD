@@ -5,11 +5,9 @@
 # image does (so a manifest/lock-file drift fails here instead of on a deploy),
 # and `npm run verify` runs every gate the toolchain ships with.
 #
-# Deliberately not here yet (planned, see docs/02-file-structure.md):
-#   · deploy-api.yml — D1 migrations + `wrangler deploy` behind a manual gate
-#   · deploy-web.yml — `wrangler pages deploy` on main
-# Both need repository secrets; the Pages project is currently built by Cloudflare
-# from this repository instead.
+# Deploying is deliberately *not* here. Production releases live in
+# deploy-api.yml: manual, main-only, confirmation-gated, migrations before code.
+# The Pages project is built by Cloudflare from this repository.
 
 name: ci
 

@@ -39,6 +39,7 @@ const REQUIRED_FILES = {
     'vitest.config.ts',
     'package-lock.json',
     '.github/workflows/ci.yml',
+    '.github/workflows/deploy-api.yml',
   ],
   documentation: [
     'README.md',
@@ -103,6 +104,7 @@ const REQUIRED_FILES = {
     'scripts/smoke-web.mjs',
     'scripts/check-config.mjs',
     'scripts/check-structure.mjs',
+    'scripts/check-deployment.mjs',
     'scripts/typecheck-web.mjs',
     'scripts/deploy-web.mjs',
     'scripts/check-lockfile.mjs',
