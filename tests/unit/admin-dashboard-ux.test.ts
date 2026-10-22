@@ -28,7 +28,9 @@ let window: Window;
 let calls: { url: string; method: string; body?: unknown }[];
 let confirmAnswer = true;
 
-function load({ hash = '', total = ARTICLES.length } = {}) {
+function load({ hash = '', total = ARTICLES.length, bootFailure = null }: {
+  hash?: string; total?: number; bootFailure?: { status: number; message: string; requestId?: string } | null;
+} = {}) {
   calls = [];
   confirmAnswer = true;
   window = new Window({
@@ -45,6 +47,13 @@ function load({ hash = '', total = ARTICLES.length } = {}) {
     let data: unknown = [];
     let meta: unknown;
     if (path.endsWith('/auth/me')) {
+      if (bootFailure) {
+        return new window.Response(JSON.stringify({
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: bootFailure.message },
+          meta: { request_id: bootFailure.requestId },
+        }), { status: bootFailure.status });
+      }
       data = { user: { email: 'admin@example.test', display_name: 'Admin' }, permissions: PERMISSIONS };
     } else if (path.includes('/accounts/capabilities')) {
       data = { owner: false, author: null, workspace_pending: false };
@@ -140,6 +149,23 @@ describe('article editor', () => {
     load({ total: 812 });
     await vi.waitFor(() => expect(el('articleList').children.length).toBe(ARTICLES.length));
     expect(el('articleCount').textContent).toContain('812 total');
+  });
+});
+
+describe('bootstrap failures', () => {
+  it('shows a server fault with its request id instead of bouncing to sign-in', async () => {
+    load({ bootFailure: { status: 500, message: 'Something went wrong on our side. Please try again.', requestId: 'req_test_500' } });
+    await vi.waitFor(() => expect(el('adminLoading').textContent).toContain('could not load'));
+    expect(el('adminLoading').textContent).toContain('Something went wrong on our side');
+    expect(el('adminLoading').textContent).toContain('req_test_500');
+    expect(window.location.pathname).toBe('/admin/');
+    expect(el('adminMain').hidden).toBe(true);
+  });
+
+  it('still sends a genuinely unauthenticated visitor to the sign-in page', async () => {
+    load({ bootFailure: { status: 401, message: 'Sign in to continue' } });
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/login.html'));
+    expect(window.location.search).toContain('next=%2Fadmin%2F');
   });
 });
 
