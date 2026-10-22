@@ -4,9 +4,9 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="robots" content="noindex, nofollow"/>
-  <meta name="color-scheme" content="light"/>
-  <meta name="theme-color" content="#0b1528"/>
-  <title>Sholynk CMS - Admin</title>
+  <meta name="color-scheme" content="dark"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>Sholynk CMS — Analytics Dashboard</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
   <link href="admin.css" rel="stylesheet"/>
@@ -14,10 +14,10 @@
  <body>
   <header class="admin-header">
    <div class="brand">
-    <i class="fas fa-pen-nib" aria-hidden="true"></i>
+    <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
     <div>
      <strong>Sholynk CMS</strong>
-     <span id="workspaceLabel">Content dashboard</span>
+     <span id="workspaceLabel">Analytics dashboard • X theme</span>
     </div>
    </div>
    <div class="header-actions">
@@ -36,17 +36,17 @@
   <p id="adminLoading" role="status">Checking your session…</p>
   <noscript><p>JavaScript is required for the dashboard. <a href="/login.html">Login or register</a>.</p></noscript>
   <nav class="admin-tabs" id="adminNavigation" role="tablist" aria-label="Sections" hidden>
-   <button class="tab active" type="button" role="tab" data-panel="dashboard">Dashboard</button>
-   <button class="tab" type="button" data-panel="articles">Articles</button>
-   <button class="tab" type="button" data-panel="author-analytics" hidden>My analytics</button>
-   <button class="tab" type="button" data-panel="profile" hidden>My profile</button>
-   <button class="tab" type="button" data-panel="accounts" id="accountAccessTab" hidden>Author access <span id="pendingAccountCount"></span></button>
-   <button class="tab" type="button" data-panel="authors">Authors</button>
-   <button class="tab" type="button" data-panel="media">Media library</button>
-   <button class="tab" type="button" data-panel="comments">Comments</button>
-   <button class="tab" type="button" data-panel="inbox">Inbox</button>
-   <button class="tab" type="button" data-panel="settings">Site metadata</button>
-   <button class="tab" type="button" data-panel="system" hidden>System</button>
+   <button class="tab active" type="button" role="tab" data-panel="dashboard"><i class="fas fa-chart-column" aria-hidden="true"></i> Dashboard</button>
+   <button class="tab" type="button" data-panel="articles"><i class="fas fa-newspaper" aria-hidden="true"></i> Articles</button>
+   <button class="tab" type="button" data-panel="author-analytics" hidden><i class="fas fa-chart-simple" aria-hidden="true"></i> My analytics</button>
+   <button class="tab" type="button" data-panel="profile" hidden><i class="fas fa-user" aria-hidden="true"></i> My profile</button>
+   <button class="tab" type="button" data-panel="accounts" id="accountAccessTab" hidden><i class="fas fa-user-shield" aria-hidden="true"></i> Author access <span id="pendingAccountCount"></span></button>
+   <button class="tab" type="button" data-panel="authors"><i class="fas fa-users" aria-hidden="true"></i> Authors</button>
+   <button class="tab" type="button" data-panel="media"><i class="fas fa-photo-film" aria-hidden="true"></i> Media library</button>
+   <button class="tab" type="button" data-panel="comments"><i class="fas fa-comments" aria-hidden="true"></i> Comments</button>
+   <button class="tab" type="button" data-panel="inbox"><i class="fas fa-inbox" aria-hidden="true"></i> Inbox</button>
+   <button class="tab" type="button" data-panel="settings"><i class="fas fa-gear" aria-hidden="true"></i> Site metadata</button>
+   <button class="tab" type="button" data-panel="system" hidden><i class="fas fa-microchip" aria-hidden="true"></i> System</button>
   </nav>
 
   <main id="adminMain" hidden>

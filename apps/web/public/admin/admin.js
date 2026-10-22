@@ -1215,14 +1215,14 @@
 
   const PALETTE = {
     blue: '#1d9bf0',
-    blueSoft: 'rgba(29, 155, 240, 0.16)',
-    green: '#16a34a',
-    amber: '#f59e0b',
-    violet: '#7c3aed',
-    slate: '#64748b',
-    red: '#dc2626',
-    pink: '#db2777',
-    teal: '#0d9488'
+    blueSoft: 'rgba(29, 155, 240, 0.18)',
+    green: '#00ba7c',
+    amber: '#ffad1f',
+    violet: '#7856ff',
+    slate: '#536471',
+    red: '#f4212e',
+    pink: '#f91880',
+    teal: '#00cfc8'
   };
 
   const numberFormat = new Intl.NumberFormat('en-US');
@@ -1343,11 +1343,34 @@
   const baseOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: prefersReducedMotion ? false : undefined,
+    animation: prefersReducedMotion ? false : { duration: 900, easing: 'easeOutQuart' },
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { labels: { boxWidth: 12, boxHeight: 12, usePointStyle: true, font: { size: 11 } } }
-    }
+      legend: {
+        labels: {
+          boxWidth: 12,
+          boxHeight: 12,
+          usePointStyle: true,
+          useBorderRadius: true,
+          borderRadius: 3,
+          font: { size: 11, family: 'Inter, system-ui, sans-serif', weight: '600' },
+          color: '#8b98a5',
+          padding: 16
+        }
+      },
+      tooltip: {
+        backgroundColor: '#16181c',
+        titleColor: '#e7e9ea',
+        bodyColor: '#8b98a5',
+        borderColor: '#2f3336',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 10,
+        displayColors: true,
+        boxPadding: 3
+      }
+    },
+    scales: {}
   };
 
   /**
@@ -1416,8 +1439,17 @@
       options: {
         ...baseOptions,
         scales: {
-          y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(15,23,42,0.06)' } },
-          x: { grid: { display: false }, ticks: { maxTicksLimit: 10, autoSkip: true } }
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: '#71767b' },
+            grid: { color: 'rgba(47,51,54,0.65)', drawBorder: false },
+            border: { display: false }
+          },
+          x: {
+            grid: { display: false, drawBorder: false },
+            ticks: { maxTicksLimit: 10, autoSkip: true, color: '#71767b' },
+            border: { display: false }
+          }
         }
       }
     });
@@ -1474,8 +1506,8 @@
       options: {
         ...baseOptions,
         scales: {
-          x: { stacked: true, grid: { display: false } },
-          y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(15,23,42,0.06)' } }
+          x: { stacked: true, grid: { display: false, drawBorder: false }, ticks: { color: '#71767b' }, border: { display: false } },
+          y: { stacked: true, beginAtZero: true, ticks: { precision: 0, color: '#71767b' }, grid: { color: 'rgba(47,51,54,0.65)', drawBorder: false }, border: { display: false } }
         }
       }
     });
@@ -1492,8 +1524,8 @@
         indexAxis: 'y',
         plugins: { ...baseOptions.plugins, legend: { display: false } },
         scales: {
-          x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(15,23,42,0.06)' } },
-          y: { grid: { display: false } }
+          x: { beginAtZero: true, ticks: { precision: 0, color: '#71767b' }, grid: { color: 'rgba(47,51,54,0.65)', drawBorder: false }, border: { display: false } },
+          y: { grid: { display: false, drawBorder: false }, ticks: { color: '#71767b' }, border: { display: false } }
         }
       }
     });
