@@ -97,6 +97,15 @@
     next.click();
   }
 
+  /** Home/End jump straight to the first/last visible tab. */
+  function moveTabEdge(edge) {
+    const visible = TABS.filter((candidate) => !candidate.hidden);
+    const next = edge === 'start' ? visible[0] : visible[visible.length - 1];
+    if (!next) return;
+    next.focus();
+    next.click();
+  }
+
   TABS.forEach((tab) => {
     if (!tab.id) tab.id = `tab-${tab.dataset.panel}`;
     tab.setAttribute('role', 'tab');
@@ -105,8 +114,8 @@
     tab.addEventListener('keydown', (event) => {
       if (event.key === 'ArrowRight') { event.preventDefault(); moveTabFocus(tab, 1); }
       if (event.key === 'ArrowLeft') { event.preventDefault(); moveTabFocus(tab, -1); }
-      if (event.key === 'Home') { event.preventDefault(); moveTabFocus(tab, -TABS.length); }
-      if (event.key === 'End') { event.preventDefault(); moveTabFocus(tab, TABS.length); }
+      if (event.key === 'Home') { event.preventDefault(); moveTabEdge('start'); }
+      if (event.key === 'End') { event.preventDefault(); moveTabEdge('end'); }
     });
     tab.addEventListener('click', () => {
       paintTabState(tab);
