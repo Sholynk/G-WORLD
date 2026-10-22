@@ -2,9 +2,12 @@
 <html lang="en">
  <head>
   <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="robots" content="noindex, nofollow"/>
+  <meta name="color-scheme" content="light"/>
+  <meta name="theme-color" content="#0b1528"/>
   <title>Sholynk CMS - Admin</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
   <link href="admin.css" rel="stylesheet"/>
  </head>
@@ -687,10 +690,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <!-- Chart.js powers the dashboard graphs. Loaded before admin.js; the
-       dashboard degrades to its metric cards and tables if the CDN is
-       unreachable (for example on an offline machine). -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
+  <!-- Chart.js powers the dashboard graphs. Served from this deployment so the
+       charts render even when third-party CDNs are blocked or offline (the
+       CSP deliberately forbids inline scripts and third-party script hosts). -->
+  <script src="vendor/chart.umd.js"></script>
   <script src="pdf-extract.js"></script>
   <script src="admin.js"></script>
  </body>

@@ -23,7 +23,9 @@ deployed, in classic browser JavaScript.
 
 Typography is **Montserrat** (400–900, Google Fonts); icons are **Font Awesome 6.7.2** (cdnjs).
 Both are the original third parties — the `_headers` CSP allow-lists exactly them plus
-`cdn.jsdelivr.net` for the dashboard's Chart.js and the admin PDF importer's pdf.js. There are
+`cdn.jsdelivr.net` (the admin PDF importer's pdf.js still loads from jsDelivr; the dashboard's
+Chart.js now ships from this deployment as `admin/vendor/chart.umd.js`, so the graphs render even
+where third-party CDNs are blocked). There are
 **no inline scripts anywhere** (the legacy contact-form script was extracted to
 `contact-form.js`) so `script-src` stays `'self' + jsdelivr`; JSON-LD `<script
 type="application/ld+json">` blocks are inert data and remain.
@@ -37,7 +39,7 @@ type="application/ld+json">` blocks are inert data and remain.
 | `about/contact/help_&_support/privacy_policy` | script, cookie-consent (+ contact-form) | static marketing copy; a Pages Function rewrites canonical/OG URLs to the serving origin |
 | `login.html` / `reset.html`| script, login/reset                                 | session auth in the site's own visual language (`.auth-*` section of styles.css) |
 | `403/404/500.html`         | error.js                                            | root-absolute asset paths (they can be served at any URL depth) |
-| `admin/index.html`         | Chart.js (CDN), pdf-extract, admin                  | the editorial dashboard |
+| `admin/index.html`         | Chart.js (vendored `admin/vendor/`), pdf-extract, admin | the editorial dashboard |
 
 ## Behaviour ports (kept deliberately identical)
 
@@ -87,7 +89,12 @@ The legacy dashboard, session-based:
 - **PDF import runs in the browser** (`pdf-extract.js`, pdf.js from jsDelivr): title/teaser/body/
   tags/category heuristics ported from the legacy `pdf-import.js`. The manuscript never reaches
   the server until the author saves.
-- Charts degrade gracefully offline: metric cards and tables stay live without Chart.js.
+- **Visual design**: `admin.css` is its own design system, deliberately distinct from the public
+  site's black-and-blue chrome — deep-navy header with a gradient brand tile, sticky blurred tab
+  strip, soft indigo accents (`#3157f6`) on a cool `#f2f5fb` canvas, layered cards with hover
+  lift, tonal metric washes, chip-style status pills, refined tables/forms/dialogs and a dark
+  toast. The tab strip follows the WAI-ARIA tabs pattern (roving tabindex, Arrow/Home/End).
+- Charts degrade gracefully: metric cards and tables stay live without Chart.js.
 
 ## Performance & accessibility invariants
 
