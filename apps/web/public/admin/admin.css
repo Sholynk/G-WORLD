@@ -1496,3 +1496,43 @@ noscript p {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ==========================================================================
+   Theme toggle + light mode for admin (X palette)
+   ========================================================================== */
+.theme-toggle--admin {
+  width: 2.35rem; height: 2.35rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.theme-toggle--admin:hover { background: var(--surface-2); border-color: var(--line-strong); }
+
+/* Admin light theme — triggered via html[data-theme="light"] */
+html[data-theme="light"] {
+  --bg: #f7f9f9;
+  --bg-soft: #ffffff;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e8f0f7;
+  --surface-hover: #eef4f9;
+  --ink: #0f1419;
+  --ink-soft: #536471;
+  --ink-faint: #8b98a5;
+  --ink-muted: #667781;
+  --line: #e1e8ed;
+  --line-strong: #ccd6dd;
+  --line-light: #eff3f4;
+}
+html[data-theme="light"] body { background: #f7f9f9; color: #0f1419; }
+html[data-theme="light"] .admin-header { background: #000; border-bottom-color: #2f3336; }
+html[data-theme="light"] .admin-tabs { background: rgba(255,255,255,0.96); border-bottom-color: #e1e8ed; }
+html[data-theme="light"] .tab { color: #536471; }
+html[data-theme="light"] .tab:hover { background: #f1f5f9; border-color: #e1e8ed; color: #0f1419; }
+html[data-theme="light"] .panel-grid > *, html[data-theme="light"] .list-column, html[data-theme="light"] .form-column, html[data-theme="light"] .upload-card, html[data-theme="light"] .settings-card, html[data-theme="light"] .author-workspace-card, html[data-theme="light"] .chart-card, html[data-theme="light"] .table-card, html[data-theme="light"] .metric-card { background: #fff; border-color: #e1e8ed; }
+html[data-theme="light"] .metric-value, html[data-theme="light"] .panel > h2, html[data-theme="light"] .chart-head h3, html[data-theme="light"] .form-head h2 { color: #0f1419; }
+html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background: #fff; border-color: #cfd9de; color: #0f1419; }
+html[data-theme="light"] input::placeholder, html[data-theme="light"] textarea::placeholder { color: #8b98a5; }
+html[data-theme="light"] main { background: #f7f9f9; }
