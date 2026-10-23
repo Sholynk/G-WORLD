@@ -347,9 +347,11 @@ main {
 .ghost-button:hover { background: var(--surface-2); border-color: var(--line-strong); color: var(--ink); }
 
 .admin-header .ghost-button {
-  color: var(--ink);
+  /* The header chrome is black in BOTH themes: never let themed ink darken
+     these — the text stays white so Sign out is readable in light mode too. */
+  color: #fff;
   background: transparent;
-  border-color: var(--line);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 .admin-header .ghost-button:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); color: #fff; }
 
@@ -1122,7 +1124,8 @@ input:disabled, select:disabled, textarea:disabled {
 .media-card .media-body input {
   background: #000;
   border-color: var(--line);
-  color: var(--ink);
+  /* Fixed black fill in every theme -> the text must stay light everywhere. */
+  color: #e7e9ea;
   font-size: 0.75rem;
 }
 .media-card .media-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
@@ -1202,33 +1205,42 @@ input:disabled, select:disabled, textarea:disabled {
 .load-more { margin-top: 0.95rem; width: 100%; justify-content: center; }
 
 /* ============================= system panel ============================ */
+/* Platform snapshot: one row per stat — label left, value right, with a
+   horizontal rule under every row so the figures line up side by side and
+   read like a spec sheet instead of a loose card grid. */
 .system-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.85rem 1.15rem;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 1.75rem;
   margin: 0 0 1.15rem;
+  border-top: 1px solid var(--line);
 }
-@media (max-width: 560px) {
-  .system-stats { grid-template-columns: repeat(2, 1fr); gap: 0.75rem 1rem; }
-  .system-stats dd { font-size: 1.15rem; }
-}
-@media (max-width: 380px) {
-  .system-stats { grid-template-columns: 1fr; }
+.system-stats dt,
+.system-stats dd {
+  margin: 0;
+  padding: 0.72rem 0.15rem;
+  border-bottom: 1px solid var(--line);
 }
 .system-stats dt {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 .system-stats dd {
-  margin: 0.2rem 0 0;
-  font-size: 1.35rem;
+  font-size: 1.02rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
+  text-align: right;
   color: var(--ink);
+}
+@media (max-width: 380px) {
+  .system-stats { column-gap: 1rem; }
+  .system-stats dt { font-size: 0.72rem; }
+  .system-stats dd { font-size: 0.95rem; }
 }
 
 #panel-system .table-card { margin-bottom: 1.25rem; }
@@ -1562,10 +1574,13 @@ html[data-theme="light"] {
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 20px -12px rgba(15, 23, 42, 0.14);
   --shadow-pop: 0 12px 28px -14px rgba(15, 23, 42, 0.22), 0 4px 12px -6px rgba(15, 23, 42, 0.1);
 }
-html[data-theme="light"] .primary-button { box-shadow: 0 6px 16px rgba(29, 155, 240, 0.18); }
-html[data-theme="light"] .primary-button:hover { box-shadow: 0 8px 20px rgba(29, 155, 240, 0.22); }
-html[data-theme="light"] .ghost-button { color: #0f1419; }
-html[data-theme="light"] .ghost-button:hover { color: #0f1419; }
+html[data-theme="light"] .primary-button { color: #fff; box-shadow: 0 6px 16px rgba(29, 155, 240, 0.18); }
+html[data-theme="light"] .primary-button:hover { color: #fff; box-shadow: 0 8px 20px rgba(29, 155, 240, 0.22); }
+/* Buttons sitting on dark or chromatic fills keep white text in light theme —
+   themed ink must never land on these (the active tab chip and the primary
+   buttons are "dark buttons": their labels stay white). */
+html[data-theme="light"] .tab.active { color: #fff; }
+html[data-theme="light"] .tab.active:hover { color: #fff; background: var(--x-blue-hover); border-color: var(--x-blue-hover); }
 html[data-theme="light"] body { background: #f7f9f9; color: #0f1419; }
 html[data-theme="light"] .admin-header { background: #000; border-bottom-color: #2f3336; }
 html[data-theme="light"] .admin-tabs { background: rgba(255,255,255,0.96); border-bottom-color: #e1e8ed; }
