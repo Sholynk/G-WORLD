@@ -39,13 +39,50 @@ adminSystemRoutes.get('/system/stats', requirePermission('analytics.read'), asyn
 });
 
 adminSystemRoutes.get('/system/audit', requirePermission('audit.read'), async (c) => {
+  const raw = c.req.query('action');
   const query = parseQuery(c, limitQuerySchema);
   const db = dbFrom(c);
+  const limit = Math.min(query.limit ?? 50, 200);
+  // Support filtering for failed logins: ?action=auth.login.failed
+  if (raw) {
+    const rows = await auditRepo.listAuditEntries(db, {
+      page: 1,
+      perPage: limit,
+      action: raw,
+    });
+    return ok(c, rows.items.map(toAuditDto), { meta: { total: rows.total } });
+  }
   const rows = await auditRepo.listAuditEntries(db, {
     page: 1,
-    perPage: Math.min(query.limit ?? 50, 200),
+    perPage: limit,
   });
   return ok(c, rows.items.map(toAuditDto));
+});
+
+adminSystemRoutes.get('/system/audit/failed-logins', requirePermission('audit.read'), async (c) => {
+  const query = parseQuery(c, limitQuerySchema);
+  const page = Number(c.req.query('page') ?? 1);
+  const limit = Math.min(query.limit ?? 50, 200);
+  const db = dbFrom(c);
+  const rows = await auditRepo.listFailedLogins(db, { page: Number.isFinite(page) && page > 0 ? page : 1, perPage: limit });
+  return ok(c, rows.items.map(toAuditDto), { meta: { total: rows.total, page, per_page: limit, total_pages: Math.ceil(rows.total / limit) || 1 } });
+});
+
+adminSystemRoutes.delete('/system/audit/failed-logins', requirePermission('admin.manage'), async (c) => {
+  const db = dbFrom(c);
+  const deleted = await auditRepo.deleteFailedLoginAudits(db);
+  await c.get('logger')?.info?.('Failed login audit entries cleared', { deleted });
+  return ok(c, { deleted });
+});
+
+adminSystemRoutes.delete('/system/audit/:id', requirePermission('admin.manage'), async (c) => {
+  const db = dbFrom(c);
+  const id = c.req.param('id');
+  const deleted = await auditRepo.deleteAuditEntry(db, id);
+  if (!deleted) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Audit entry not found' } }, 404);
+  }
+  return ok(c, { deleted: true, id });
 });
 
 adminSystemRoutes.post('/system/maintenance', requirePermission('settings.write'), async (c) => {

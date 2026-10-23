@@ -2258,6 +2258,8 @@
         if (account.review_status === 'pending') actions = ['approve', 'decline'];
         if (account.review_status === 'approved' && account.account_status === 'active') actions = ['suspend'];
         if (account.review_status === 'approved' && account.account_status === 'suspended') actions = ['restore'];
+        // DB-safe permanent removal: reassigns articles/images to owner, preserves bylines by moving to house author
+        const canRemove = Boolean(account.user_id) && account.review_status !== null;
         actions.forEach((action) => {
           const button = document.createElement('button');
           button.type = 'button'; button.className = 'ghost-button';
@@ -2272,6 +2274,20 @@
           });
           item.append(button);
         });
+        if (canRemove) {
+          const rm = document.createElement('button');
+          rm.type = 'button'; rm.className = 'danger-button';
+          rm.innerHTML = '<i class="fas fa-user-xmark" aria-hidden="true"></i> Remove';
+          rm.title = 'Permanently delete this author account — articles and bylines are preserved (reassigned to house author)';
+          rm.addEventListener('click', () => {
+            accountAction = { userId: account.user_id, action: 'remove', email: account.email };
+            $('accountConfirmationDescription').textContent = `Permanently remove ${account.email}? Articles owned by this account will be reassigned to you and bylines moved to the house author. This cannot be undone.`;
+            $('accountConfirmationCode').value = '';
+            $('accountConfirmationError').textContent = '';
+            $('accountConfirmation').showModal();
+          });
+          item.append(rm);
+        }
         list.append(item);
       });
     } catch (error) { status.textContent = error.message; }
@@ -2290,15 +2306,157 @@
     const code = $('accountConfirmationCode').value;
     $('accountConfirmationCode').value = '';
     try {
-      const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
-        method: 'POST', body: JSON.stringify({ action: action.action, confirmation_code: code })
-      });
-      $('accountConfirmation').close();
-      toast(result.data.email_delivered ? 'Account updated and email sent.' : 'Account updated. Email delivery needs attention.');
-      await loadAccounts();
+      if (action.action === 'remove') {
+        const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
+          method: 'DELETE', body: JSON.stringify({ confirmation_code: code })
+        });
+        $('accountConfirmation').close();
+        toast('Author account permanently removed; content preserved.');
+        await loadAccounts();
+      } else {
+        const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
+          method: 'POST', body: JSON.stringify({ action: action.action, confirmation_code: code })
+        });
+        $('accountConfirmation').close();
+        toast(result.data.email_delivered ? 'Account updated and email sent.' : 'Account updated. Email delivery needs attention.');
+        await loadAccounts();
+      }
     } catch (error) { $('accountConfirmationError').textContent = error.message; }
     finally { button.disabled = false; }
   });
+
+  /* ---------------------- super-admin profile: password change ---------------------- */
+  async function loadAdminProfile() {
+    if (!isOwner) return;
+    const info = $('adminProfileInfo');
+    const status = $('adminProfileStatus');
+    if (!info) return;
+    try {
+      const me = await request('/auth/me');
+      const user = me.data?.user;
+      info.replaceChildren();
+      const makeCard = (label, value) => {
+        const card = document.createElement('div'); card.className = 'author-metric';
+        const v = document.createElement('strong'); v.textContent = value || '—';
+        v.style.fontSize = '0.95rem';
+        const l = document.createElement('span'); l.textContent = label;
+        card.append(v, l); return card;
+      };
+      info.append(
+        makeCard('Email', user?.email || ''),
+        makeCard('Role', user?.role || 'super_admin'),
+        makeCard('Display name', user?.display_name || user?.full_name || '—'),
+        makeCard('Status', user?.status || 'active')
+      );
+      status.textContent = 'Password change will sign out other sessions. Confirmation code required.';
+    } catch (e) { if ($('adminProfileStatus')) $('adminProfileStatus').textContent = e.message; }
+  }
+
+  const changePwForm = $('changePasswordForm');
+  if (changePwForm) {
+    changePwForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const cur = $('currentPassword').value;
+      const npw = $('newPassword').value;
+      const cnf = $('confirmNewPassword').value;
+      const err = $('changePasswordError');
+      err.textContent = '';
+      if (!cur || !npw || !cnf) { err.textContent = 'All password fields are required.'; return; }
+      if (npw !== cnf) { err.textContent = 'New passwords do not match.'; return; }
+      if (npw.length < 12) { err.textContent = 'New password must be at least 12 characters.'; return; }
+      const btn = changePwForm.querySelector('[type="submit"]');
+      btn.disabled = true;
+      try {
+        await request('/auth/change-password', {
+          method: 'POST',
+          body: JSON.stringify({ current_password: cur, new_password: npw })
+        });
+        toast('Password updated. Other sessions signed out.');
+        changePwForm.reset();
+      } catch (e) {
+        err.textContent = e.message;
+      } finally { btn.disabled = false; }
+    });
+  }
+
+  /* ---------------------- failed logins: audit log management ---------------------- */
+  let failedLoginsPage = 1;
+  const FAILED_PER_PAGE = 50;
+  async function loadFailedLogins() {
+    if (!isOwner && !sessionPermissions.has('audit.read')) return;
+    const countEl = $('failedLoginsCount');
+    const body = $('failedLoginsBody');
+    const pageEl = $('failedLoginsPage');
+    if (!body) return;
+    if (countEl) countEl.textContent = 'Loading failed logins…';
+    try {
+      const resp = await request(`/admin/system/audit/failed-logins?page=${failedLoginsPage}&limit=${FAILED_PER_PAGE}`);
+      const items = Array.isArray(resp.data) ? resp.data : (resp.data.items || []);
+      const total = resp.meta?.total ?? resp.data?.total ?? items.length;
+      // Server also returns pagination meta but we derive locally for simplicity
+      const totalPages = Math.ceil(total / FAILED_PER_PAGE) || 1;
+      if (countEl) countEl.textContent = total ? `${total} failed sign-in attempt(s) recorded.` : 'No failed sign-ins recorded.';
+      body.replaceChildren();
+      if (!items.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = 4; td.className = 'table-empty';
+        td.textContent = 'No failed sign-in attempts.';
+        tr.append(td); body.append(tr);
+      } else {
+        items.forEach((entry) => {
+          const tr = document.createElement('tr');
+          const when = document.createElement('td'); when.textContent = new Date(entry.created_at).toLocaleString();
+          const who = document.createElement('td');
+          // metadata contains attempted email; description has context; never expose ip_hash
+          let email = '';
+          try { const m = entry.metadata ? JSON.parse(entry.metadata) : {}; email = m.email || m.attempted_email || ''; } catch {}
+          const desc = entry.description || '';
+          who.textContent = email ? `${email} — ${desc}` : (desc || email || 'Unknown');
+          who.title = email ? `Attempted: ${email}` : '';
+          const reason = document.createElement('td');
+          reason.textContent = entry.action || 'auth.login.failed';
+          const actions = document.createElement('td');
+          const del = document.createElement('button');
+          del.type = 'button'; del.className = 'danger-button';
+          del.innerHTML = '<i class="fas fa-trash-can" aria-hidden="true"></i> Delete';
+          del.addEventListener('click', async () => {
+            if (!confirm(`Delete this failed login record from ${new Date(entry.created_at).toLocaleString()}?`)) return;
+            del.disabled = true;
+            try {
+              await request(`/admin/system/audit/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
+              toast('Failed login entry deleted.');
+              await loadFailedLogins();
+            } catch (e) { toast(e.message, true); }
+            finally { del.disabled = false; }
+          });
+          actions.append(del);
+          tr.append(when, who, reason, actions);
+          body.append(tr);
+        });
+      }
+      if (pageEl) pageEl.textContent = `Page ${failedLoginsPage} of ${totalPages}`;
+      const prev = $('prevFailedLogins'); const next = $('nextFailedLogins');
+      if (prev) prev.disabled = failedLoginsPage <= 1;
+      if (next) next.disabled = failedLoginsPage >= totalPages;
+    } catch (e) {
+      if (countEl) countEl.textContent = e.message;
+    }
+  }
+  $('refreshFailedLogins')?.addEventListener('click', () => loadFailedLogins());
+  $('clearAllFailedLogins')?.addEventListener('click', async () => {
+    const btn = $('clearAllFailedLogins');
+    if (!confirm('Delete ALL failed login records? This clears the audit trail for failed sign-ins.')) return;
+    btn.disabled = true;
+    try {
+      const res = await request('/admin/system/audit/failed-logins', { method: 'DELETE' });
+      toast(`Cleared ${res.data.deleted ?? 0} failed login record(s).`);
+      failedLoginsPage = 1;
+      await loadFailedLogins();
+    } catch (e) { toast(e.message, true); }
+    finally { btn.disabled = false; }
+  });
+  $('prevFailedLogins')?.addEventListener('click', () => { failedLoginsPage = Math.max(1, failedLoginsPage - 1); loadFailedLogins(); });
+  $('nextFailedLogins')?.addEventListener('click', () => { failedLoginsPage++; loadFailedLogins(); });
 
   /* -------------------------------- boot -------------------------------- */
 
@@ -2314,7 +2472,8 @@
     comments: 'engagement.moderate',
     inbox: 'inbox.read',
     settings: 'settings.write',
-    system: 'audit.read'
+    system: 'audit.read',
+    'admin-profile': 'audit.read'
   };
 
   function tabVisible(panel) {
@@ -2327,6 +2486,14 @@
    * it, otherwise the current tab if it survived the capability gate, otherwise
    * the first permitted tab (owners get Dashboard, editors get Articles).
    */
+  // Refresh audit when navigating to system so failed-logins stays current
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.panel === 'system' && (isOwner || sessionPermissions.has('audit.read'))) loadFailedLogins();
+      if (tab.dataset.panel === 'admin-profile' && isOwner) loadAdminProfile();
+    });
+  });
+
   function activateFirstVisibleTab() {
     const wanted = window.location.hash.replace('#', '');
     const linked = wanted ? document.querySelector(`.tab[data-panel="${wanted}"]`) : null;
@@ -2384,7 +2551,9 @@
         if (denied) tab.dataset.denied = '1'; else delete tab.dataset.denied;
       });
       $('accountAccessTab').hidden = !isOwner;
-      if (isOwner) loadAccounts();
+      const adminProfileTab = $('adminProfileTab');
+      if (adminProfileTab) adminProfileTab.hidden = !isOwner;
+      if (isOwner) { loadAccounts(); loadAdminProfile(); loadFailedLogins(); }
       if (currentAuthor) {
         $('workspaceLabel').textContent = 'Author workspace';
         document.title = 'My author workspace — Sholynk Tech';

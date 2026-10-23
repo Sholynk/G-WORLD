@@ -144,3 +144,33 @@ export async function pruneAuditLogs(db: Db, keepDays = 730): Promise<number> {
   const cutoff = new Date(Date.now() - keepDays * 86_400_000).toISOString();
   return db.changes(`DELETE FROM audit_logs WHERE created_at < ?`, [cutoff]);
 }
+
+export async function deleteAuditEntry(db: Db, id: string): Promise<number> {
+  return db.changes(`DELETE FROM audit_logs WHERE id = ?`, [id]);
+}
+
+export async function deleteAuditEntriesByAction(db: Db, action: string): Promise<number> {
+  // Allow LIKE pattern for failed logins (auth.login.failed covers all failures)
+  if (action.includes('%') || action.includes('_')) {
+    return db.changes(`DELETE FROM audit_logs WHERE action LIKE ?`, [action]);
+  }
+  return db.changes(`DELETE FROM audit_logs WHERE action = ?`, [action]);
+}
+
+export async function deleteFailedLoginAudits(db: Db): Promise<number> {
+  return db.changes(`DELETE FROM audit_logs WHERE action = 'auth.login.failed'`, []);
+}
+
+export async function listFailedLogins(db: Db, filters: { page: number; perPage: number }): Promise<{ items: AuditRow[]; total: number }> {
+  const where = `WHERE action = 'auth.login.failed'`;
+  const total = await db.count(`SELECT COUNT(*) AS total FROM audit_logs ${where}`);
+  const items = await db.all<AuditRow>(
+    `SELECT id, actor_user_id, actor_role, action, entity_type, entity_id, description,
+            metadata_json, status, ip_hash, user_agent, request_id, created_at
+       FROM audit_logs ${where}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?`,
+    [filters.perPage, (filters.page - 1) * filters.perPage],
+  );
+  return { items, total };
+}

@@ -46,6 +46,7 @@
    <button class="tab" type="button" data-panel="comments"><i class="fas fa-comments" aria-hidden="true"></i> Comments</button>
    <button class="tab" type="button" data-panel="inbox"><i class="fas fa-inbox" aria-hidden="true"></i> Inbox</button>
    <button class="tab" type="button" data-panel="settings"><i class="fas fa-gear" aria-hidden="true"></i> Site metadata</button>
+   <button class="tab" type="button" data-panel="admin-profile" id="adminProfileTab" hidden><i class="fas fa-user-gear" aria-hidden="true"></i> My account</button>
    <button class="tab" type="button" data-panel="system" hidden><i class="fas fa-microchip" aria-hidden="true"></i> System</button>
   </nav>
 
@@ -640,6 +641,33 @@
      <button class="primary-button" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Save metadata</button>
     </form>
    </section>
+   <!-- Super-Admin profile: password change, account info -->
+   <section class="panel" id="panel-admin-profile" aria-label="Super-admin profile" hidden>
+    <div class="dash-grid dash-grid--tables">
+     <section class="table-card" aria-labelledby="adminProfileTitle">
+      <div class="chart-head">
+       <h3 id="adminProfileTitle">Super-admin profile</h3>
+       <p class="chart-note">Your account as the designated site owner. Change your login password here; your separate confirmation code stays distinct.</p>
+      </div>
+      <div id="adminProfileInfo" class="author-metrics"></div>
+      <p class="list-count" id="adminProfileStatus" role="status" aria-live="polite"></p>
+     </section>
+     <section class="table-card" aria-labelledby="changePasswordTitle">
+      <div class="chart-head">
+       <h3 id="changePasswordTitle">Change password</h3>
+       <p class="chart-note">Requires your current password and separate confirmation code. Other sessions are signed out immediately.</p>
+      </div>
+      <form id="changePasswordForm" class="auth-form">
+       <div class="field"><label for="currentPassword">Current password <span class="req">*</span></label><input id="currentPassword" type="password" autocomplete="current-password" required maxlength="128" /></div>
+       <div class="field"><label for="newPassword">New password <span class="req">*</span></label><input id="newPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128" /><p class="hint">Minimum 12 characters. Must differ from your confirmation code.</p></div>
+       <div class="field"><label for="confirmNewPassword">Confirm new password <span class="req">*</span></label><input id="confirmNewPassword" type="password" autocomplete="new-password" required maxlength="128" /></div>
+       <p id="changePasswordError" role="alert" class="list-count" style="color:#ff6b6b"></p>
+       <button type="submit" class="primary-button"><i class="fas fa-key" aria-hidden="true"></i> Update password</button>
+      </form>
+     </section>
+    </div>
+   </section>
+
    <!-- System: account/content counts, the audit trail and on-demand housekeeping -->
    <section class="panel" id="panel-system" aria-label="System" hidden>
     <div class="dash-grid dash-grid--tables">
@@ -683,6 +711,36 @@
        </thead>
        <tbody id="auditTableBody"></tbody>
       </table>
+     </div>
+    </section>
+
+    <section class="table-card" aria-labelledby="failedLoginsTitle">
+     <div class="chart-head">
+      <h3 id="failedLoginsTitle">Failed sign-in attempts</h3>
+      <p class="chart-note">Every auth.login.failed audit entry. Delete clears the audit record; account lockouts are unaffected.</p>
+     </div>
+     <div class="list-toolbar inbox-toolbar">
+      <button class="danger-button" id="clearAllFailedLogins" type="button"><i class="fas fa-trash-can" aria-hidden="true"></i> Delete all</button>
+      <button class="ghost-button" id="refreshFailedLogins" type="button"><i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh</button>
+     </div>
+     <p class="list-count" id="failedLoginsCount" role="status" aria-live="polite"></p>
+     <div class="table-scroll">
+      <table class="data-table">
+       <thead>
+        <tr>
+         <th scope="col">When</th>
+         <th scope="col">Email / description</th>
+         <th scope="col">Reason</th>
+         <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+       </thead>
+       <tbody id="failedLoginsBody"></tbody>
+      </table>
+     </div>
+     <div class="form-head-actions" style="margin-top:12px">
+      <button type="button" class="ghost-button" id="prevFailedLogins">Previous</button>
+      <span id="failedLoginsPage"></span>
+      <button type="button" class="ghost-button" id="nextFailedLogins">Next</button>
      </div>
     </section>
    </section>

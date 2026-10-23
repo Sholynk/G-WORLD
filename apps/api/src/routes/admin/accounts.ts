@@ -74,3 +74,74 @@ adminAccountRoutes.post('/accounts/:userId', rateLimit('owner.confirmation'), ra
   }
   return ok(c, { action, user_id: userId, email_delivered: emailDelivered });
 });
+
+adminAccountRoutes.delete('/accounts/:userId', rateLimit('owner.confirmation'), rateLimit('owner.confirmation', 'account'), async (c) => {
+  const db = createDb(c.env.DB);
+  const owner = await access.owner(db);
+  if (!owner || owner.user_id !== c.get('auth')?.userId) throw forbidden('Only the website owner can manage accounts.');
+  const { confirmation_code } = await parseJson(c, z.object({ confirmation_code: z.string().min(1).max(128) }).strict());
+  await verifyOwnerCode(c, confirmation_code);
+
+  const userId = c.req.param('userId');
+  if (owner.user_id === userId) throw forbidden('The site owner account cannot be removed.');
+  const { notFound } = await import('../../lib/errors.js');
+  const target = await users.findById(db, userId);
+  if (!target) throw notFound('User not found');
+
+  // Prevent deleting the designated site_owner even if it differs from current auth (bootstrap safety)
+  const siteOwnerCheck = await db.first<{ user_id: string }>(`SELECT user_id FROM site_owner WHERE user_id = ? LIMIT 1`, [userId]);
+  if (siteOwnerCheck) throw forbidden('The designated site owner cannot be removed. Transfer ownership first.');
+
+  const ownerId = owner.user_id;
+
+  // Look up any author_application + linked authors row for the target
+  const appRow = await db.first<{ author_id: string | null }>(
+    `SELECT author_id FROM author_applications WHERE user_id = ? LIMIT 1`, [userId]
+  );
+  let oldSlug: string | null = null;
+  let oldAuthorId: string | null = null;
+  if (appRow?.author_id) {
+    oldAuthorId = appRow.author_id;
+    const authorRow = await db.first<{ slug: string }>(`SELECT slug FROM authors WHERE id = ? LIMIT 1`, [appRow.author_id]);
+    oldSlug = authorRow?.slug ?? null;
+  }
+
+  // 1) Reassign articles/images owned by this user to the site owner (satisfies owner_user_id RESTRICT + immutable trigger semantics)
+  // We reassign first so the subsequent DELETE users does not hit RESTRICT.
+  await db.run(`UPDATE articles SET owner_user_id = ? WHERE owner_user_id = ?`, [ownerId, userId]);
+  await db.run(`UPDATE images SET owner_user_id = ? WHERE owner_user_id = ?`, [ownerId, userId]);
+
+  // 2) Nullify reviewed_by references (author_applications.reviewed_by ON DELETE RESTRICT)
+  await db.run(`UPDATE author_applications SET reviewed_by = NULL WHERE reviewed_by = ?`, [userId]);
+
+  // 3) Reassign bylines (author_slug is plain TEXT, not a FK, but we preserve content by moving to house author)
+  const houseSlug = 'oluwashola-busari';
+  const houseName = 'Oluwashola Busari';
+  if (oldSlug && oldSlug !== houseSlug) {
+    await db.run(`UPDATE articles SET author_slug = ?, author = ? WHERE author_slug = ?`, [houseSlug, houseName, oldSlug]);
+  }
+
+  // 4) Remove owner_enrollment entry if this user was a pending enrollment (RESTRICT)
+  await db.run(`DELETE FROM owner_enrollment WHERE user_id = ?`, [userId]);
+
+  // 5) Delete author application first (author_id ON DELETE RESTRICT requires this order)
+  if (oldAuthorId) {
+    await db.run(`DELETE FROM author_applications WHERE user_id = ?`, [userId]);
+    // Only delete the authors row if it is not the protected house author
+    // authors.id INTEGER, but author_applications.author_id stores same id
+    // The house author is slug oluwashola-busari — never delete it.
+    if (oldSlug !== houseSlug) {
+      await db.run(`DELETE FROM authors WHERE id = ?`, [oldAuthorId]);
+    }
+  } else {
+    // Also clean any stray application rows without author_id (defensive)
+    await db.run(`DELETE FROM author_applications WHERE user_id = ?`, [userId]);
+  }
+
+  // 6) Finally delete the users row — remaining children (user_profiles, sessions, tokens, notifications, owner_security_tokens) cascade
+  const deleted = await db.changes(`DELETE FROM users WHERE id = ?`, [userId]);
+  if (!deleted) throw notFound('User could not be deleted (already removed?)');
+
+  await audit(c, { action: 'owner.author.deleted', entityType: 'user', entityId: userId, description: `Author account permanently removed by owner`, metadata: { deleted_user_email: target.email, old_slug: oldSlug } });
+  return ok(c, { deleted: true, user_id: userId, old_slug: oldSlug });
+});
