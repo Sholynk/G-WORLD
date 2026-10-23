@@ -1,12 +1,12 @@
-/** Owner-only application review and reversible account suspension. */
+/** Owner/super-admin application review and reversible account suspension. */
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { AppEnv } from '../../env.js';
+import type { AppContext, AppEnv } from '../../env.js';
 import { createDb } from '../../db/client.js';
 import * as access from '../../db/repositories/author-access.js';
 import * as users from '../../db/repositories/users.js';
 import { verifyOwnerCode } from '../../middleware/owner-confirmation.js';
-import { forbidden } from '../../lib/errors.js';
+import { badRequest, forbidden } from '../../lib/errors.js';
 import { sendEmail } from '../../lib/mailer/index.js';
 import { parseJson, parseQuery } from '../../middleware/validate.js';
 import { rateLimit } from '../../middleware/rate-limit.js';
@@ -17,8 +17,33 @@ import { ok } from '../helpers.js';
 export const adminAccountRoutes = new Hono<AppEnv>();
 const mutationSchema = z.object({
   action: z.enum(['approve', 'decline', 'suspend', 'restore']),
-  confirmation_code: z.string().min(1).max(128),
+  // Only the designated owner proves each action with the separate
+  // confirmation code; super administrators rely on their session grant.
+  confirmation_code: z.string().min(1).max(128).optional(),
 }).strict();
+
+/**
+ * The designated site owner and super administrators (holding the
+ * `admin.manage` / `user.write.any` grant) may review author accounts.
+ * Editors and authors are turned away with the same opaque message the
+ * owner-only flow used — minimal disclosure of who else can review.
+ */
+async function assertAccountManager(c: AppContext) {
+  const designated = await access.owner(createDb(c.env.DB));
+  const userId = c.get('auth')?.userId;
+  const isDesignatedOwner = designated?.user_id === userId;
+  const perms = c.get('auth')?.permissions ?? [];
+  const isSuperAdmin = perms.includes('admin.manage') || perms.includes('user.write.any');
+  if (!isDesignatedOwner && !isSuperAdmin) throw forbidden('Only the website owner can manage accounts.');
+  return { designated, isDesignatedOwner };
+}
+
+/** The owner proves sensitive actions with the separate confirmation code. */
+async function requireOwnerCodeWhenOwner(c: AppContext, isDesignatedOwner: boolean, confirmation_code?: string) {
+  if (!isDesignatedOwner) return;
+  if (!confirmation_code) throw badRequest('Enter your separate owner confirmation code to perform this action.');
+  await verifyOwnerCode(c, confirmation_code);
+}
 
 adminAccountRoutes.get('/accounts/capabilities', async (c) => {
   const db = createDb(c.env.DB);
@@ -28,13 +53,11 @@ adminAccountRoutes.get('/accounts/capabilities', async (c) => {
 });
 
 adminAccountRoutes.use('/accounts', async (c, next) => {
-  const designated = await access.owner(createDb(c.env.DB));
-  if (!designated || designated.user_id !== c.get('auth')?.userId) throw forbidden('Only the website owner can manage accounts.');
+  await assertAccountManager(c);
   await next();
 });
 adminAccountRoutes.use('/accounts/:userId', async (c, next) => {
-  const designated = await access.owner(createDb(c.env.DB));
-  if (!designated || designated.user_id !== c.get('auth')?.userId) throw forbidden('Only the website owner can manage accounts.');
+  await assertAccountManager(c);
   await next();
 });
 
@@ -48,7 +71,8 @@ adminAccountRoutes.get('/accounts', async (c) => {
 adminAccountRoutes.post('/accounts/:userId', rateLimit('owner.confirmation'), rateLimit('owner.confirmation', 'account'), async (c) => {
   const { action, confirmation_code } = await parseJson(c, mutationSchema);
   const db = createDb(c.env.DB);
-  await verifyOwnerCode(c, confirmation_code);
+  const designated = await access.owner(db);
+  await requireOwnerCodeWhenOwner(c, designated?.user_id === c.get('auth')!.userId, confirmation_code);
   const userId = c.req.param('userId');
   await access.transition(db, c.get('auth')!.userId, userId, action);
   await audit(c, { action: `owner.author.${action}`, entityType: 'user', entityId: userId, description: `Author account action: ${action}` });
@@ -78,12 +102,13 @@ adminAccountRoutes.post('/accounts/:userId', rateLimit('owner.confirmation'), ra
 adminAccountRoutes.delete('/accounts/:userId', rateLimit('owner.confirmation'), rateLimit('owner.confirmation', 'account'), async (c) => {
   const db = createDb(c.env.DB);
   const owner = await access.owner(db);
-  if (!owner || owner.user_id !== c.get('auth')?.userId) throw forbidden('Only the website owner can manage accounts.');
-  const { confirmation_code } = await parseJson(c, z.object({ confirmation_code: z.string().min(1).max(128) }).strict());
-  await verifyOwnerCode(c, confirmation_code);
+  const actingAsOwner = owner?.user_id === c.get('auth')?.userId;
+  const { confirmation_code } = await parseJson(c, z.object({ confirmation_code: z.string().min(1).max(128).optional() }).strict());
+  await requireOwnerCodeWhenOwner(c, actingAsOwner, confirmation_code);
 
   const userId = c.req.param('userId');
-  if (owner.user_id === userId) throw forbidden('The site owner account cannot be removed.');
+  if (c.get('auth')!.userId === userId) throw forbidden('You cannot remove your own account.');
+  if (owner && owner.user_id === userId) throw forbidden('The site owner account cannot be removed.');
   const { notFound } = await import('../../lib/errors.js');
   const target = await users.findById(db, userId);
   if (!target) throw notFound('User not found');
@@ -92,7 +117,9 @@ adminAccountRoutes.delete('/accounts/:userId', rateLimit('owner.confirmation'), 
   const siteOwnerCheck = await db.first<{ user_id: string }>(`SELECT user_id FROM site_owner WHERE user_id = ? LIMIT 1`, [userId]);
   if (siteOwnerCheck) throw forbidden('The designated site owner cannot be removed. Transfer ownership first.');
 
-  const ownerId = owner.user_id;
+  // Content reassigned to the designated owner when one exists, otherwise to
+  // the acting super administrator (RESTRICT keys need a living user row).
+  const ownerId = owner?.user_id ?? c.get('auth')!.userId;
 
   // Look up any author_application + linked authors row for the target
   const appRow = await db.first<{ author_id: string | null }>(

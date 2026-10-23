@@ -30,6 +30,14 @@ async function applicant(email = 'writer@example.test') {
     roleId: 'role_editor', status: 'pending_verification', authorApplication: true }, { displayName: 'Writer' });
 }
 
+/** A super administrator who is NOT the designated site owner. */
+async function superAdmin() {
+  const result = await users.createUser(db, { email: 'chief@example.test', passwordHash: confirmationHash,
+    roleId: 'role_super_admin', status: 'active' });
+  await users.markEmailVerified(db, result.userId);
+  return result.userId;
+}
+
 beforeEach(async () => {
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
@@ -46,7 +54,7 @@ beforeEach(async () => {
 });
 afterEach(() => sqlite.close());
 
-function app(actorId: string | null = ownerId, resolve = false, fullAdmin = false) {
+function app(actorId: string | null = ownerId, resolve = false, fullAdmin = false, permissions: string[] = []) {
   const instance = new Hono<AppEnv>();
   instance.onError(handleApiError);
   instance.use('*', async (c, next) => {
@@ -55,7 +63,7 @@ function app(actorId: string | null = ownerId, resolve = false, fullAdmin = fals
       rateLimitMultiplier: 1, features: { registration: true, devRoutes: false } } as never);
     c.set('clientIpHash', 'test-client');
     c.set('auth', actorId ? { userId: actorId, email: access.OWNER_EMAIL, roleKey: 'super_admin',
-      roleRank: 90, permissions: [], status: 'active', emailVerified: true, sessionId: 'test', displayName: 'Owner' } : null);
+      roleRank: 90, permissions, status: 'active', emailVerified: true, sessionId: 'test', displayName: 'Owner' } : null);
     await next();
   });
   if (resolve) instance.use('*', resolveAuth);
@@ -166,6 +174,33 @@ describe('HTTP authorization boundaries', () => {
     expect((await call(app(), `/admin/accounts/${userId}`, body)).status).toBe(200);
     expect((await call(app(), `/admin/accounts/${userId}`, body)).status).toBe(409);
     expect(await access.reviewStatus(db, userId)).toBe('approved');
+  });
+  it('lets a super administrator review applications without the owner confirmation code', async () => {
+    const { userId } = await applicant(); await users.markEmailVerified(db, userId);
+    const adminId = await superAdmin();
+    const instance = app(adminId, false, false, ['admin.manage', 'user.write.any']);
+    expect((await call(instance, '/admin/accounts')).status).toBe(200);
+    expect((await call(instance, `/admin/accounts/${userId}`, { action: 'approve' })).status).toBe(200);
+    expect(await access.reviewStatus(db, userId)).toBe('approved');
+  });
+  it('still refuses account management without the admin.manage grant', async () => {
+    // A privileged role claim alone is not the grant — the session must carry it.
+    const adminId = await superAdmin();
+    expect((await call(app(adminId), '/admin/accounts')).status).toBe(403);
+  });
+  it('rejects self-review even for super administrators', async () => {
+    const adminId = await superAdmin();
+    await expect(access.transition(db, adminId, adminId, 'suspend')).rejects.toThrow(/Owner-only/);
+  });
+  it('lets a super administrator suspend and restore an approved author', async () => {
+    const { userId } = await applicant(); await users.markEmailVerified(db, userId);
+    await access.transition(db, ownerId, userId, 'approve');
+    const adminId = await superAdmin();
+    const instance = app(adminId, false, false, ['admin.manage']);
+    expect((await call(instance, `/admin/accounts/${userId}`, { action: 'suspend' })).status).toBe(200);
+    expect((await users.findById(db, userId))?.status).toBe('suspended');
+    expect((await call(instance, `/admin/accounts/${userId}`, { action: 'restore' })).status).toBe(200);
+    expect((await users.findById(db, userId))?.status).toBe('active');
   });
   it('blocks pending and declined logins after password/email verification', async () => {
     const { userId } = await applicant(); await users.markEmailVerified(db, userId);

@@ -4540,6 +4540,18 @@ textarea:focus {
 }
 .input-wrap input { padding-left: 2.45rem; }
 .input-wrap--password input { padding-right: 2.6rem; }
+/* The type-selector padding shorthand above (`.auth-form input[type=…]`,
+   specificity 0,2,1) beats the plain class rules, leaving the leading icon
+   under the placeholder text — restate the icon gaps at matching specificity,
+   placed after, so the two keep their spacing on login and registration. */
+.auth-form .input-wrap input[type="email"],
+.auth-form .input-wrap input[type="password"],
+.auth-form .input-wrap input[type="text"] {
+  padding-left: 2.85rem;
+}
+.auth-form .input-wrap--password input[type="password"] {
+  padding-right: 2.85rem;
+}
 .pw-toggle {
   position: absolute;
   right: 0.35rem;

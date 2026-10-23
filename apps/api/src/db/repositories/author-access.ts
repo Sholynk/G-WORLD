@@ -48,8 +48,15 @@ export function validTransition(action: AccountAction, review: ReviewStatus, sta
 }
 
 export async function transition(db: Db, actorId: string, userId: string, action: AccountAction) {
+  // The designated site owner and super administrators share the review duty,
+  // but neither may act on their own account — every decision needs a second
+  // privileged hand (prevents self-bypass of the confirmation flow).
   const designated = await owner(db);
-  if (!designated || designated.user_id !== actorId || actorId === userId) throw forbidden('Owner-only action');
+  const isDesignatedOwner = Boolean(designated) && designated!.user_id === actorId;
+  const actorRole = await db.first<{ key: string }>(
+    `SELECT r.key FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?`, [actorId]);
+  const isSuperAdmin = actorRole?.key === 'super_admin';
+  if ((!isDesignatedOwner && !isSuperAdmin) || actorId === userId) throw forbidden('Owner-only action');
   const row = await db.first<{ status: ReviewStatus; account_status: string; email_verified_at: string | null }>(
     `SELECT a.status, u.status AS account_status, u.email_verified_at FROM author_applications a
      JOIN users u ON u.id = a.user_id WHERE a.user_id = ?`, [userId]);
