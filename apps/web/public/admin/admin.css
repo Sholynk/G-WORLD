@@ -902,6 +902,15 @@ input:disabled, select:disabled, textarea:disabled {
   min-height: 20rem;
   max-height: 26rem;
 }
+/* Cards whose body is ordinary page flow (the Platform snapshot list and the
+   Active sessions list) rather than a scrolling data table: let the card grow
+   with its content so the last row is never clipped by the height cap. */
+.table-card--fit {
+  min-height: 0;
+  max-height: none;
+  height: auto;
+}
+.dash-grid--tables .table-card--fit { height: auto; }
 .table-card .chart-head { flex-shrink: 0; }
 .table-card .table-scroll {
   flex: 1 1 auto;
@@ -1388,6 +1397,12 @@ dialog form > .ghost-button { margin-right: 0.55rem; }
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+  /* Long values (e.g. the account email) wrap inside the tile instead of
+     spilling over its edges onto neighbouring tiles. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
 }
 .author-metric span { font-size: 0.72rem; font-weight: 600; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; }
 
