@@ -196,10 +196,19 @@ describe('tab navigation', () => {
   });
 
   it('falls back to the dashboard for a hash the session cannot open', async () => {
-    load({ hash: '#accounts' });
+    load({ hash: '#author-analytics' });
     await vi.waitFor(() => expect(el('adminMain').hidden).toBe(false));
     expect(el('panel-dashboard').hidden).toBe(false);
-    expect(el('panel-accounts').hidden).toBe(true);
+    expect(el('panel-author-analytics').hidden).toBe(true);
+  });
+
+  it('opens the Author access panel for a super administrator', async () => {
+    load({ hash: '#accounts' });
+    await vi.waitFor(() => expect(el('adminMain').hidden).toBe(false));
+    await vi.waitFor(() => expect(el('panel-accounts').hidden).toBe(false));
+    expect(panelOf('accounts').getAttribute('aria-selected')).toBe('true');
+    expect(window.document.getElementById('accountAccessTab')!.hidden).toBe(false);
+    expect(window.document.getElementById('panel-dashboard')!.hidden).toBe(true);
   });
 
   it('moves selection with the arrow keys', async () => {

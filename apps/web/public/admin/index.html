@@ -4,20 +4,20 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="robots" content="noindex, nofollow"/>
-  <meta name="color-scheme" content="dark"/>
+  <meta name="color-scheme" content="dark light"/>
   <meta name="theme-color" content="#000000"/>
   <title>Sholynk CMS — Analytics Dashboard</title>
-  <link rel="icon" href="../favicon.svg" type="image/svg+xml"/>
+  <link rel="shortcut icon" href="../assets/brand/sholynk_icon.png" type="image/png"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"/>
   <link href="admin.css" rel="stylesheet"/>
 </head>
  <body>
   <header class="admin-header">
    <div class="brand">
-    <i class="fa-brands fa-x-twitter" aria-hidden="true"></i>
+    <img class="brand-mark" src="../assets/brand/sholynk_icon.png" alt="" width="36" height="36"/>
     <div>
      <strong>Sholynk CMS</strong>
-     <span id="workspaceLabel">Analytics dashboard • X theme</span>
+     <span id="workspaceLabel">Content dashboard</span>
     </div>
    </div>
    <div class="header-actions">
@@ -41,8 +41,8 @@
    <button class="tab" type="button" data-panel="articles"><i class="fas fa-newspaper" aria-hidden="true"></i> Articles</button>
    <button class="tab" type="button" data-panel="author-analytics" hidden><i class="fas fa-chart-simple" aria-hidden="true"></i> My analytics</button>
    <button class="tab" type="button" data-panel="profile" hidden><i class="fas fa-user" aria-hidden="true"></i> My profile</button>
-   <button class="tab" type="button" data-panel="accounts" id="accountAccessTab" hidden><i class="fas fa-user-shield" aria-hidden="true"></i> Author access <span id="pendingAccountCount"></span></button>
    <button class="tab" type="button" data-panel="authors"><i class="fas fa-users" aria-hidden="true"></i> Authors</button>
+   <button class="tab" type="button" data-panel="accounts" id="accountAccessTab" hidden><i class="fas fa-user-shield" aria-hidden="true"></i> Author access <span id="pendingAccountCount"></span></button>
    <button class="tab" type="button" data-panel="media"><i class="fas fa-photo-film" aria-hidden="true"></i> Media library</button>
    <button class="tab" type="button" data-panel="comments"><i class="fas fa-comments" aria-hidden="true"></i> Comments</button>
    <button class="tab" type="button" data-panel="inbox"><i class="fas fa-inbox" aria-hidden="true"></i> Inbox</button>
@@ -642,13 +642,13 @@
      <button class="primary-button" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Save metadata</button>
     </form>
    </section>
-   <!-- Super-Admin profile: password change, account info -->
-   <section class="panel" id="panel-admin-profile" aria-label="Super-admin profile" hidden>
+   <!-- Super-Admin / account management: password change, account info, sessions -->
+   <section class="panel" id="panel-admin-profile" aria-label="My account" hidden>
     <div class="dash-grid dash-grid--tables">
      <section class="table-card" aria-labelledby="adminProfileTitle">
       <div class="chart-head">
-       <h3 id="adminProfileTitle">Super-admin profile</h3>
-       <p class="chart-note">Your account as the designated site owner. Change your login password here; your separate confirmation code stays distinct.</p>
+       <h3 id="adminProfileTitle">My account</h3>
+       <p class="chart-note">Your signed-in account on Sholynk CMS. Change your login password here; your separate confirmation code (where required) stays distinct.</p>
       </div>
       <div id="adminProfileInfo" class="author-metrics"></div>
       <p class="list-count" id="adminProfileStatus" role="status" aria-live="polite"></p>
@@ -656,17 +656,27 @@
      <section class="table-card" aria-labelledby="changePasswordTitle">
       <div class="chart-head">
        <h3 id="changePasswordTitle">Change password</h3>
-       <p class="chart-note">Requires your current password and separate confirmation code. Other sessions are signed out immediately.</p>
+       <p class="chart-note" id="changePasswordNote">Requires your current password. Other sessions are signed out immediately.</p>
       </div>
       <form id="changePasswordForm" class="auth-form">
        <div class="field"><label for="currentPassword">Current password <span class="req">*</span></label><input id="currentPassword" type="password" autocomplete="current-password" required maxlength="128" /></div>
-       <div class="field"><label for="newPassword">New password <span class="req">*</span></label><input id="newPassword" type="password" autocomplete="new-password" required minlength="12" maxlength="128" /><p class="hint">Minimum 12 characters. Must differ from your confirmation code.</p></div>
+       <div class="field"><label for="newPassword">New password <span class="req">*</span></label><input id="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128" /><p class="hint" id="newPasswordHint">Minimum 8 characters, with a mix of letters and numbers.</p></div>
        <div class="field"><label for="confirmNewPassword">Confirm new password <span class="req">*</span></label><input id="confirmNewPassword" type="password" autocomplete="new-password" required maxlength="128" /></div>
-       <p id="changePasswordError" role="alert" class="list-count" style="color:#ff6b6b"></p>
+       <p id="changePasswordError" role="alert" class="list-count"></p>
        <button type="submit" class="primary-button"><i class="fas fa-key" aria-hidden="true"></i> Update password</button>
       </form>
      </section>
     </div>
+
+    <section class="table-card" aria-labelledby="sessionsTitle">
+     <div class="chart-head">
+      <h3 id="sessionsTitle">Active sessions</h3>
+      <p class="chart-note">Every device currently signed in to your account. Revoke anything you do not recognise — revoked sessions are signed out immediately.</p>
+     </div>
+     <div class="session-list" id="sessionList"></div>
+     <p class="list-count" id="sessionStatus" role="status" aria-live="polite"></p>
+     <button class="ghost-button" id="refreshSessions" type="button"><i class="fas fa-rotate" aria-hidden="true"></i> Refresh sessions</button>
+    </section>
    </section>
 
    <!-- System: account/content counts, the audit trail and on-demand housekeeping -->

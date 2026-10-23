@@ -2235,8 +2235,17 @@
   let accountPage = 1;
   let accountAction = null;
   let isOwner = false;
+  /**
+   * Who may review author-access requests: the designated site owner and any
+   * super administrator holding the `admin.manage` (or `user.write.any`)
+   * grant. Contributing editors never see the panel.
+   */
+  function canManageAccounts() {
+    if (currentAuthor) return false;
+    return isOwner || sessionPermissions.has('admin.manage') || sessionPermissions.has('user.write.any');
+  }
   async function loadAccounts() {
-    if (!isOwner) return;
+    if (!canManageAccounts()) return;
     const status = $('accountAccessStatus');
     status.textContent = 'Loading author accounts…';
     try {
@@ -2267,10 +2276,7 @@
           button.disabled = action === 'approve' && !account.email_verified_at;
           button.addEventListener('click', () => {
             accountAction = { userId: account.user_id, action };
-            $('accountConfirmationDescription').textContent = `${button.textContent} ${account.email}?`;
-            $('accountConfirmationCode').value = '';
-            $('accountConfirmationError').textContent = '';
-            $('accountConfirmation').showModal();
+            openAccountConfirmation(`${button.textContent} ${account.email}?`);
           });
           item.append(button);
         });
@@ -2281,16 +2287,27 @@
           rm.title = 'Permanently delete this author account — articles and bylines are preserved (reassigned to house author)';
           rm.addEventListener('click', () => {
             accountAction = { userId: account.user_id, action: 'remove', email: account.email };
-            $('accountConfirmationDescription').textContent = `Permanently remove ${account.email}? Articles owned by this account will be reassigned to you and bylines moved to the house author. This cannot be undone.`;
-            $('accountConfirmationCode').value = '';
-            $('accountConfirmationError').textContent = '';
-            $('accountConfirmation').showModal();
+            openAccountConfirmation(`Permanently remove ${account.email}? Articles owned by this account will be reassigned to you and bylines moved to the house author. This cannot be undone.`);
           });
           item.append(rm);
         }
         list.append(item);
       });
     } catch (error) { status.textContent = error.message; }
+  }
+  /**
+   * Opens the account-action confirmation. The separate owner confirmation
+   * code only exists for the designated site owner — a super administrator
+   * simply confirms the action here (the API still enforces their grant).
+   */
+  function openAccountConfirmation(description) {
+    const codeField = $('accountConfirmationCode')?.closest('.field');
+    if (codeField) codeField.hidden = !isOwner;
+    const codeInput = $('accountConfirmationCode');
+    if (codeInput) { codeInput.required = isOwner; codeInput.disabled = !isOwner; codeInput.value = ''; }
+    $('accountConfirmationDescription').textContent = description;
+    $('accountConfirmationError').textContent = '';
+    $('accountConfirmation').showModal();
   }
   $('refreshAccounts').addEventListener('click', () => loadAccounts());
   $('previousAccounts').addEventListener('click', () => { accountPage = Math.max(1, accountPage - 1); loadAccounts(); });
@@ -2303,19 +2320,21 @@
     const action = accountAction;
     const button = event.target.querySelector('[type="submit"]');
     button.disabled = true;
-    const code = $('accountConfirmationCode').value;
+    // The confirmation code exists only for the designated owner.
+    const code = isOwner ? $('accountConfirmationCode').value : '';
     $('accountConfirmationCode').value = '';
+    const payload = isOwner ? { confirmation_code: code } : {};
     try {
       if (action.action === 'remove') {
-        const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
-          method: 'DELETE', body: JSON.stringify({ confirmation_code: code })
+        await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
+          method: 'DELETE', body: JSON.stringify(payload)
         });
         $('accountConfirmation').close();
         toast('Author account permanently removed; content preserved.');
         await loadAccounts();
       } else {
         const result = await request(`/admin/accounts/${encodeURIComponent(action.userId)}`, {
-          method: 'POST', body: JSON.stringify({ action: action.action, confirmation_code: code })
+          method: 'POST', body: JSON.stringify({ action: action.action, ...payload })
         });
         $('accountConfirmation').close();
         toast(result.data.email_delivered ? 'Account updated and email sent.' : 'Account updated. Email delivery needs attention.');
@@ -2325,9 +2344,8 @@
     finally { button.disabled = false; }
   });
 
-  /* ---------------------- super-admin profile: password change ---------------------- */
+  /* ---------------------- my account: password change + sessions ---------------------- */
   async function loadAdminProfile() {
-    if (!isOwner) return;
     const info = $('adminProfileInfo');
     const status = $('adminProfileStatus');
     if (!info) return;
@@ -2348,9 +2366,80 @@
         makeCard('Display name', user?.display_name || user?.full_name || '—'),
         makeCard('Status', user?.status || 'active')
       );
-      status.textContent = 'Password change will sign out other sessions. Confirmation code required.';
+      // Owner passwords need a minimum of 12 characters and the separate
+      // confirmation code on sensitive actions; everyone else uses the
+      // platform-wide 8-character rule.
+      const hint = $('newPasswordHint');
+      const note = $('changePasswordNote');
+      const newInput = $('newPassword');
+      if (isOwner) {
+        if (hint) hint.textContent = 'Minimum 12 characters. Must differ from your confirmation code.';
+        if (note) note.textContent = 'Requires your current password and your separate confirmation code. Other sessions are signed out immediately.';
+        if (newInput) newInput.minLength = 12;
+      }
+      status.textContent = isOwner
+        ? 'Password change will sign out other sessions. Your separate confirmation code is required.'
+        : 'Password change will sign out other sessions.';
     } catch (e) { if ($('adminProfileStatus')) $('adminProfileStatus').textContent = e.message; }
+    loadSessions();
   }
+
+  /* ---------------------- active sessions: list + revoke ---------------------- */
+  async function loadSessions() {
+    const list = $('sessionList');
+    const status = $('sessionStatus');
+    if (!list) return;
+    try {
+      const resp = await request('/auth/sessions');
+      const items = Array.isArray(resp.data) ? resp.data : (resp.data?.items || resp.data?.sessions || []);
+      list.replaceChildren();
+      if (!items.length) {
+        const empty = document.createElement('p');
+        empty.className = 'list-count';
+        empty.textContent = 'No active sessions found.';
+        list.append(empty);
+      }
+      items.forEach((session) => {
+        const item = document.createElement('div');
+        item.className = 'session-item';
+        const meta = document.createElement('div');
+        meta.className = 'session-meta';
+        const title = document.createElement('strong');
+        title.textContent = session.device || session.user_agent || 'Unknown device';
+        const when = document.createElement('span');
+        const created = session.created_at ? new Date(session.created_at).toLocaleString() : '—';
+        const seenAt = session.last_seen_at || session.last_seen;
+        const seen = seenAt ? new Date(seenAt).toLocaleString() : '—';
+        when.textContent = `Signed in ${created} · Last seen ${seen}`;
+        meta.append(title, when);
+        item.append(meta);
+        if (session.current) {
+          const badge = document.createElement('span');
+          badge.className = 'pill';
+          badge.textContent = 'This device';
+          item.append(badge);
+        } else if (session.id) {
+          const revoke = document.createElement('button');
+          revoke.type = 'button';
+          revoke.className = 'danger-button';
+          revoke.innerHTML = '<i class="fas fa-right-from-bracket" aria-hidden="true"></i> Revoke';
+          revoke.addEventListener('click', async () => {
+            if (!confirm('Sign this session out?')) return;
+            revoke.disabled = true;
+            try {
+              await request(`/auth/sessions/${encodeURIComponent(session.id)}`, { method: 'DELETE' });
+              toast('Session revoked.');
+              await loadSessions();
+            } catch (e) { toast(e.message, true); revoke.disabled = false; }
+          });
+          item.append(revoke);
+        }
+        list.append(item);
+      });
+      if (status) status.textContent = `${items.length} active session(s).`;
+    } catch (e) { if (status) status.textContent = e.message; }
+  }
+  $('refreshSessions')?.addEventListener('click', () => loadSessions());
 
   const changePwForm = $('changePasswordForm');
   if (changePwForm) {
@@ -2363,7 +2452,8 @@
       err.textContent = '';
       if (!cur || !npw || !cnf) { err.textContent = 'All password fields are required.'; return; }
       if (npw !== cnf) { err.textContent = 'New passwords do not match.'; return; }
-      if (npw.length < 12) { err.textContent = 'New password must be at least 12 characters.'; return; }
+      const minLen = isOwner ? 12 : 8;
+      if (npw.length < minLen) { err.textContent = `New password must be at least ${minLen} characters.`; return; }
       const btn = changePwForm.querySelector('[type="submit"]');
       btn.disabled = true;
       try {
@@ -2472,8 +2562,9 @@
     comments: 'engagement.moderate',
     inbox: 'inbox.read',
     settings: 'settings.write',
-    system: 'audit.read',
-    'admin-profile': 'audit.read'
+    system: 'audit.read'
+    // `accounts` and `admin-profile` are gated in code: author access by the
+    // owner / `admin.manage` grant, My account for every signed-in user.
   };
 
   function tabVisible(panel) {
@@ -2490,7 +2581,7 @@
   document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       if (tab.dataset.panel === 'system' && (isOwner || sessionPermissions.has('audit.read'))) loadFailedLogins();
-      if (tab.dataset.panel === 'admin-profile' && isOwner) loadAdminProfile();
+      if (tab.dataset.panel === 'admin-profile') loadAdminProfile();
     });
   });
 
@@ -2550,14 +2641,16 @@
         else if (denied) tab.hidden = true;
         if (denied) tab.dataset.denied = '1'; else delete tab.dataset.denied;
       });
-      $('accountAccessTab').hidden = !isOwner;
+      $('accountAccessTab').hidden = !canManageAccounts();
       const adminProfileTab = $('adminProfileTab');
-      if (adminProfileTab) adminProfileTab.hidden = !isOwner;
-      if (isOwner) { loadAccounts(); loadAdminProfile(); loadFailedLogins(); }
+      if (adminProfileTab) adminProfileTab.hidden = false;
+      if (canManageAccounts()) loadAccounts();
+      loadAdminProfile();
+      if (isOwner || sessionPermissions.has('audit.read')) loadFailedLogins();
       if (currentAuthor) {
         $('workspaceLabel').textContent = 'Author workspace';
         document.title = 'My author workspace — Sholynk Tech';
-        const allowed = new Set(['articles', 'media', 'comments', 'profile', 'author-analytics']);
+        const allowed = new Set(['articles', 'media', 'comments', 'profile', 'author-analytics', 'admin-profile']);
         document.querySelectorAll('.tab').forEach((tab) => {
           // Never re-show a tab the permission gate removed; author-only panels
           // are hidden in the markup and revealed here.
