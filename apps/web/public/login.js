@@ -125,4 +125,31 @@
       button.innerHTML = original;
     }
   });
+
+  // Password visibility toggles (eye icon) — works for login + register fields
+  document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.togglePassword);
+      if (!target) return;
+      const isPw = target.type === 'password';
+      target.type = isPw ? 'text' : 'password';
+      btn.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = isPw ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+  });
+
+  // Enhance title/subtitle sync for new pro layout
+  const subtitle = document.getElementById('auth-subtitle');
+  const origSetMode = setMode;
+  // wrap to also update subtitle
+  const _setMode = (register) => {
+    origSetMode(register);
+    if (subtitle) subtitle.textContent = register ? 'Create your author application — verified email + owner approval required.' : 'Sign in to open the content dashboard. New here? Apply as an author.';
+    document.getElementById('login-title').textContent = register ? 'Create author account' : 'Welcome back';
+  };
+  // re-bind buttons to new wrapper (keeps existing handlers but adds extra)
+  document.getElementById('showLogin').addEventListener('click', () => _setMode(false));
+  document.getElementById('showRegister').addEventListener('click', () => _setMode(true));
+
 })();

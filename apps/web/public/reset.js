@@ -171,4 +171,20 @@
       button.disabled = false;
     }
   });
+
+  // Password visibility toggles
+  document.querySelectorAll('[data-toggle-password]').forEach((btn) => {
+    if (btn._pwBound) return;
+    btn._pwBound = true;
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.togglePassword);
+      if (!target) return;
+      const isPw = target.type === 'password';
+      target.type = isPw ? 'text' : 'password';
+      btn.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = isPw ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+  });
+
 })();

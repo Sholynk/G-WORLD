@@ -3,107 +3,175 @@
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
-    <title>Sign in - Sholynk Tech</title>
-    <meta content="Editorial sign-in for the Sholynk Tech CMS." name="description" />
+    <title>Sign in — Sholynk Tech</title>
+    <meta content="Editorial sign-in for the Sholynk Tech CMS. Secure access for authors and administrators." name="description" />
     <meta content="noindex, nofollow" name="robots" />
     <meta content="#000000" name="theme-color" />
     <link rel="canonical" href="./" />
     <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&amp;display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet" />
     <link href="styles.css" rel="stylesheet" />
-  </head>
+</head>
   <body class="auth-view">
     <header class="site-header">
       <div class="site-header-inner">
         <a href="index.html" aria-label="Sholynk homepage">
-          <img
-            alt="Sholynk logo"
-            class="site-logo"
-            height="24"
-            src="assets/brand/page_logo.png"
-            width="120"
-          />
+          <img alt="Sholynk logo" class="site-logo" height="24" src="assets/brand/page_logo.png" width="120" />
         </a>
+        <div class="social-links" aria-label="Social links">
+          <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+          <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
+          <a aria-label="X / Twitter" href="https://x.com/sholynked" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+        </div>
         <nav class="site-nav" aria-label="Primary navigation">
           <a href="index.html">Home</a>
           <a href="about.html">About</a>
           <a href="contact.html">Contact</a>
         </nav>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme"><i class="fas fa-moon" aria-hidden="true"></i></button>
+        <button class="hamburger" type="button" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false">
+          <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
 
+    <div class="sidebar" id="sidebar">
+      <h3>Explore Sholynk</h3>
+      <ul>
+        <li class="highlighted"><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="login.html">Sign in</a></li>
+      </ul>
+      <div class="sidebar-social">
+        <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+        <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
+        <a aria-label="X / Twitter" href="https://x.com/sholynked" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+      </div>
+    </div>
+
     <main class="auth-main" id="main-content">
-      <section class="auth-card" aria-labelledby="login-title">
-        <p class="eyebrow">Sholynk CMS</p>
-        <h1 id="login-title">Editorial sign in</h1>
-        <p class="auth-subtitle">
-          Sign in with your editorial account to open the content dashboard.
-        </p>
-
-        <div class="auth-links" role="group" aria-label="Account access">
-          <button type="button" class="btn-primary" id="showLogin" aria-pressed="true">Login</button>
-          <button type="button" class="btn-primary" id="showRegister" aria-pressed="false">Register as an author</button>
-        </div>
-        <form id="loginForm" class="auth-form" novalidate>
-          <div class="form-field">
-            <label for="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autocomplete="email"
-              placeholder="you@example.com"
-              required
-            />
+      <div class="auth-shell" role="region" aria-label="Authentication">
+        <!-- Brand / promise side -->
+        <section class="auth-media" aria-label="About Sholynk CMS">
+          <div>
+            <div class="auth-brand-row">
+              <img src="assets/brand/sholynk_icon.png" alt="" width="36" height="36" />
+              <div>
+                <strong>Sholynk Tech</strong>
+                <span>Editorial CMS</span>
+              </div>
+            </div>
+            <h2>Stories that shape the future of tech</h2>
+            <p>Join editors and contributors publishing AI, Web3 and software stories to a fast, trusted audience.</p>
+            <ul class="auth-media-list">
+              <li><i class="fas fa-shield-halved" aria-hidden="true"></i><span><strong>Owner-approved</strong> — every author is vetted; publishing stays intentional.</span></li>
+              <li><i class="fas fa-bolt" aria-hidden="true"></i><span><strong>Fast & secure</strong> — hardened sessions, CSRF protection and audit trails.</span></li>
+              <li><i class="fas fa-pen-nib" aria-hidden="true"></i><span><strong>Clean writing</strong> — distraction-free editor with live preview.</span></li>
+            </ul>
           </div>
-          <div class="form-field">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              placeholder="Your password"
-              required
-            />
+          <div class="auth-media-quote">
+            <p>“Sholynk gives our editorial team one calm place to write, review and publish — without the noise.”</p>
+            <small>Oluwashola Busari — Founder</small>
           </div>
-          <label class="auth-remember">
-            <input id="remember" name="remember" type="checkbox" />
-            Keep me signed in on this device
-          </label>
-          <button class="btn-primary auth-submit" type="submit">
-            <i class="fas fa-right-to-bracket" aria-hidden="true"></i> Sign in
-          </button>
-          <p class="form-status" id="loginStatus" role="status" aria-live="polite"></p>
-        </form>
+        </section>
 
-        <form id="registerForm" class="auth-form" hidden>
-          <p>Apply to become an author. Verify your email, then wait for the website owner's approval before signing in.</p>
-          <div class="form-field"><label for="registerName">Public author name</label><input id="registerName" name="display_name" autocomplete="name" minlength="2" maxlength="80" required /></div>
-          <div class="form-field"><label for="registerEmail">Email</label><input id="registerEmail" name="email" type="email" autocomplete="email" required /></div>
-          <div class="form-field"><label for="registerPassword">Password</label><input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /><small>At least 8 characters, including a lowercase letter and an uppercase letter or number.</small></div>
-          <div class="form-field"><label for="registerConfirm">Confirm password</label><input id="registerConfirm" type="password" autocomplete="new-password" required /></div>
-          <label class="auth-remember"><input id="acceptedTerms" type="checkbox" required /> I accept the <a href="privacy_policy.html">privacy policy</a> and editorial account requirements.</label>
-          <button class="btn-primary auth-submit" type="submit">Submit application</button>
-          <p id="registerStatus" class="form-status" role="status" aria-live="polite"></p>
-          <button type="button" class="btn-primary" id="resendVerification">Resend verification email</button>
-        </form>
+        <!-- Form side -->
+        <section class="auth-panel" aria-label="Sign in or register">
+          <div class="auth-panel-head">
+            <h1 id="login-title">Welcome back</h1>
+            <span class="auth-badge"><i class="fas fa-lock" aria-hidden="true"></i> Secure</span>
+          </div>
+          <p class="auth-subtitle" id="auth-subtitle">Sign in to open the content dashboard. New here? Apply as an author.</p>
 
-        <p class="auth-links">
-          <a href="reset.html">Forgot your password?</a>
-          <a href="reset.html#owner-request">Owner setup</a>
-          <a href="index.html">Back to the site</a>
-        </p>
-      </section>
+          <div class="auth-switcher" role="group" aria-label="Choose login or register">
+            <button type="button" id="showLogin" aria-pressed="true"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Login</button>
+            <button type="button" id="showRegister" aria-pressed="false"><i class="fas fa-user-plus" aria-hidden="true"></i> Register</button>
+          </div>
+
+          <form id="loginForm" class="auth-form" novalidate aria-label="Login form">
+            <div class="form-field">
+              <label for="email"><i class="fas fa-envelope" aria-hidden="true"></i> Email address</label>
+              <div class="input-wrap">
+                <i class="fas fa-envelope input-icon" aria-hidden="true"></i>
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required aria-describedby="loginStatus" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="password"><i class="fas fa-key" aria-hidden="true"></i> Password</label>
+              <div class="input-wrap input-wrap--password">
+                <i class="fas fa-lock input-icon" aria-hidden="true"></i>
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Your password" required />
+                <button type="button" class="pw-toggle" aria-label="Show password" data-toggle-password="password"><i class="fas fa-eye" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <label class="auth-remember">
+              <input id="remember" name="remember" type="checkbox" />
+              <span>Keep me signed in on this device</span>
+            </label>
+            <button class="btn-primary auth-submit" type="submit">
+              <i class="fas fa-right-to-bracket" aria-hidden="true"></i> Sign in
+            </button>
+            <p class="form-status" id="loginStatus" role="status" aria-live="polite"></p>
+            <div class="auth-trust">
+              <i class="fas fa-circle-check" aria-hidden="true"></i>
+              <span>Signed-in sessions are hardened with HttpOnly cookies + CSRF tokens. <a href="privacy_policy.html">Privacy</a> applies.</span>
+            </div>
+          </form>
+
+          <form id="registerForm" class="auth-form" hidden novalidate aria-label="Author application form">
+            <p class="auth-subtitle" style="margin-top:0"><i class="fas fa-circle-info" aria-hidden="true"></i> Apply to become an author. Verify your email, then wait for the website owner's approval.</p>
+            <div class="form-field">
+              <label for="registerName"><i class="fas fa-user" aria-hidden="true"></i> Public author name</label>
+              <div class="input-wrap">
+                <i class="fas fa-user input-icon" aria-hidden="true"></i>
+                <input id="registerName" name="display_name" autocomplete="name" minlength="2" maxlength="80" placeholder="Oluwashola Busari" required />
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="registerEmail"><i class="fas fa-envelope" aria-hidden="true"></i> Email</label>
+              <div class="input-wrap">
+                <i class="fas fa-envelope input-icon" aria-hidden="true"></i>
+                <input id="registerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="registerPassword"><i class="fas fa-lock" aria-hidden="true"></i> Password</label>
+              <div class="input-wrap input-wrap--password">
+                <i class="fas fa-key input-icon" aria-hidden="true"></i>
+                <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters" required />
+                <button type="button" class="pw-toggle" aria-label="Show password" data-toggle-password="registerPassword"><i class="fas fa-eye" aria-hidden="true"></i></button>
+              </div>
+              <small class="pw-hint">At least 8 characters, including a lowercase letter and an uppercase letter or number.</small>
+            </div>
+            <div class="form-field">
+              <label for="registerConfirm"><i class="fas fa-lock" aria-hidden="true"></i> Confirm password</label>
+              <div class="input-wrap input-wrap--password">
+                <i class="fas fa-key input-icon" aria-hidden="true"></i>
+                <input id="registerConfirm" type="password" autocomplete="new-password" placeholder="Repeat password" required />
+                <button type="button" class="pw-toggle" aria-label="Show password" data-toggle-password="registerConfirm"><i class="fas fa-eye" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <label class="auth-remember">
+              <input id="acceptedTerms" type="checkbox" required />
+              <span>I accept the <a href="privacy_policy.html">privacy policy</a> and editorial requirements.</span>
+            </label>
+            <button class="btn-primary auth-submit" type="submit"><i class="fas fa-paper-plane" aria-hidden="true"></i> Submit application</button>
+            <p id="registerStatus" class="form-status" role="status" aria-live="polite"></p>
+            <div class="auth-divider"><span>Already applied?</span></div>
+            <button type="button" class="btn-primary" id="resendVerification" style="background:#fff;color:var(--brand-accent);border:1px solid rgba(29,155,240,0.28);box-shadow:none;width:100%">Resend verification email</button>
+          </form>
+
+          <nav class="auth-links" aria-label="Secondary actions">
+            <a href="reset.html"><i class="fas fa-rotate" aria-hidden="true"></i> Forgot password?</a>
+            <a href="reset.html#owner-request"><i class="fas fa-shield-halved" aria-hidden="true"></i> Owner setup</a>
+            <a href="index.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to site</a>
+          </nav>
+        </section>
+      </div>
     </main>
 
     <footer class="site-footer">
@@ -111,6 +179,7 @@
         &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
       </div>
     </footer>
+    <script src="theme.js"></script>
     <script src="script.js"></script>
     <script src="login.js"></script>
   </body>

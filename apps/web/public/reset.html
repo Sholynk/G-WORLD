@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
-    <title>Account recovery - Sholynk Tech</title>
-    <meta content="Reset your Sholynk Tech editorial password or confirm your email address." name="description" />
+    <title>Account recovery — Sholynk Tech</title>
+    <meta content="Reset your Sholynk Tech editorial password or confirm your email address. Private owner setup is also here." name="description" />
     <meta content="noindex, nofollow" name="robots" />
     <meta name="referrer" content="no-referrer" />
     <meta content="#000000" name="theme-color" />
@@ -12,122 +12,153 @@
     <link rel="shortcut icon" href="assets/brand/sholynk_icon.png" type="image/png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&amp;display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet" />
     <link href="styles.css" rel="stylesheet" />
-  </head>
+</head>
   <body class="auth-view">
     <header class="site-header">
       <div class="site-header-inner">
         <a href="index.html" aria-label="Sholynk homepage">
-          <img
-            alt="Sholynk logo"
-            class="site-logo"
-            height="24"
-            src="assets/brand/page_logo.png"
-            width="120"
-          />
+          <img alt="Sholynk logo" class="site-logo" height="24" src="assets/brand/page_logo.png" width="120" />
         </a>
+        <div class="social-links" aria-label="Social links">
+          <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+          <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
+          <a aria-label="X / Twitter" href="https://x.com/sholynked" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+        </div>
         <nav class="site-nav" aria-label="Primary navigation">
           <a href="index.html">Home</a>
           <a href="about.html">About</a>
           <a href="contact.html">Contact</a>
         </nav>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme"><i class="fas fa-moon" aria-hidden="true"></i></button>
+        <button class="hamburger" type="button" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
       </div>
     </header>
 
+    <div class="sidebar" id="sidebar">
+      <h3>Explore Sholynk</h3>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="login.html">Sign in</a></li>
+      </ul>
+      <div class="sidebar-social">
+        <a aria-label="WhatsApp" href="https://wa.me/qr/CV4VS7HDF2PHD1" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp" aria-hidden="true"></i></a>
+        <a aria-label="Facebook" href="https://www.facebook.com/share/18xwSHcWr4/" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f" aria-hidden="true"></i></a>
+        <a aria-label="X / Twitter" href="https://x.com/sholynked" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+      </div>
+    </div>
+
     <main class="auth-main" id="main-content">
-      <section class="auth-card" id="ownerRequestCard" aria-labelledby="owner-request-title" hidden>
-        <p class="eyebrow">Website owner</p>
-        <h1 id="owner-request-title">Request your private setup email</h1>
-        <p>This works only after an operator provisions the reserved owner account. The email always goes to the designated owner, never an address supplied here.</p>
-        <form id="ownerRequestForm" class="auth-form">
-          <button class="btn-primary auth-submit" type="submit">Send owner setup email</button>
-          <p id="ownerRequestStatus" class="form-status" role="status" aria-live="polite"></p>
-        </form>
-        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
-      </section>
-      <section class="auth-card" id="ownerSecurityCard" aria-labelledby="owner-security-title" hidden>
-        <p class="eyebrow">Private owner security</p>
-        <h1 id="owner-security-title">Set up your owner account</h1>
-        <p id="ownerSecurityDescription">Choose a new login password and a different confirmation code for sensitive actions. Keep both private.</p>
-        <form id="ownerSecurityForm" class="auth-form">
-          <div class="form-field"><label for="ownerPassword" id="ownerPasswordLabel">New login password</label><input id="ownerPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
-          <div class="form-field" id="ownerPasswordConfirmField"><label for="ownerPasswordConfirm">Confirm new login password</label><input id="ownerPasswordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
-          <div class="form-field"><label for="ownerCode">Separate confirmation code</label><input id="ownerCode" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><small>Use a private code or passphrase of at least 12 characters, different from your login password.</small></div>
-          <div class="form-field"><label for="ownerCodeConfirm">Confirm the separate code</label><input id="ownerCodeConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /></div>
-          <button class="btn-primary auth-submit" type="submit" id="ownerSecuritySubmit">Complete owner setup</button>
-        </form>
-        <p id="ownerSecurityStatus" class="form-status" role="status" aria-live="polite"></p>
-        <p class="auth-links"><a href="login.html">Sign in</a><a href="reset.html#owner-request">Request a new setup email</a></p>
-      </section>
-
-      <!-- Mode 1: request a reset link -->
-      <section class="auth-card" id="forgotCard" aria-labelledby="forgot-title" hidden>
-        <p class="eyebrow">Sholynk CMS</p>
-        <h1 id="forgot-title">Reset your password</h1>
-        <p class="auth-subtitle">
-          Enter your editorial account email and we will send a reset link that
-          expires in one hour.
-        </p>
-        <form id="forgotForm" class="auth-form" novalidate>
-          <div class="form-field">
-            <label for="forgotEmail">Email</label>
-            <input id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+      <div class="auth-shell">
+        <!-- Context side -->
+        <section class="auth-media" aria-label="Recovery help">
+          <div>
+            <div class="auth-brand-row">
+              <img src="assets/brand/sholynk_icon.png" alt="" width="36" height="36" />
+              <div><strong>Sholynk Tech</strong><span>Account recovery</span></div>
+            </div>
+            <h2>Secure access, restored with care</h2>
+            <p>Reset your editorial password, confirm your email, or complete the private owner setup. All links are single-use and expire quickly.</p>
+            <ul class="auth-media-list">
+              <li><i class="fas fa-link" aria-hidden="true"></i><span><strong>Single-use links</strong> — reset tokens expire in one hour.</span></li>
+              <li><i class="fas fa-envelope-circle-check" aria-hidden="true"></i><span><strong>Verified email</strong> — authors must verify before owner approval.</span></li>
+              <li><i class="fas fa-user-shield" aria-hidden="true"></i><span><strong>Owner-only</strong> — private setup is provisioned by an operator.</span></li>
+            </ul>
           </div>
-          <button class="btn-primary auth-submit" type="submit">
-            <i class="fas fa-paper-plane" aria-hidden="true"></i> Email me a reset link
-          </button>
-          <p class="form-status" id="forgotStatus" role="status" aria-live="polite"></p>
-        </form>
-        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
-      </section>
-
-      <!-- Mode 2: choose a new password (?token=…) -->
-      <section class="auth-card" id="resetCard" aria-labelledby="reset-title" hidden>
-        <p class="eyebrow">Sholynk CMS</p>
-        <h1 id="reset-title">Choose a new password</h1>
-        <p class="auth-subtitle">
-          Reset links are single-use and expire after an hour.
-        </p>
-        <form id="resetForm" class="auth-form" novalidate>
-          <div class="form-field">
-            <label for="newPassword">New password</label>
-            <input id="newPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required />
+          <div class="auth-media-quote">
+            <p>Need help? Contact the editorial team via the footer or <a href="contact.html" style="color:#fff;text-decoration:underline">contact page</a>. Owner recovery is strictly gated.</p>
+            <small>Security • Privacy • Audit trail</small>
           </div>
-          <div class="form-field">
-            <label for="confirmPassword">Confirm password</label>
-            <input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repeat the new password" required />
-          </div>
-          <button class="btn-primary auth-submit" type="submit">
-            <i class="fas fa-key" aria-hidden="true"></i> Update password
-          </button>
-          <p class="form-status" id="resetStatus" role="status" aria-live="polite"></p>
-        </form>
-        <p class="auth-links"><a href="login.html">Back to sign in</a></p>
-      </section>
+        </section>
 
-      <!-- Mode 3: email verification (?verify=…) -->
-      <section class="auth-card" id="verifyCard" aria-labelledby="verify-title" hidden>
-        <p class="eyebrow">Sholynk CMS</p>
-        <h1 id="verify-title">Confirming your email...</h1>
-        <p class="form-status" id="verifyStatus" role="status" aria-live="polite"></p>
-        <p class="auth-links"><a href="login.html">Go to sign in</a></p>
-      </section>
+        <!-- Forms side — JS toggles visibility of cards -->
+        <section class="auth-panel" aria-label="Recovery forms">
+          <!-- owner request -->
+          <section class="auth-card" id="ownerRequestCard" aria-labelledby="owner-request-title" hidden>
+            <div class="auth-panel-head"><h1 id="owner-request-title">Request owner setup email</h1><span class="auth-badge"><i class="fas fa-shield-halved" aria-hidden="true"></i> Owner</span></div>
+            <p class="auth-subtitle">This works only after an operator provisions the reserved owner account. The email always goes to the designated owner.</p>
+            <form id="ownerRequestForm" class="auth-form">
+              <button class="btn-primary auth-submit" type="submit"><i class="fas fa-paper-plane" aria-hidden="true"></i> Send owner setup email</button>
+              <p id="ownerRequestStatus" class="form-status" role="status" aria-live="polite"></p>
+            </form>
+            <nav class="auth-links"><a href="login.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to sign in</a></nav>
+          </section>
+
+          <!-- owner security setup -->
+          <section class="auth-card" id="ownerSecurityCard" aria-labelledby="owner-security-title" hidden>
+            <div class="auth-panel-head"><h1 id="owner-security-title">Set up your owner account</h1><span class="auth-badge"><i class="fas fa-key" aria-hidden="true"></i> Private</span></div>
+            <p class="auth-subtitle" id="ownerSecurityDescription">Choose a new login password and a different confirmation code for sensitive actions. Keep both private.</p>
+            <form id="ownerSecurityForm" class="auth-form">
+              <div class="form-field"><label for="ownerPassword" id="ownerPasswordLabel"><i class="fas fa-lock" aria-hidden="true"></i> New login password</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-lock input-icon" aria-hidden="true"></i><input id="ownerPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><button type="button" class="pw-toggle" data-toggle-password="ownerPassword" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+              </div>
+              <div class="form-field" id="ownerPasswordConfirmField"><label for="ownerPasswordConfirm"><i class="fas fa-lock" aria-hidden="true"></i> Confirm new login password</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-key input-icon" aria-hidden="true"></i><input id="ownerPasswordConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><button type="button" class="pw-toggle" data-toggle-password="ownerPasswordConfirm" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+              </div>
+              <div class="form-field"><label for="ownerCode"><i class="fas fa-shield-halved" aria-hidden="true"></i> Separate confirmation code</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-fingerprint input-icon" aria-hidden="true"></i><input id="ownerCode" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><button type="button" class="pw-toggle" data-toggle-password="ownerCode" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+                <small class="pw-hint">At least 12 characters, different from your login password.</small>
+              </div>
+              <div class="form-field"><label for="ownerCodeConfirm"><i class="fas fa-shield-halved" aria-hidden="true"></i> Confirm the separate code</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-fingerprint input-icon" aria-hidden="true"></i><input id="ownerCodeConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required /><button type="button" class="pw-toggle" data-toggle-password="ownerCodeConfirm" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+              </div>
+              <button class="btn-primary auth-submit" type="submit" id="ownerSecuritySubmit"><i class="fas fa-check" aria-hidden="true"></i> Complete owner setup</button>
+            </form>
+            <p id="ownerSecurityStatus" class="form-status" role="status" aria-live="polite"></p>
+            <nav class="auth-links"><a href="login.html"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Sign in</a><a href="reset.html#owner-request"><i class="fas fa-rotate" aria-hidden="true"></i> Request new email</a></nav>
+          </section>
+
+          <!-- forgot -->
+          <section class="auth-card" id="forgotCard" aria-labelledby="forgot-title" hidden>
+            <div class="auth-panel-head"><h1 id="forgot-title">Reset your password</h1><span class="auth-badge"><i class="fas fa-rotate" aria-hidden="true"></i> Recovery</span></div>
+            <p class="auth-subtitle">Enter your editorial email and we will send a reset link that expires in one hour.</p>
+            <form id="forgotForm" class="auth-form" novalidate>
+              <div class="form-field"><label for="forgotEmail"><i class="fas fa-envelope" aria-hidden="true"></i> Email</label>
+                <div class="input-wrap"><i class="fas fa-envelope input-icon" aria-hidden="true"></i><input id="forgotEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required /></div>
+              </div>
+              <button class="btn-primary auth-submit" type="submit"><i class="fas fa-paper-plane" aria-hidden="true"></i> Email me a reset link</button>
+              <p class="form-status" id="forgotStatus" role="status" aria-live="polite"></p>
+            </form>
+            <nav class="auth-links"><a href="login.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to sign in</a></nav>
+          </section>
+
+          <!-- reset -->
+          <section class="auth-card" id="resetCard" aria-labelledby="reset-title" hidden>
+            <div class="auth-panel-head"><h1 id="reset-title">Choose a new password</h1><span class="auth-badge"><i class="fas fa-key" aria-hidden="true"></i> Secure</span></div>
+            <p class="auth-subtitle">Reset links are single-use and expire after an hour.</p>
+            <form id="resetForm" class="auth-form" novalidate>
+              <div class="form-field"><label for="newPassword"><i class="fas fa-lock" aria-hidden="true"></i> New password</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-key input-icon" aria-hidden="true"></i><input id="newPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required /><button type="button" class="pw-toggle" data-toggle-password="newPassword" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+              </div>
+              <div class="form-field"><label for="confirmPassword"><i class="fas fa-lock" aria-hidden="true"></i> Confirm password</label>
+                <div class="input-wrap input-wrap--password"><i class="fas fa-key input-icon" aria-hidden="true"></i><input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repeat the new password" required /><button type="button" class="pw-toggle" data-toggle-password="confirmPassword" aria-label="Show password"><i class="fas fa-eye" aria-hidden="true"></i></button></div>
+              </div>
+              <button class="btn-primary auth-submit" type="submit"><i class="fas fa-key" aria-hidden="true"></i> Update password</button>
+              <p class="form-status" id="resetStatus" role="status" aria-live="polite"></p>
+            </form>
+            <nav class="auth-links"><a href="login.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to sign in</a></nav>
+          </section>
+
+          <!-- verify -->
+          <section class="auth-card" id="verifyCard" aria-labelledby="verify-title" hidden>
+            <div class="auth-panel-head"><h1 id="verify-title">Confirming your email…</h1><span class="auth-badge"><i class="fas fa-envelope-circle-check" aria-hidden="true"></i> Verify</span></div>
+            <p class="form-status" id="verifyStatus" role="status" aria-live="polite">Please wait while we confirm your address.</p>
+            <div class="auth-trust"><i class="fas fa-circle-info" aria-hidden="true"></i><span>Verification also checks that your author profile can be approved by the owner.</span></div>
+            <nav class="auth-links"><a href="login.html"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> Go to sign in</a></nav>
+          </section>
+        </section>
+      </div>
     </main>
 
     <footer class="site-footer">
-      <div class="footer-legal">
-        &copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.
-      </div>
+      <div class="footer-legal">&copy; <span id="copyrightYear"></span> Sholynk Tech | All Rights Reserved.</div>
     </footer>
-    <script src="reset.js"></script>
+    <script src="theme.js"></script>
     <script src="script.js"></script>
+    <script src="reset.js"></script>
   </body>
 </html>
